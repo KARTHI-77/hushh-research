@@ -78,7 +78,6 @@ describe("DataTable", () => {
     expect(screen.getByText("Row 3")).toBeTruthy();
     expect(screen.queryByText("No results.")).toBeNull();
   });
-
   it("preserves accessible search input behavior", () => {
     render(
       <DataTable
