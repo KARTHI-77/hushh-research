@@ -193,4 +193,15 @@ describe("error-sanitizer", () => {
       expect(getErrorMessage(undefined)).toBe("undefined");
     });
   });
+      it("masks uppercase localhost references", () => {
+      const internalError = new Error(
+        "Failed to connect to HTTP://LOCALHOST:8000/api/internal"
+      );
+
+      const result = sanitizeErrorMessage(internalError, 500);
+
+      expect(result.message).not.toContain("LOCALHOST");
+      expect(result.message).not.toContain("localhost");
+      expect(result.message).toBe("An error occurred on our end. Please try again in a moment.");
+    });
 });
