@@ -21,6 +21,11 @@ Choose the narrowest lane that matches the work:
 - standalone backend contributor: use the aligned path in [consent-protocol/README.md](./consent-protocol/README.md)
 - maintainer/operator: use [docs/reference/operations/README.md](./docs/reference/operations/README.md)
 
+### 💬 Communication Channels
+For real-time development updates, engineering coordination, and feature roadmapping, join our community spaces:
+* **Discord updates:** Please refer to the `#product-updates` channel for continuous integration and deploy notifications.
+* **Pull Request Sign-off:** To maintain strict open-source licensing integrity, all commits must be explicitly signed off using the `-s` flag (`git commit -s "your message"`).
+
 ## The Product Contract
 
 Hussh is built around four invariants:
@@ -63,7 +68,7 @@ The only setup truth surfaces are:
 ## Contributor Contract
 
 - First-party code in this repo is Apache-2.0.
-- Every PR commit must be signed off with `git commit -s`.
+- Every PR commit must carry a Developer Certificate of Origin signoff: use `git commit -s`.
 - `uv` is the canonical Python toolchain for `consent-protocol`.
 - `consent-protocol/requirements*.txt` remain generated runtime artifacts only; do not teach them as the install path.
 - release migrations are authoritative only from `consent-protocol/db/migrations` + `consent-protocol/db/release_migration_manifest.json`
@@ -79,20 +84,19 @@ If you want a zero-setup editor path, use `.devcontainer/devcontainer.json`.
 
 See [docs/reference/operations/branch-governance.md](./docs/reference/operations/branch-governance.md) for the canonical delivery rules.
 
-## Docs You Actually Need
+## Contributor Links
 
 - [README.md](./README.md)
 - [docs/guides/getting-started.md](./docs/guides/getting-started.md)
 - [docs/guides/environment-model.md](./docs/guides/environment-model.md)
 - [docs/reference/architecture/architecture.md](./docs/reference/architecture/architecture.md)
-
-Everything else is either deeper reference or maintainer/operator material.
+- [Code of Conduct](./code_of_conduct.md) and [Security Policy](./SECURITY.md)
 
 ## Maintainer-Only Complexity
 
 The repo still contains maintainer concerns such as:
 
-- subtree synchronization for `consent-protocol/`
+- subtree sync for `consent-protocol/`
 - release/migration governance
 - deep operator scripts
 
@@ -112,12 +116,6 @@ Common checks:
 ./bin/hushh codex pre-pr
 ./bin/hushh docs verify
 cd hushh-webapp && npm run verify:docs
-```
-
-Commit signoff:
-
-```bash
-git commit -s
 ```
 
 ## Naming Policy
