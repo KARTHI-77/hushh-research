@@ -21,11 +21,6 @@ Choose the narrowest lane that matches the work:
 - standalone backend contributor: use the aligned path in [consent-protocol/README.md](./consent-protocol/README.md)
 - maintainer/operator: use [docs/reference/operations/README.md](./docs/reference/operations/README.md)
 
-### 💬 Communication Channels
-For real-time development updates, engineering coordination, and feature roadmapping, join our community spaces:
-* **Discord updates:** Please refer to the `#product-updates` channel for continuous integration and deploy notifications.
-* **Pull Request Sign-off:** To maintain strict open-source licensing integrity, all commits must be explicitly signed off using the `-s` flag (`git commit -s "your message"`).
-
 ## The Product Contract
 
 Hussh is built around four invariants:
@@ -116,6 +111,12 @@ Common checks:
 ./bin/hushh codex pre-pr
 ./bin/hushh docs verify
 cd hushh-webapp && npm run verify:docs
+```
+
+Commit signoff is enforced by PR Validation / DCO:
+
+```bash
+git commit -s "your message"
 ```
 
 ## Naming Policy

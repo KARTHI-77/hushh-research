@@ -48,8 +48,6 @@ ourselves to additional standards:
 * **Signed contributions** - Pull request commits should follow the
   [contribution guide](./contributing.md) and include a Developer Certificate
   of Origin signoff with `git commit -s`
-* **Real-time collaboration** - Use the internal Discord channel
-  `#product-updates` for active coordination, status updates, and review pings
 
 ## Enforcement Responsibilities
 
@@ -73,15 +71,14 @@ representative at an online or offline event.
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior should move
-through the internal compliance workflow:
+Instances of abusive, harassing, or otherwise unacceptable behavior may be
+reported to the community leaders responsible for enforcement at:
 
-* **Compliance triage**: Contact a project moderator from the internal
-  `#product-updates` channel and ask for private compliance intake.
-* **Security or privacy incidents**: Follow [SECURITY.md](./SECURITY.md) and do
-  not post sensitive details in a public thread.
-* **Contribution process issues**: Use [contributing.md](./contributing.md) for
-  setup, DCO signoff, and pull request expectations.
+* **Email**: eng@hush1one.com
+* **Discord**: Contact a moderator in the #support channel
+
+Security or privacy vulnerabilities must follow [SECURITY.md](./SECURITY.md);
+do not post sensitive details in a public thread.
 
 All complaints will be reviewed and investigated promptly and fairly.
 
