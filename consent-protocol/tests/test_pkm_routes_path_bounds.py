@@ -23,10 +23,11 @@ FastAPI path validation before auth or service code runs.
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import api.routes.pkm_routes_shared as pkm_shared
 from api.middleware import require_vault_owner_token
