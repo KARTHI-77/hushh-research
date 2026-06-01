@@ -4193,16 +4193,29 @@ class BrokerFundingService:
                 "Plaid webhook verification key payload is invalid."
             )
 
+        # Reject any algorithm other than RS256 before key construction.
+        # An attacker controlling webhook traffic could set alg to "none"
+        # (skip signature verification) or "HS256" (HMAC confusion).
+        _PLAID_WEBHOOK_JWT_ALG = "RS256"
+        header_alg = _clean_text(unverified_header.get("alg")) or ""
+        if header_alg != _PLAID_WEBHOOK_JWT_ALG:
+            logger.warning(
+                "plaid.webhook.jwt_alg_rejected header_alg=%r expected=%s",
+                header_alg,
+                _PLAID_WEBHOOK_JWT_ALG,
+            )
+            raise PlaidWebhookVerificationError(
+                "Plaid webhook signature validation failed."
+            )
+
         modulus = self._jwk_to_int(key_payload.get("n"))
         exponent = self._jwk_to_int(key_payload.get("e"))
         public_key = rsa.RSAPublicNumbers(exponent, modulus).public_key()
-
-        algorithm = _clean_text(unverified_header.get("alg"), default="RS256")
         try:
             claims = jwt.decode(
                 header_value,
                 public_key,
-                algorithms=[algorithm],
+                algorithms=[_PLAID_WEBHOOK_JWT_ALG],
                 options={"verify_aud": False},
             )
         except Exception as exc:
