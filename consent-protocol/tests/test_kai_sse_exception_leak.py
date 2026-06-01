@@ -83,7 +83,7 @@ def test_optimize_stream_failed_frame_has_opaque_message():
     """The OPTIMIZE_STREAM_FAILED frame built by CanonicalSSEStream must not
     carry exception text -- verifies the fixed payload at runtime."""
     stream = CanonicalSSEStream("portfolio_optimize")
-    secret = "db password: hunter2"
+    leaked_text = "db password: hunter2"  # noqa: S105
 
     # Simulate what the fixed exception handler does: use a static message.
     frame = stream.event(
@@ -98,13 +98,13 @@ def test_optimize_stream_failed_frame_has_opaque_message():
     payload = envelope["payload"]
     assert payload["code"] == "OPTIMIZE_STREAM_FAILED"
     assert payload["message"] == "Optimization failed. Please try again."
-    assert secret not in json.dumps(envelope)
+    assert leaked_text not in json.dumps(envelope)
 
 
 def test_analyze_stream_failed_frame_has_opaque_message():
     """The ANALYZE_STREAM_FAILED frame must not carry exception text."""
     stream = CanonicalSSEStream("stock_analyze")
-    secret = "internal db error: connection reset by peer"
+    leaked_text = "internal db error: connection reset by peer"  # noqa: S105
 
     frame = stream.event(
         "error",
@@ -123,4 +123,4 @@ def test_analyze_stream_failed_frame_has_opaque_message():
     assert payload["code"] == "ANALYZE_STREAM_FAILED"
     assert payload["message"] == "Analysis failed. Please try again."
     assert payload["ticker"] == "AAPL"
-    assert secret not in json.dumps(envelope)
+    assert leaked_text not in json.dumps(envelope)
