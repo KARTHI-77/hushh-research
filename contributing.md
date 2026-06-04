@@ -63,7 +63,7 @@ The only setup truth surfaces are:
 ## Contributor Contract
 
 - First-party code in this repo is Apache-2.0.
-- Every PR commit must carry a Developer Certificate of Origin signoff: use `git commit -s`.
+- Every PR commit must be signed off with `git commit -s`.
 - `uv` is the canonical Python toolchain for `consent-protocol`.
 - `consent-protocol/requirements*.txt` remain generated runtime artifacts only; do not teach them as the install path.
 - release migrations are authoritative only from `consent-protocol/db/migrations` + `consent-protocol/db/release_migration_manifest.json`
@@ -79,19 +79,20 @@ If you want a zero-setup editor path, use `.devcontainer/devcontainer.json`.
 
 See [docs/reference/operations/branch-governance.md](./docs/reference/operations/branch-governance.md) for the canonical delivery rules.
 
-## Contributor Links
+## Docs You Actually Need
 
 - [README.md](./README.md)
 - [docs/guides/getting-started.md](./docs/guides/getting-started.md)
 - [docs/guides/environment-model.md](./docs/guides/environment-model.md)
 - [docs/reference/architecture/architecture.md](./docs/reference/architecture/architecture.md)
-- [Code of Conduct](./code_of_conduct.md) and [Security Policy](./SECURITY.md)
+
+Everything else is either deeper reference or maintainer/operator material.
 
 ## Maintainer-Only Complexity
 
 The repo still contains maintainer concerns such as:
 
-- subtree sync for `consent-protocol/`
+- subtree synchronization for `consent-protocol/`
 - release/migration governance
 - deep operator scripts
 
@@ -99,25 +100,24 @@ Those are real, but they are not part of the normal first-PR path. If you need t
 
 ## PR Expectations
 
+- before opening a PR, use [docs/reference/quality/pr-contributor-readiness.md](./docs/reference/quality/pr-contributor-readiness.md) as the review-ready contract
 - keep changes small and explainable
+- wire new helpers, components, services, routes, agents, or scripts to an existing caller, package export, generated contract, or documented devex entrypoint
+- for test-only PRs, import and exercise production code; local mock-only tests do not prove the app contract
+- if your PR is stacked, link the predecessor and keep each PR reviewable against `main`
 - update docs when public behavior or contracts change
 - do not add a second setup path when the existing one can be simplified instead
 - prefer self-contained scripts and small modules over coupled one-off flows
 - run the local verification surface before pushing when your change affects docs, routes, CI, native parity, or backend contracts
 
 Common checks:
-
 ```bash
 ./bin/hushh codex pre-pr
 ./bin/hushh docs verify
 cd hushh-webapp && npm run verify:docs
 ```
 
-Commit signoff is enforced by PR Validation / DCO:
-
-```bash
-git commit -s "your message"
-```
+Commit signoff: `git commit -s`
 
 ## Naming Policy
 
