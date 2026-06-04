@@ -35,8 +35,7 @@ describe("normalizeConsentResponse", () => {
   // return the closed DENY_STATE — fetch/backend never entered.
 
   describe("integrity guard — default-deny on tampered or corrupted payloads", () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const call = (v: unknown) => normalizeConsentResponse(v as any);
+    const call = (v: unknown) => normalizeConsentResponse(v as never);
 
     it("rejects string-coerced active flag (truthy injection)", () => {
       expect(call({ active: "true" })).toStrictEqual(DENY);
