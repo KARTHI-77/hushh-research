@@ -360,6 +360,7 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  aria-selected={row.getIsSelected() || undefined}
                   className={cn(
                     onRowClick
                       ? "cursor-pointer transition-[background-color,transform] duration-200 ease-out hover:-translate-y-px hover:bg-foreground/[0.045] active:translate-y-0 active:bg-foreground/[0.065]"
@@ -401,7 +402,11 @@ export function DataTable<TData, TValue>({
 
       {hasMultiplePages && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-xs text-muted-foreground sm:text-sm">
+          <div
+            aria-live="polite"
+            aria-atomic="true"
+            className="text-xs text-muted-foreground sm:text-sm"
+          >
             Showing {rangeStart}-{rangeEnd} of {filteredCount}
           </div>
 
