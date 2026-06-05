@@ -493,7 +493,13 @@ class KaiChatService:
         user_message: str,
         assistant_response: str,
     ) -> None:
-        task = asyncio.create_task(
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            logger.debug("kai_chat.attribute_learning_skipped user_id=%s; no active loop", user_id)
+            return
+
+        task = loop.create_task(
             self.attribute_learner.extract_and_store(
                 user_id=user_id,
                 user_message=user_message,
@@ -502,7 +508,12 @@ class KaiChatService:
             name=f"attr_learn:{user_id}",
         )
 
+        # Retain a strong reference until completion so the loop does not garbage
+        # collect this background extraction mid-execution.
+        _attribute_learning_tasks.add(task)
+
         def _log_attribute_learning_failure(done: asyncio.Task) -> None:
+            _attribute_learning_tasks.discard(done)
             try:
                 done.result()
             except Exception:
@@ -1289,6 +1300,13 @@ REASONING: [2-3 sentences]
 
 # Singleton instance
 _kai_chat_service: Optional[KaiChatService] = None
+
+# Strong references to in-flight background attribute learning tasks.
+# asyncio only keeps weak references to tasks created with create_task, so a
+# task that is not referenced elsewhere can be garbage collected before it
+# finishes. Holding the task here until its done callback fires keeps the
+# background attribute extraction alive for its full duration.
+_attribute_learning_tasks: set[asyncio.Task] = set()
 
 
 def get_kai_chat_service() -> KaiChatService:
