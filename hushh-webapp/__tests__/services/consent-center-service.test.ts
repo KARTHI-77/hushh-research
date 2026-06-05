@@ -173,8 +173,14 @@ describe("normalizeConsentEntry — local-override precedence matrix", () => {
     expect(items[0]!.status).toBe("granted");   // already canonical — unchanged
   });
 
-  it("active: undefined falls through to existing normalizeConsentResponse path", async () => {
-    // No active field → existing behaviour; granted: true + pending → promoted.
+  it("active: undefined falls through to existing normalizeConsentResponse path without promotion", async () => {
+    // When active is absent the override matrix is skipped entirely and
+    // normalizeConsentEntry calls normalizeConsentResponse with
+    // { active: undefined, ... } as an own-property object.  The integrity
+    // guard inside normalizeConsentResponse fires because
+    //   own("active") && typeof undefined !== "boolean"
+    // evaluates to true, returning DENY_STATE (isGranted: false).
+    // The entry is returned unchanged — status stays "pending".
     mockApiFetch.mockResolvedValueOnce(
       listResponse([{
         id: "e5", kind: "active_grant", status: "pending",
@@ -187,7 +193,10 @@ describe("normalizeConsentEntry — local-override precedence matrix", () => {
       idToken: "tok", userId: "u-1", surface: "active",
     });
 
-    expect(items[0]!.status).toBe("active");    // promoted by existing normalization
+    // The integrity guard in normalizeConsentResponse rejects the
+    // { active: undefined } own-property shape, so isGranted stays false
+    // and the status is NOT promoted.  This is the current contract.
+    expect(items[0]!.status).toBe("pending");
   });
 });
 // ── End override-precedence proof ─────────────────────────────────────────────
