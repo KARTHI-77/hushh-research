@@ -2720,7 +2720,7 @@ class BrokerFundingService:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             return
-        loop.create_task(
+        task = loop.create_task(
             self._send_transfer_status_notification(
                 user_id=user_id,
                 transfer_id=transfer_id,
@@ -2731,6 +2731,10 @@ class BrokerFundingService:
                 failure_reason=failure_reason,
             )
         )
+        # Retain a strong reference until completion so the loop does not garbage
+        # collect this notification task mid-execution.
+        _transfer_notification_tasks.add(task)
+        task.add_done_callback(_transfer_notification_tasks.discard)
 
     async def exchange_funding_public_token(
         self,
@@ -4701,6 +4705,13 @@ class BrokerFundingService:
 
 
 _broker_funding_service: BrokerFundingService | None = None
+
+# Strong references to in-flight transfer status notification tasks.
+# asyncio only keeps weak references to tasks created with create_task, so a
+# task that is not referenced elsewhere can be garbage collected before it
+# finishes. Holding the task here until its done callback fires keeps the
+# transfer status notification alive for its full duration.
+_transfer_notification_tasks: set[asyncio.Task] = set()
 
 
 def get_broker_funding_service() -> BrokerFundingService:
