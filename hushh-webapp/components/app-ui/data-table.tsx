@@ -253,6 +253,7 @@ export function DataTable<TData, TValue>({
               <Input
                 type="search"
                 spellCheck={false}
+                autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="off"
                 placeholder={searchPlaceholder}
