@@ -1,6 +1,34 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* ============================================================================
+ * MOBILE UX & ACCESSIBILITY FIXES
+ * ============================================================================ */
+
+/* Remove 300ms tap delay on interactive elements */
+a,
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+[role="button"] {
+  touch-action: manipulation;
+}
+
+/* Remove default iOS tap highlight flash */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent auto-zoom on iOS Safari when focusing inputs */
+@media screen and (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 html,
 body {
   height: 100%;
