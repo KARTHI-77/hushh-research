@@ -102,3 +102,21 @@ def test_different_ivs_produce_different_ciphertext(test_vault_key):
     # Same plaintext + key but different IVs should produce different ciphertexts
     assert encrypted1.ciphertext != encrypted2.ciphertext
     assert encrypted1.iv != encrypted2.iv
+
+
+def test_encrypt_rejects_non_hex_key():
+    with pytest.raises(RuntimeError, match="Encryption failed"):
+        encrypt_data("secret", "not-a-hex-key")
+
+
+def test_encrypt_rejects_empty_key():
+    with pytest.raises(RuntimeError, match="Encryption failed"):
+        encrypt_data("secret", "")
+
+
+def test_encrypt_rejects_invalid_key_length():
+    # 16-byte AES key represented as hex (not AES-256)
+    short_key = "00" * 16
+
+    with pytest.raises(RuntimeError, match="Encryption failed"):
+        encrypt_data("secret", short_key)
