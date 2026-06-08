@@ -4516,12 +4516,14 @@ function ProfilePageContent() {
             <Input
               type="password"
               placeholder="New passphrase (min 8 characters)"
+              autoComplete="new-password"
               value={newPassphrase}
               onChange={(event) => setNewPassphrase(event.target.value)}
             />
             <Input
               type="password"
               placeholder="Confirm passphrase"
+              autoComplete="new-password"
               value={confirmPassphrase}
               onChange={(event) => setConfirmPassphrase(event.target.value)}
             />
