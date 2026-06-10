@@ -218,11 +218,13 @@ export function PreviewCarouselStep({ onContinue }: { onContinue: () => void }) 
               opts={{ align: "center", containScroll: "trimSnaps" }}
               setApi={setApi}
               className="w-full"
+              aria-label="Onboarding feature preview"
             >
               <CarouselContent className="items-center -ml-0">
                 {slides.map((slide, idx) => (
                   <CarouselItem
                     key={idx}
+                    aria-label={`Slide ${idx + 1} of ${slides.length}`}
                     aria-current={idx === selectedIndex ? "step" : undefined}
                     className="basis-full pl-0 flex items-center justify-center"
                   >
