@@ -76,7 +76,7 @@ export class RouteErrorBoundary extends Component<Props, State> {
           >
             <div className="flex flex-col items-center gap-4">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-red-500/12 to-orange-500/12 dark:from-red-400/16 dark:to-orange-400/16">
-                <AlertTriangle className="h-7 w-7 text-red-500 dark:text-red-400" />
+                <AlertTriangle className="h-7 w-7 text-red-500 dark:text-red-400" aria-hidden="true" />
               </div>
               <div className="space-y-1.5">
                 <h2 className="text-lg font-semibold tracking-tight">Something went wrong</h2>
