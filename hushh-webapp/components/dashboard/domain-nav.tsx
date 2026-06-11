@@ -22,7 +22,10 @@ export function DomainNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="space-y-1">
+    <nav
+      aria-label="Domain navigation"
+      className="space-y-1"
+    >
       {domains.map((domain) => {
         const Lucide = domain.icon;
         const isActive = pathname?.startsWith(domain.href);
