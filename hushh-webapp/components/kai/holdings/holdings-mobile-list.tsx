@@ -246,6 +246,7 @@ export function HoldingsMobileList({
             onChange={(event) => setSearchTerm(event.target.value)}
             placeholder="Search holdings by ticker or company"
             className="app-body-text h-10 rounded-full border-border/60 bg-background/70 pl-9 pr-4 text-sm"
+            autoComplete="off"
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
