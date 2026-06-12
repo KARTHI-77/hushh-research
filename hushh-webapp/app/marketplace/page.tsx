@@ -1319,6 +1319,7 @@ export default function MarketplacePage() {
                       size="sm"
                       className="justify-center"
                       onClick={passCurrentCard}
+                      aria-label="Pass card"
                     >
                       <X className="h-4 w-4 sm:mr-2" />
                       <span className="hidden sm:inline">Pass</span>
@@ -1329,6 +1330,7 @@ export default function MarketplacePage() {
                       size="sm"
                       className="justify-center"
                       onClick={() => openDiscoveryProfile(swipeCard)}
+                      aria-label="View profile"
                     >
                       <span className="hidden sm:inline">View</span>
                       <ArrowUpRight className="h-4 w-4 sm:ml-2" />
@@ -1573,7 +1575,7 @@ export default function MarketplacePage() {
                 ) : null}
                 {selectedAdvisor.disclosures_url ? (
                   <Button asChild variant="none" effect="fade" size="sm">
-                    <a href={selectedAdvisor.disclosures_url} target="_blank" rel="noreferrer">
+                    <a href={selectedAdvisor.disclosures_url} target="_blank" rel="noopener noreferrer">
                       Public disclosure
                       <ArrowUpRight className="ml-2 h-4 w-4" />
                     </a>
@@ -1659,7 +1661,7 @@ export default function MarketplacePage() {
                   <div className="flex flex-wrap gap-2">
                     {selectedInvestorEvidenceLinks.map((url) => (
                       <Button key={url} asChild variant="none" effect="fade" size="sm">
-                        <a href={url} target="_blank" rel="noreferrer">
+                        <a href={url} target="_blank" rel="noopener noreferrer">
                           SEC source
                           <ArrowUpRight className="ml-2 h-4 w-4" />
                         </a>
