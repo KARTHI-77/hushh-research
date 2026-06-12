@@ -15,22 +15,20 @@ IV_LENGTH = 12  # GCM recommended IV size
 TAG_LENGTH = 16
 ALGORITHM_NAME = "aes-256-gcm"
 
-def _validate_aes256_key(key_hex: str) -> bytes:
-    key = bytes.fromhex(key_hex)
-
-    if len(key) != 32:
-        raise ValueError(
-            "Invalid AES-256 key length. Expected 32 bytes."
-        )
-
-    return key
-
 # ==================== Encrypt ====================
+def validate_key_hex(key_hex: str) -> None:
+    if len(key_hex) != 64:
+        raise ValueError("AES-256 key must be 64 hexadecimal characters")
 
+    try:
+        bytes.fromhex(key_hex)
+    except ValueError:
+        raise ValueError("AES-256 key must be valid hexadecimal")
 
 def encrypt_data(plaintext: str, key_hex: str) -> EncryptedPayload:
     try:
-        key = _validate_aes256_key(key_hex)
+        validate_key_hex(key_hex)
+        key = bytes.fromhex(key_hex)
         iv = os.urandom(IV_LENGTH)
         backend = default_backend()
 
@@ -56,7 +54,8 @@ def encrypt_data(plaintext: str, key_hex: str) -> EncryptedPayload:
 
 def decrypt_data(payload: EncryptedPayload, key_hex: str) -> str:
     try:
-        key = _validate_aes256_key(key_hex)
+        validate_key_hex(key_hex)
+        key = bytes.fromhex(key_hex)
         iv = base64.b64decode(payload.iv)
         tag = base64.b64decode(payload.tag)
         ciphertext = base64.b64decode(payload.ciphertext)
