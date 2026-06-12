@@ -203,7 +203,7 @@ export function PageHeader({
               </h1>
               {description && !descriptionFullWidth ? (
                 <div
-                  className="max-w-2xl line-clamp-2 text-sm leading-6 text-muted-foreground sm:line-clamp-none"
+                  className="max-w-2xl line-clamp-1 text-sm leading-6 text-muted-foreground"
                   data-slot="page-header-description"
                 >
                   {description}
@@ -226,13 +226,13 @@ export function PageHeader({
       </div>
       {description && descriptionFullWidth ? (
         <div
-          className="text-sm leading-6 text-muted-foreground"
+          className="line-clamp-1 text-sm leading-6 text-muted-foreground"
           data-slot="page-header-description"
         >
           {description}
         </div>
       ) : null}
-      <div className={cn("h-px w-full", styles.divider)} />
+      <div className={cn("h-px w-full", styles.divider)} aria-hidden="true" />
     </header>
   );
 }
@@ -293,7 +293,7 @@ export function SectionHeader({
               </div>
               {description ? (
                 <div
-                  className="line-clamp-2 text-sm leading-6 text-muted-foreground sm:line-clamp-none"
+                  className="line-clamp-1 text-sm leading-6 text-muted-foreground"
                   data-slot="section-header-description"
                 >
                   {description}
@@ -311,7 +311,7 @@ export function SectionHeader({
           </div>
         </div>
       </div>
-      <div className={cn("h-px w-full", styles.divider)} />
+      <div className={cn("h-px w-full", styles.divider)} aria-hidden="true" />
     </div>
   );
 }
