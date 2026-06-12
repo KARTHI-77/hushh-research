@@ -27,7 +27,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/lib/morphy-ux/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/lib/morphy-ux/ui";
-import { DashboardEmptyState } from "@/components/app-ui/dashboard-empty-state";
 
 // =============================================================================
 // TYPES
@@ -187,7 +186,10 @@ function TransferRow({ transaction }: { transaction: BankTransfer }) {
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <DashboardEmptyState compact icon={Receipt} title={message} />
+    <div className="flex flex-col items-center justify-center py-8 text-center">
+      <Icon icon={Receipt} size={32} className="text-muted-foreground/50 mb-2" />
+      <p className="text-sm text-muted-foreground">{message}</p>
+    </div>
   );
 }
 

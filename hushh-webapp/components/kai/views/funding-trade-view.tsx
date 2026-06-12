@@ -18,7 +18,6 @@ import {
   AppPageShell,
 } from "@/components/app-ui/app-page-shell";
 import { PageHeader } from "@/components/app-ui/page-sections";
-import { DashboardEmptyState } from "@/components/app-ui/dashboard-empty-state";
 import {
   SurfaceCard,
   SurfaceCardContent,
@@ -603,12 +602,9 @@ export function FundingTradeView({ userId, vaultOwnerToken }: FundingTradeViewPr
                   );
                 })
               ) : (
-                <DashboardEmptyState
-                  compact
-                  icon={BadgeDollarSign}
-                  title="No funded trade requests yet"
-                  description="Create your first one-click trade above."
-                />
+                <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 px-4 py-4 text-xs text-muted-foreground">
+                  No funded trade requests yet. Create your first one-click trade above.
+                </div>
               )}
             </SurfaceCardContent>
           </SurfaceCard>
