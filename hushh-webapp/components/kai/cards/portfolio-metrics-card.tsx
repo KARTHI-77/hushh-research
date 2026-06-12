@@ -83,6 +83,8 @@ export function PortfolioMetricsCard({ holdings, totalValue, className }: Portfo
 
   if (!metrics) return null;
 
+  const { diversification, avgYield, costBasis, sectorCount } = metrics;
+
   return (
     <Card variant="none" effect="glass" showRipple={false} className={cn("w-full", className)}>
       <CardHeader className="pb-1 pt-3 px-4">
@@ -95,15 +97,15 @@ export function PortfolioMetricsCard({ holdings, totalValue, className }: Portfo
         <div className="grid grid-cols-2 gap-4">
           <MetricItem
             label="Diversity"
-            value={`${metrics.diversification.score} (${metrics.diversification.label})`}
+            value={`${diversification.score} (${diversification.label})`}
             icon={Layers}
-            color={metrics.diversification.color}
+            color={diversification.color}
           />
-          <MetricItem label="Sectors" value={metrics.sectorCount} icon={Layers} />
-          {metrics.avgYield !== null && (
-            <MetricItem label="Avg Yield" value={formatters.percent(metrics.avgYield)} icon={Percent} color="text-emerald-500" />
+          <MetricItem label="Sectors" value={sectorCount} icon={Layers} />
+          {avgYield !== null && (
+            <MetricItem label="Avg Yield" value={formatters.percent(avgYield)} icon={Percent} color="text-emerald-500" />
           )}
-          <MetricItem label="Cost Basis" value={formatters.currency(metrics.costBasis)} icon={DollarSign} />
+          <MetricItem label="Cost Basis" value={formatters.currency(costBasis)} icon={DollarSign} />
         </div>
       </CardContent>
     </Card>
