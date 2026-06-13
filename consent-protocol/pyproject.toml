@@ -132,7 +132,6 @@ exclude = [
     "api/routes/kai/",
     "api/routes/analysis\\.py",
     "api/routes/consent\\.py",
-    "api/routes/session\\.py",
 ]
 
 [[tool.mypy.overrides]]
@@ -150,7 +149,6 @@ module = [
     "api.routes.kai.*",
     "api.routes.analysis",
     "api.routes.consent",
-    "api.routes.session",
 ]
 follow_imports = "skip"
 
