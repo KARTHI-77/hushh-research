@@ -297,6 +297,7 @@ function locationActivity() {
 describe("OneLocationAgentPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Element.prototype.scrollIntoView = vi.fn();
     window.localStorage.clear();
     mockSearchParamsGet.mockReturnValue(null);
     mockUseRequireAuth.mockReturnValue({
@@ -417,7 +418,7 @@ describe("OneLocationAgentPage", () => {
       screen.getByRole("heading", { name: /Professional Network/ }),
     ).toBeTruthy();
     expect(screen.getByText("No approvals waiting. New location requests and pending decisions will appear here.")).toBeTruthy();
-    expect(screen.getByText("No ready KAI members yet. Verified KAI members with location keys will appear here.")).toBeTruthy();
+    expect(screen.getByText("No ready One users yet. One users with location keys will appear here.")).toBeTruthy();
     expect(screen.queryByText(/8012|9911/)).toBeNull();
     expect(screen.getByText("Share Encrypted Update")).toBeTruthy();
     expect(mockRegisterKey).toHaveBeenCalledWith({
@@ -427,6 +428,29 @@ describe("OneLocationAgentPage", () => {
       algorithm: "ECDH-P256-AES256-GCM",
     });
     expect(mockSyncCurrentUser).toHaveBeenCalledWith({ uid: "user_a" });
+  });
+
+  it("opens the section guided tour and lets the user skip it", async () => {
+    render(<OneLocationAgentPage />);
+
+    await waitFor(() => expect(mockGetState).toHaveBeenCalled());
+    fireEvent.click(
+      screen.getByRole("button", { name: /Show onboarding tour/i }),
+    );
+
+    expect(
+      await screen.findByRole("dialog", { name: /One Location guided tour/i }),
+    ).toBeTruthy();
+    expect(screen.getByText("Check location readiness")).toBeTruthy();
+    expect(screen.getByText(/Highlighting: Device readiness/i)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Skip$/i }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: /One Location guided tour/i }),
+      ).toBeNull(),
+    );
   });
 
   it("loads One Location setup without requiring backend phone verification", async () => {
@@ -474,12 +498,12 @@ describe("OneLocationAgentPage", () => {
     await waitFor(() => expect(mockCaptureCurrentPosition).toHaveBeenCalledTimes(1));
   });
 
-  it("renders KAI Circle recommendation metadata without phone-derived labels", async () => {
+  it("renders One Network recommendation metadata without phone-derived labels", async () => {
     render(<OneLocationAgentPage />);
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
 
-    expect(screen.getByRole("heading", { name: "KAI Circle" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "One Network" })).toBeTruthy();
     expect(screen.getAllByText("Trusted Circle").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Recent share history").length).toBeGreaterThan(
       0,
@@ -487,7 +511,7 @@ describe("OneLocationAgentPage", () => {
     expect(screen.getByText("Recently shared location with you")).toBeTruthy();
     expect(screen.queryByText(/8012|4455|9911/)).toBeNull();
 
-    fireEvent.change(screen.getByPlaceholderText("Search KAI Circle..."), {
+    fireEvent.change(screen.getByPlaceholderText("Search One Network..."), {
       target: { value: "advisor" },
     });
 
@@ -815,7 +839,7 @@ describe("OneLocationAgentPage", () => {
     expect(await screen.findByText(/1 person selected/i)).toBeTruthy();
     fireEvent.click(
       screen.getByRole("button", {
-        name: /Select Investor D from KAI Circle/i,
+        name: /Select Investor D from One Network/i,
       }),
     );
     expect(await screen.findByText(/2 people selected/i)).toBeTruthy();
@@ -877,7 +901,7 @@ describe("OneLocationAgentPage", () => {
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     fireEvent.click(
       screen.getByRole("button", {
-        name: /Select Advisor C from KAI Circle/i,
+        name: /Select Advisor C from One Network/i,
       }),
     );
 
@@ -960,7 +984,7 @@ describe("OneLocationAgentPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "request" }));
     fireEvent.click(
       screen.getByRole("button", {
-        name: /Select Investor D from KAI Circle/i,
+        name: /Select Investor D from One Network/i,
       }),
     );
     expect(await screen.findByText(/2 people selected/i)).toBeTruthy();
@@ -1033,7 +1057,7 @@ describe("OneLocationAgentPage", () => {
     );
   });
 
-  it("creates an approval-first invite path for contacts who are not KAI users", async () => {
+  it("creates an approval-first invite path for contacts who are not One users", async () => {
     render(<OneLocationAgentPage />);
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
@@ -1112,7 +1136,7 @@ describe("OneLocationAgentPage", () => {
     expect(mockStoreEnvelope).not.toHaveBeenCalled();
   });
 
-  it("keeps KAI Circle section empty states visible when no candidates exist", async () => {
+  it("keeps One Network section empty states visible when no candidates exist", async () => {
     mockGetState.mockResolvedValueOnce({
       ...locationState(),
       recipients: [],
@@ -1122,11 +1146,11 @@ describe("OneLocationAgentPage", () => {
     render(<OneLocationAgentPage />);
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
-    expect(screen.getByText("KAI Circle is empty")).toBeTruthy();
+    expect(screen.getByText("One Network is empty")).toBeTruthy();
     expect(screen.getByText(/No approvals waiting/)).toBeTruthy();
     expect(screen.getByText(/No trusted matches yet/)).toBeTruthy();
     expect(screen.getByText(/No professional signals yet/)).toBeTruthy();
-    expect(screen.getByText(/No ready KAI members yet/)).toBeTruthy();
+    expect(screen.getByText(/No ready One users yet/)).toBeTruthy();
     expect(screen.getByText(/No setup blockers/)).toBeTruthy();
     expect(
       screen.getByRole("button", { name: /Create request link/i }),

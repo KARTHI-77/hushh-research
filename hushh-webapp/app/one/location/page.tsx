@@ -93,6 +93,8 @@ import { OneLocationActivityDashboard } from "@/components/one-location/activity
 import {
   OneLocationOnboardingOverlay,
   useOneLocationOnboarding,
+  type OneLocationTourStepId,
+  type OneLocationTourTargets,
 } from "@/components/one-location/onboarding-overlay";
 import { buildOneLocationActivityFallback } from "@/lib/one-location/activity";
 import type {
@@ -241,7 +243,7 @@ function looksLikeInternalIdentifier(value: string): boolean {
   );
 }
 
-function safePersonLabel(value?: string | null, fallback = "KAI member"): string {
+function safePersonLabel(value?: string | null, fallback = "One user"): string {
   const label = String(value || "").trim();
   if (!label || looksLikeInternalIdentifier(label)) return fallback;
   return label;
@@ -258,7 +260,7 @@ function recommendationTierLabel(tier?: string | null): string {
     case "trusted_circle":
       return "Trusted Circle";
     case "kai_network":
-      return "KAI Network";
+      return "One Network";
     case "contacts":
       return "Contact match";
     case "setup_needed":
@@ -266,7 +268,7 @@ function recommendationTierLabel(tier?: string | null): string {
     case "available":
       return "Ready";
     default:
-      return "KAI Circle";
+      return "One Network";
   }
 }
 
@@ -452,8 +454,8 @@ const KAI_CIRCLE_SECTION_META: Record<
     description: "RIA, investor, advisor, and marketplace signals.",
   },
   location_ready: {
-    title: "Location-ready KAI members",
-    description: "Verified KAI members ready for encrypted sharing.",
+    title: "Location-ready One users",
+    description: "One users ready for private sharing.",
   },
   needs_setup: {
     title: "Needs setup",
@@ -479,8 +481,8 @@ const KAI_CIRCLE_SECTION_EMPTY_COPY: Record<
     description: "RIA, investor, advisor, and marketplace matches will appear here.",
   },
   location_ready: {
-    title: "No ready KAI members yet",
-    description: "Verified KAI members with location keys will appear here.",
+    title: "No ready One users yet",
+    description: "One users with location keys will appear here.",
   },
   needs_setup: {
     title: "No setup blockers",
@@ -610,7 +612,7 @@ function contactSignalSummary(state: OneLocationContactSignalState): string {
       } added as a ranking signal.`;
     case "empty":
       return state.totalContacts > 0
-        ? "No KAI users matched from this scan."
+        ? "No One users matched from this scan."
         : "No contact numbers were available to match.";
     case "unavailable":
       return "Open One on iOS or Android to scan contacts.";
@@ -1325,9 +1327,17 @@ function OneLocationAgentPageContent() {
   const myRequestsSectionRef = useRef<HTMLElement | null>(null);
   const publicResponsesSectionRef = useRef<HTMLElement | null>(null);
   const activitySectionRef = useRef<HTMLElement | null>(null);
+  const readinessTourRef = useRef<HTMLElement | null>(null);
+  const promisesTourRef = useRef<HTMLElement | null>(null);
+  const oneNetworkTourRef = useRef<HTMLElement | null>(null);
+  const contactSignalTourRef = useRef<HTMLDivElement | null>(null);
+  const shareRequestTourRef = useRef<HTMLDivElement | null>(null);
+  const accessHistoryTourRef = useRef<HTMLDivElement | null>(null);
   const focusClearRef = useRef<number | null>(null);
   const livePublishInFlightRef = useRef(false);
   const liveViewInFlightRef = useRef(false);
+  const [activeTourStep, setActiveTourStep] =
+    useState<OneLocationTourStepId | null>(null);
 
   const recipients = useMemo(
     () => state?.recipients ?? [],
@@ -1433,6 +1443,18 @@ function OneLocationAgentPageContent() {
     [activityRange, auth.userId, state],
   );
   const locationActivity = activitySnapshot ?? fallbackActivity;
+  const onboardingTourTargets = useMemo<OneLocationTourTargets>(
+    () => ({
+      readiness: readinessTourRef,
+      promises: promisesTourRef,
+      one_network: oneNetworkTourRef,
+      contact_signal: contactSignalTourRef,
+      share_request: shareRequestTourRef,
+      activity: activitySectionRef,
+      access_history: accessHistoryTourRef,
+    }),
+    [],
+  );
 
   const focusOneLocationSection = useCallback(
     (target: OneLocationFocusTarget | null) => {
@@ -1471,6 +1493,13 @@ function OneLocationAgentPageContent() {
         ? "rounded-[22px] ring-2 ring-[#007aff]/35 ring-offset-2 ring-offset-transparent"
         : "",
     [focusedSection],
+  );
+  const tourSectionClassName = useCallback(
+    (target: OneLocationTourStepId) =>
+      activeTourStep === target
+        ? "relative rounded-[22px] ring-2 ring-[#007aff]/50 ring-offset-4 ring-offset-white/80 transition-shadow duration-300 dark:ring-offset-[#111113]/80"
+        : "transition-shadow duration-300",
+    [activeTourStep],
   );
 
   useEffect(() => {
@@ -2475,7 +2504,7 @@ function OneLocationAgentPageContent() {
           )} added as a contact signal.`,
         );
       } else {
-        toast.info("No KAI users matched from this contact scan.");
+        toast.info("No One users matched from this contact scan.");
       }
     } catch (error) {
       const message = oneLocationErrorMessage(
@@ -2660,10 +2689,10 @@ function OneLocationAgentPageContent() {
       }
 
       const text =
-        "Join my KAI Circle on One Location. Send me a request here; I approve before anything is shared.";
+        "Join my One Network on One Location. Send me a request here; I approve before anything is shared.";
       if (navigator.share && url) {
         await navigator.share({
-          title: "Join my KAI Circle",
+          title: "Join my One Network",
           text,
           url,
         });
@@ -3082,7 +3111,14 @@ function OneLocationAgentPageContent() {
         ) : (
           <div className="grid min-w-0 max-w-full gap-6 xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)] xl:items-start">
             <div className="min-w-0 max-w-full space-y-7">
-              <section className="min-w-0 max-w-full space-y-2 px-1">
+              <section
+                ref={readinessTourRef}
+                tabIndex={-1}
+                className={cn(
+                  "min-w-0 max-w-full space-y-2 px-1 outline-none",
+                  tourSectionClassName("readiness"),
+                )}
+              >
                 {sectionLabel("Device readiness")}
                 <div
                   className={cn(
@@ -3149,7 +3185,14 @@ function OneLocationAgentPageContent() {
                 </div>
               </section>
 
-              <section className="min-w-0 max-w-full space-y-3 px-1">
+              <section
+                ref={promisesTourRef}
+                tabIndex={-1}
+                className={cn(
+                  "min-w-0 max-w-full space-y-3 px-1 outline-none",
+                  tourSectionClassName("promises"),
+                )}
+              >
                 <PromiseCard
                   icon={LocateFixed}
                   title="Chosen People"
@@ -3170,14 +3213,21 @@ function OneLocationAgentPageContent() {
                 />
               </section>
 
-              <section className="min-w-0 max-w-full space-y-4 px-1">
+              <section
+                ref={oneNetworkTourRef}
+                tabIndex={-1}
+                className={cn(
+                  "min-w-0 max-w-full space-y-4 px-1 outline-none",
+                  tourSectionClassName("one_network"),
+                )}
+              >
                 <SegmentedModeControl
                   value={activeMode}
                   onChange={setActiveMode}
                 />
 
                 <div className="min-w-0 max-w-full space-y-2">
-                  {sectionLabel("KAI Circle")}
+                  {sectionLabel("One Network")}
                   <div className="flex max-w-full gap-4 overflow-x-auto overscroll-x-contain px-1 pb-2 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {rankedRecipients.length ? (
                       rankedRecipients.map((recipient, index) => {
@@ -3194,7 +3244,7 @@ function OneLocationAgentPageContent() {
                             type="button"
                             aria-label={`Select ${recipientLabel(
                               recipient,
-                            )} from KAI Circle`}
+                            )} from One Network`}
                             onClick={() => {
                               if (activeMode === "share") {
                                 toggleShareRecipient(recipient.userId);
@@ -3241,7 +3291,7 @@ function OneLocationAgentPageContent() {
                       })
                     ) : (
                       <p className="text-[13px] text-[#8e8e93] dark:text-white/55">
-                        KAI Circle recommendations will appear here.
+                        One Network recommendations will appear here.
                       </p>
                     )}
                   </div>
@@ -3256,13 +3306,13 @@ function OneLocationAgentPageContent() {
                         setRecipientSearch(event.target.value)
                       }
                       className="h-10 w-full rounded-[14px] border border-black/[0.04] bg-white pl-10 pr-4 text-[15px] text-[#1c1c1e] shadow-sm outline-none transition-shadow placeholder:text-[#8e8e93] focus:ring-2 focus:ring-[#007aff]/20 dark:border-white/[0.08] dark:bg-white/[0.07] dark:text-white"
-                      placeholder="Search KAI Circle..."
+                      placeholder="Search One Network..."
                       type="text"
                     />
                   </div>
 
                   <div
-                    aria-label="KAI Circle section states"
+                    aria-label="One Network section states"
                     className="grid min-w-0 max-w-full gap-2 sm:grid-cols-2"
                   >
                     {kaiCircleSections.map((section) => {
@@ -3284,7 +3334,14 @@ function OneLocationAgentPageContent() {
                     })}
                   </div>
 
-                  <div className="min-w-0 max-w-full overflow-hidden rounded-[14px] border border-black/[0.04] bg-white/70 p-3 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.06]">
+                  <div
+                    ref={contactSignalTourRef}
+                    tabIndex={-1}
+                    className={cn(
+                      "min-w-0 max-w-full overflow-hidden rounded-[14px] border border-black/[0.04] bg-white/70 p-3 shadow-sm outline-none dark:border-white/[0.08] dark:bg-white/[0.06]",
+                      tourSectionClassName("contact_signal"),
+                    )}
+                  >
                     <div className="flex items-start gap-3">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#eaf9ef] text-[#2dbd5a] dark:bg-emerald-400/15 dark:text-emerald-200">
                         <ContactRound className="h-4 w-4" aria-hidden="true" />
@@ -3433,20 +3490,28 @@ function OneLocationAgentPageContent() {
                         icon={UsersRound}
                         title={
                           recipients.length
-                            ? "No KAI Circle matches"
-                            : "KAI Circle is empty"
+                            ? "No One Network matches"
+                            : "One Network is empty"
                         }
                         description={
                           recipients.length
                             ? "Try another name, role, or recommendation signal."
-                            : "Approval, professional, ready, and setup signals will appear as your KAI network grows."
+                            : "Approval, professional, ready, and setup signals will appear as your One Network grows."
                         }
                       />
                     )}
                   </div>
 
-                  {activeMode === "share" ? (
-                    <div className="space-y-3">
+                  <div
+                    ref={shareRequestTourRef}
+                    tabIndex={-1}
+                    className={cn(
+                      "outline-none",
+                      tourSectionClassName("share_request"),
+                    )}
+                  >
+                    {activeMode === "share" ? (
+                      <div className="space-y-3">
                       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px]">
                         <Select
                           value={selectedRecipientId}
@@ -3524,7 +3589,7 @@ function OneLocationAgentPageContent() {
                           ? `${peopleCountLabel(
                               selectedShareRecipients.length,
                             )} selected for private encrypted sharing.`
-                          : "Select one or more KAI users for private sharing."}
+                          : "Select one or more One users for private sharing."}
                       </p>
                       {shareReviewOpen ? (
                         <div
@@ -3534,7 +3599,7 @@ function OneLocationAgentPageContent() {
                         >
                           <div>
                             <p className="font-semibold text-[#0b3d70] dark:text-[#e6f2ff]">
-                              Confirm private KAI-to-KAI sharing
+                              Confirm private One user sharing
                             </p>
                             <p className="mt-1">
                               {peopleCountLabel(
@@ -3576,9 +3641,9 @@ function OneLocationAgentPageContent() {
                         Review Share
                         <span className="sr-only">Share Encrypted Update</span>
                       </ActionButton>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
                       <Select
                         value={selectedRequestOwnerId}
                         onValueChange={addRequestOwner}
@@ -3627,7 +3692,7 @@ function OneLocationAgentPageContent() {
                           ? `${peopleCountLabel(
                               selectedRequestOwners.length,
                             )} selected for approval-first requests.`
-                          : "Select one or more KAI users before requesting location access."}
+                          : "Select one or more One users before requesting location access."}
                       </p>
                       <Textarea
                         value={requestMessage}
@@ -3650,17 +3715,29 @@ function OneLocationAgentPageContent() {
                         <Send className="mr-2 h-4 w-4" aria-hidden="true" />
                         Send Request
                       </ActionButton>
-                    </div>
-                  )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </section>
             </div>
 
-            <div className="min-w-0 max-w-full space-y-6">
+            <div
+              ref={accessHistoryTourRef}
+              tabIndex={-1}
+              className={cn(
+                "min-w-0 max-w-full space-y-6 outline-none",
+                tourSectionClassName("access_history"),
+              )}
+            >
               <section
                 ref={activitySectionRef}
                 tabIndex={-1}
-                className={cn("min-w-0 max-w-full outline-none", sectionFocusClassName("activity"))}
+                className={cn(
+                  "min-w-0 max-w-full outline-none",
+                  sectionFocusClassName("activity"),
+                  tourSectionClassName("activity"),
+                )}
               >
                 <OneLocationActivityDashboard
                   activity={locationActivity}
@@ -4115,7 +4192,11 @@ function OneLocationAgentPageContent() {
       </AppPageContentRegion>
 
       {showOnboarding && (
-        <OneLocationOnboardingOverlay onDismiss={dismissOnboarding} />
+        <OneLocationOnboardingOverlay
+          onDismiss={dismissOnboarding}
+          onStepChange={setActiveTourStep}
+          targets={onboardingTourTargets}
+        />
       )}
     </AppPageShell>
   );

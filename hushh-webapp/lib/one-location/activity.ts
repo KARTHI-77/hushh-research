@@ -43,7 +43,7 @@ function looksLikeInternalIdentifier(value: string): boolean {
   );
 }
 
-function safeLabel(value?: string | null, fallback = "KAI member"): string {
+function safeLabel(value?: string | null, fallback = "One user"): string {
   const label = String(value || "").trim();
   if (!label || looksLikeInternalIdentifier(label)) return fallback;
   return label;
@@ -174,7 +174,7 @@ export function buildOneLocationActivityFallback(
       safeLabel(recipient.displayName),
     ]),
   );
-  const labelForUser = (userId?: string | null, fallback = "KAI member") =>
+  const labelForUser = (userId?: string | null, fallback = "One user") =>
     safeLabel(userId ? recipientLabels.get(userId) : null, fallback);
   const events: OneLocationActivityEvent[] = [];
   const addEvent = ({
