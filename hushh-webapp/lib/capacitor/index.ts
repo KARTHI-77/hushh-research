@@ -768,10 +768,15 @@ export type HushhLocationPermissionState = {
   state: "granted" | "denied" | "prompt" | "restricted" | "unavailable";
   precise: boolean | null;
   background: "foreground-only" | "available" | "restricted" | "unavailable";
+  locationServicesEnabled?: boolean | null;
 };
 
 export interface HushhLocationPlugin {
   getPermissionState(): Promise<HushhLocationPermissionState>;
+  openLocationSettings(): Promise<{
+    opened: boolean;
+    sourcePlatform: "web" | "ios" | "android" | "native";
+  }>;
   getCurrentPosition(options?: {
     enableHighAccuracy?: boolean;
     timeoutMs?: number;

@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type ComponentProps,
+  type MutableRefObject,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
@@ -29,6 +30,7 @@ import {
   Search,
   Send,
   ShieldCheck,
+  Sparkles,
   UserRoundCheck,
   UsersRound,
   X,
@@ -62,15 +64,25 @@ import {
 } from "@/lib/one-location/encryption";
 import {
   buildOneLocationNotificationHref,
+  buildOneLocationWorkflowHref,
   isOneLocationGrantOpened,
   locationShareNotificationDescription,
+  locationWorkflowNotificationCopy,
   markOneLocationGrantOpened,
   ONE_LOCATION_GRANT_ID_PARAM,
   ONE_LOCATION_GRANT_OPENED_EVENT,
   ONE_LOCATION_NOTIFICATION_OPEN_PARAM,
   ONE_LOCATION_NOTIFICATION_OPEN_VALUE,
+  ONE_LOCATION_REFERRAL_ID_PARAM,
+  ONE_LOCATION_REQUEST_ID_PARAM,
+  ONE_LOCATION_SECTION_PARAM,
+  ONE_LOCATION_SUBMISSION_ID_PARAM,
+  oneLocationSectionForWorkflowNotificationType,
   playOneLocationNotificationSound,
   recordOneLocationShareNotification,
+  recordOneLocationWorkflowNotification,
+  type OneLocationNotificationSection,
+  type OneLocationWorkflowNotificationType,
 } from "@/lib/one-location/notifications";
 import { OneLocationService } from "@/lib/one-location/service";
 import {
@@ -78,6 +90,10 @@ import {
   type OneLocationContactSignalResult,
 } from "@/lib/one-location/contact-signals";
 import { OneLocationActivityDashboard } from "@/components/one-location/activity-dashboard";
+import {
+  OneLocationOnboardingOverlay,
+  useOneLocationOnboarding,
+} from "@/components/one-location/onboarding-overlay";
 import { buildOneLocationActivityFallback } from "@/lib/one-location/activity";
 import type {
   OneLocationAccessRequest,
@@ -119,6 +135,7 @@ type BusyState =
   | "deny"
   | "refer"
   | "revoke"
+  | "locationSettings"
   | "contactSync"
   | "contactInvite"
   | "publicInvite"
@@ -147,6 +164,7 @@ type OneLocationSelectionSurface =
 type OneLocationDurationBucket = "15m" | "30m" | "1h" | "4h" | "24h" | "custom";
 type OneLocationForegroundOperation = "publish" | "view";
 type OneLocationForegroundTrigger = "manual" | "foreground_interval";
+type OneLocationFocusTarget = OneLocationNotificationSection;
 type OneLocationBackoffBucket =
   | "none"
   | "lt_500ms"
@@ -202,8 +220,31 @@ function expiresLabel(grant: OneLocationGrant): string {
   return `Expires ${formatDateTime(grant.expiresAt)}`;
 }
 
+function looksLikeInternalIdentifier(value: string): boolean {
+  const label = value.trim();
+  if (!label) return false;
+  if (
+    /^(actor|grant|invite|key|location|one_location|recipient|referral|request|submission|user)[_-]/i.test(
+      label,
+    )
+  ) {
+    return true;
+  }
+  if (/^[0-9a-f]{24,}$/i.test(label) || /^[0-9a-f-]{32,}$/i.test(label)) {
+    return true;
+  }
+  return (
+    /^[A-Za-z0-9_-]{16,}$/.test(label) &&
+    /[A-Z]/.test(label) &&
+    /[a-z]/.test(label) &&
+    /\d/.test(label)
+  );
+}
+
 function safePersonLabel(value?: string | null, fallback = "KAI member"): string {
-  return String(value || "").trim() || fallback;
+  const label = String(value || "").trim();
+  if (!label || looksLikeInternalIdentifier(label)) return fallback;
+  return label;
 }
 
 function recipientLabel(recipient: OneLocationRecipient): string {
@@ -599,6 +640,16 @@ function requestLabel(request: OneLocationAccessRequest): string {
   return safePersonLabel(request.requesterDisplayName, "Someone from KAI");
 }
 
+function requestOwnerLabel(
+  request: OneLocationAccessRequest,
+  recipients: OneLocationRecipient[],
+): string {
+  const owner = recipients.find(
+    (recipient) => recipient.userId === request.ownerUserId,
+  );
+  return safePersonLabel(owner?.displayName, "Location owner");
+}
+
 function publicSubmissionLabel(
   submission: OneLocationPublicInviteSubmission,
 ): string {
@@ -782,8 +833,8 @@ function LocalMapPreview({ point }: { point: PlainLocationPoint }) {
   const startUrl = googleMapsStartNavigationUrl(point);
   const statusLabel = isStale ? "Last known location" : "Live location";
   return (
-    <div className="overflow-hidden rounded-[var(--app-card-radius-standard)] border border-border/70 bg-[color:var(--app-card-surface-default-solid)]">
-      <div className="relative h-56 overflow-hidden bg-[#e5e5ea] dark:bg-[#111113]">
+    <div className="w-full min-w-0 max-w-full overflow-hidden rounded-[var(--app-card-radius-standard)] border border-border/70 bg-[color:var(--app-card-surface-default-solid)]">
+      <div className="relative h-48 max-w-full overflow-hidden bg-[#e5e5ea] sm:h-56 dark:bg-[#111113]">
         <iframe
           title="Live location map preview"
           src={embedUrl}
@@ -818,7 +869,7 @@ function LocalMapPreview({ point }: { point: PlainLocationPoint }) {
           <p className="text-[15px] font-semibold text-foreground">
             {statusLabel}
           </p>
-          <p className="mt-1 text-[12px] font-medium text-muted-foreground">
+          <p className="mt-1 break-words text-[12px] font-medium text-muted-foreground [overflow-wrap:anywhere]">
             Updated {captured}
             {accuracy ? ` - ${accuracy}` : ""} -{" "}
             {locationSourceLabel(point.sourcePlatform)}
@@ -830,7 +881,7 @@ function LocalMapPreview({ point }: { point: PlainLocationPoint }) {
             asChild
             variant="outline"
             size="sm"
-            className="h-10 rounded-full border-[#0a84ff]/30 bg-[#0a84ff]/10 text-[#0066cc] hover:bg-[#0a84ff]/15 dark:text-[#76b7ff]"
+            className="h-10 w-full min-w-0 rounded-full border-[#0a84ff]/30 bg-[#0a84ff]/10 text-[#0066cc] hover:bg-[#0a84ff]/15 dark:text-[#76b7ff]"
           >
             <a
               href={directionsUrl}
@@ -845,7 +896,7 @@ function LocalMapPreview({ point }: { point: PlainLocationPoint }) {
           <Button
             asChild
             size="sm"
-            className="h-10 rounded-full bg-[#1c1c1e] text-white hover:bg-black dark:bg-white dark:text-[#1c1c1e] dark:hover:bg-white/90"
+            className="h-10 w-full min-w-0 rounded-full bg-[#1c1c1e] text-white hover:bg-black dark:bg-white dark:text-[#1c1c1e] dark:hover:bg-white/90"
           >
             <a
               href={startUrl}
@@ -863,10 +914,10 @@ function LocalMapPreview({ point }: { point: PlainLocationPoint }) {
       {isStale ? (
         <div
           role="status"
-          className="mx-3 mb-3 flex items-start gap-2 rounded-[12px] border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-[12px] font-medium text-amber-800 dark:text-amber-100"
+          className="mx-3 mb-3 flex min-w-0 items-start gap-2 rounded-[12px] border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-[12px] font-medium text-amber-800 dark:text-amber-100"
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-          <span>
+          <span className="min-w-0 break-words [overflow-wrap:anywhere]">
             Location update may be stale. Ask them to refresh sharing.
           </span>
         </div>
@@ -907,9 +958,9 @@ function SkeletonRow({ wide = false }: { wide?: boolean }) {
 type ShareMode = "share" | "request";
 
 const onePanelClassName =
-  "overflow-hidden rounded-[20px] border border-black/[0.05] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_10px_30px_rgba(15,23,42,0.05)] dark:border-white/[0.08] dark:bg-[#1c1c1e]/90 dark:shadow-[0_12px_38px_rgba(0,0,0,0.28)]";
+  "w-full min-w-0 max-w-full overflow-hidden rounded-[20px] border border-black/[0.05] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_10px_30px_rgba(15,23,42,0.05)] dark:border-white/[0.08] dark:bg-[#1c1c1e]/90 dark:shadow-[0_12px_38px_rgba(0,0,0,0.28)]";
 const oneInsetClassName =
-  "rounded-[14px] border border-black/[0.04] bg-[#f7f7fa] text-[#1c1c1e] dark:border-white/[0.08] dark:bg-white/[0.07] dark:text-white";
+  "w-full min-w-0 max-w-full overflow-hidden rounded-[14px] border border-black/[0.04] bg-[#f7f7fa] text-[#1c1c1e] dark:border-white/[0.08] dark:bg-white/[0.07] dark:text-white";
 const oneSecondaryTextClassName = "text-[#8e8e93] dark:text-white/55";
 
 function sectionLabel(title: string, count?: number) {
@@ -917,7 +968,7 @@ function sectionLabel(title: string, count?: number) {
     <div
       role="heading"
       aria-level={2}
-      className="ml-1 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-[#8e8e93] dark:text-white/45"
+      className="ml-1 flex min-w-0 max-w-full flex-wrap items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-[#8e8e93] dark:text-white/45"
     >
       {title}
       {typeof count === "number" && count > 0 ? (
@@ -1007,7 +1058,7 @@ function PromiseCard({
   }[tone];
 
   return (
-    <div className="flex items-center gap-4 rounded-[20px] border border-black/[0.06] bg-white p-4 shadow-[0_2px_12px_rgba(15,23,42,0.06)] dark:border-white/[0.08] dark:bg-[#1c1c1e]/90 dark:shadow-[0_12px_30px_rgba(0,0,0,0.22)]">
+    <div className="flex w-full min-w-0 max-w-full items-start gap-3 overflow-hidden rounded-[20px] border border-black/[0.06] bg-white p-4 shadow-[0_2px_12px_rgba(15,23,42,0.06)] sm:gap-4 dark:border-white/[0.08] dark:bg-[#1c1c1e]/90 dark:shadow-[0_12px_30px_rgba(0,0,0,0.22)]">
       <span
         className={cn(
           "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
@@ -1016,11 +1067,11 @@ function PromiseCard({
       >
         <Icon className="h-5 w-5" aria-hidden="true" />
       </span>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <h3 className="text-[16px] font-bold tracking-tight text-[#1c1c1e] dark:text-white">
           {title}
         </h3>
-        <p className="mt-1 text-[14px] font-medium leading-snug text-[#8e8e93] dark:text-white/55">
+        <p className="mt-1 break-words text-[14px] font-medium leading-snug text-[#8e8e93] [overflow-wrap:anywhere] dark:text-white/55">
           {description}
         </p>
       </div>
@@ -1036,7 +1087,7 @@ function SegmentedModeControl({
   onChange: (value: ShareMode) => void;
 }) {
   return (
-    <div className="flex h-9 w-full items-center rounded-[9px] bg-[#efeff0] p-[3px] dark:bg-white/10">
+    <div className="flex h-9 w-full min-w-0 max-w-full items-center overflow-hidden rounded-[9px] bg-[#efeff0] p-[3px] dark:bg-white/10">
       {(["share", "request"] as const).map((mode) => (
         <button
           key={mode}
@@ -1066,20 +1117,116 @@ function EmptyOneState({
   description: string;
 }) {
   return (
-    <div className="flex min-h-24 items-center gap-3 p-3.5 text-sm">
+    <div className="flex min-h-24 min-w-0 max-w-full flex-col items-start gap-3 p-3.5 text-sm sm:flex-row sm:items-center">
       <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f2f2f7] text-[#8e8e93] dark:bg-white/10 dark:text-white/55">
         <Icon className="h-4 w-4" aria-hidden="true" />
       </span>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="font-semibold text-[#1c1c1e] dark:text-white">
           {title}
         </div>
-        <div className="text-[13px] leading-5 text-[#8e8e93] dark:text-white/55">
+        <div className="break-words text-[13px] leading-5 text-[#8e8e93] [overflow-wrap:anywhere] dark:text-white/55">
           {description}
         </div>
       </div>
     </div>
   );
+}
+
+function isLocationServicesDisabled(
+  permission: HushhLocationPermissionState | null,
+): boolean {
+  return permission?.locationServicesEnabled === false;
+}
+
+function locationPermissionBlocksSharing(
+  permission: HushhLocationPermissionState | null,
+): boolean {
+  return (
+    isLocationServicesDisabled(permission) ||
+    permission?.state === "denied" ||
+    permission?.state === "restricted" ||
+    permission?.state === "unavailable"
+  );
+}
+
+function locationServicesErrorMessage(error: unknown): string {
+  const message =
+    error instanceof Error
+      ? error.message
+      : String((error as { message?: unknown })?.message || error || "");
+  const normalized = message.toLowerCase();
+  if (
+    normalized.includes("services are unavailable") ||
+    normalized.includes("location services") ||
+    normalized.includes("provider") ||
+    normalized.includes("unavailable on this device")
+  ) {
+    return "Turn on Location from your phone settings before sharing.";
+  }
+  if (normalized.includes("permission") || normalized.includes("not granted")) {
+    return "Allow location permission before sharing.";
+  }
+  return message || "Location is needed before sharing.";
+}
+
+function readinessCopy(permission: HushhLocationPermissionState | null): {
+  title: string;
+  description: string;
+  tone: "ready" | "warning" | "blocked" | "checking";
+  actionLabel?: string;
+} {
+  if (!permission) {
+    return {
+      title: "Checking location readiness",
+      description: "One is checking whether this device can share your current location.",
+      tone: "checking",
+    };
+  }
+  if (isLocationServicesDisabled(permission)) {
+    return {
+      title: "Turn on phone Location",
+      description:
+        "Your phone Location switch is off. Turn it on before sharing with your trusted circle.",
+      tone: "blocked",
+      actionLabel: "Open Location Settings",
+    };
+  }
+  if (permission.state === "prompt") {
+    return {
+      title: "Allow location permission",
+      description:
+        "One will ask for foreground location access before your first encrypted share.",
+      tone: "warning",
+      actionLabel: "Allow Location",
+    };
+  }
+  if (permission.state === "denied" || permission.state === "restricted") {
+    return {
+      title: "Location permission blocked",
+      description:
+        "Allow location access from app settings before you share your location.",
+      tone: "blocked",
+      actionLabel: "Open Location Settings",
+    };
+  }
+  if (permission.state === "unavailable") {
+    return {
+      title: "Location unavailable",
+      description:
+        "This device cannot provide a fresh location right now. Check Location settings and try again.",
+      tone: "blocked",
+      actionLabel: "Open Location Settings",
+    };
+  }
+  return {
+    title: permission.precise === false ? "Approximate location ready" : "Location ready",
+    description:
+      permission.precise === false
+        ? "Sharing can continue, but accuracy may be approximate on this device."
+        : "Foreground location is ready for encrypted sharing.",
+    tone: permission.precise === false ? "warning" : "ready",
+  };
 }
 
 function OneLocationInitialSkeleton() {
@@ -1124,7 +1271,7 @@ function OneLocationInitialSkeleton() {
   );
 }
 
-export function OneLocationAgentPageContent() {
+function OneLocationAgentPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const auth = useRequireAuth();
@@ -1132,6 +1279,11 @@ export function OneLocationAgentPageContent() {
   const [state, setState] = useState<OneLocationState | null>(null);
   const [permission, setPermission] =
     useState<HushhLocationPermissionState | null>(null);
+  const {
+    shouldShow: showOnboarding,
+    dismiss: dismissOnboarding,
+    showTour,
+  } = useOneLocationOnboarding();
   const [busy, setBusy] = useState<BusyState>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeMode, setActiveMode] = useState<ShareMode>("share");
@@ -1163,7 +1315,17 @@ export function OneLocationAgentPageContent() {
     Record<string, PlainLocationPoint>
   >({});
   const [openedGrantTick, setOpenedGrantTick] = useState(0);
+  const [focusedSection, setFocusedSection] =
+    useState<OneLocationFocusTarget | null>(null);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
+  const permissionPromptInFlightRef = useRef(false);
+  const peopleSectionRef = useRef<HTMLElement | null>(null);
+  const approvalsSectionRef = useRef<HTMLElement | null>(null);
+  const sharedSectionRef = useRef<HTMLElement | null>(null);
+  const myRequestsSectionRef = useRef<HTMLElement | null>(null);
+  const publicResponsesSectionRef = useRef<HTMLElement | null>(null);
+  const activitySectionRef = useRef<HTMLElement | null>(null);
+  const focusClearRef = useRef<number | null>(null);
   const livePublishInFlightRef = useRef(false);
   const liveViewInFlightRef = useRef(false);
 
@@ -1272,6 +1434,45 @@ export function OneLocationAgentPageContent() {
   );
   const locationActivity = activitySnapshot ?? fallbackActivity;
 
+  const focusOneLocationSection = useCallback(
+    (target: OneLocationFocusTarget | null) => {
+      if (!target || typeof window === "undefined") return;
+      const sectionRefs: Record<
+        OneLocationFocusTarget,
+        MutableRefObject<HTMLElement | null>
+      > = {
+        people: peopleSectionRef,
+        approvals: approvalsSectionRef,
+        shared: sharedSectionRef,
+        my_requests: myRequestsSectionRef,
+        public_responses: publicResponsesSectionRef,
+        activity: activitySectionRef,
+      };
+      window.setTimeout(() => {
+        const element = sectionRefs[target]?.current;
+        if (!element) return;
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+        element.focus({ preventScroll: true });
+        setFocusedSection(target);
+        if (focusClearRef.current) {
+          window.clearTimeout(focusClearRef.current);
+        }
+        focusClearRef.current = window.setTimeout(() => {
+          setFocusedSection((current) => (current === target ? null : current));
+        }, 2200);
+      }, 80);
+    },
+    [],
+  );
+
+  const sectionFocusClassName = useCallback(
+    (target: OneLocationFocusTarget) =>
+      focusedSection === target
+        ? "rounded-[22px] ring-2 ring-[#007aff]/35 ring-offset-2 ring-offset-transparent"
+        : "",
+    [focusedSection],
+  );
+
   useEffect(() => {
     if (!auth.userId || !vaultOwnerToken || !state) {
       setActivitySnapshot(null);
@@ -1308,8 +1509,9 @@ export function OneLocationAgentPageContent() {
       markOneLocationGrantOpened(auth.userId, grantId);
       setOpenedGrantTick((value) => value + 1);
       router.push(buildOneLocationNotificationHref(grantId), { scroll: false });
+      focusOneLocationSection("shared");
     },
-    [auth.userId, router],
+    [auth.userId, focusOneLocationSection, router],
   );
 
   const showLocationShareToast = useCallback(
@@ -1349,6 +1551,92 @@ export function OneLocationAgentPageContent() {
     [auth.userId, openLocationShareFromNotification],
   );
 
+  const showWorkflowToast = useCallback(
+    (params: {
+      notificationType: OneLocationWorkflowNotificationType;
+      id: string;
+      ownerLabel?: string | null;
+      requesterLabel?: string | null;
+      referringLabel?: string | null;
+      visitorLabel?: string | null;
+      grantId?: string | null;
+      requestId?: string | null;
+      referralId?: string | null;
+      submissionId?: string | null;
+      section?: OneLocationFocusTarget | null;
+      openGrant?: boolean;
+    }) => {
+      if (!auth.userId) return;
+      const section =
+        params.section ||
+        oneLocationSectionForWorkflowNotificationType(params.notificationType);
+      const copy = locationWorkflowNotificationCopy({
+        type: params.notificationType,
+        ownerLabel: params.ownerLabel,
+        requesterLabel: params.requesterLabel,
+        referringLabel: params.referringLabel,
+        visitorLabel: params.visitorLabel,
+      });
+      const routeHref = buildOneLocationWorkflowHref({
+        grantId: params.grantId,
+        requestId: params.requestId,
+        referralId: params.referralId,
+        submissionId: params.submissionId,
+        section,
+        openGrant: params.openGrant,
+      });
+      const created = recordOneLocationWorkflowNotification({
+        userId: auth.userId,
+        notificationType: params.notificationType,
+        id: params.id,
+        title: copy.title,
+        description: copy.description,
+        routeHref,
+        metadata: {
+          grantId: params.grantId || null,
+          requestId: params.requestId || null,
+          referralId: params.referralId || null,
+          submissionId: params.submissionId || null,
+          section,
+        },
+      });
+      if (!created) return;
+
+      playOneLocationNotificationSound();
+      const toastKey = `one-location-workflow:${params.notificationType}:${params.id}`;
+      toast(
+        <div className="flex flex-col gap-2">
+          <div className="space-y-0.5">
+            <p className="line-clamp-1 text-sm font-semibold">{copy.title}</p>
+            <p className="line-clamp-2 text-xs text-muted-foreground">
+              {copy.description}
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              if (params.openGrant && params.grantId) {
+                markOneLocationGrantOpened(auth.userId, params.grantId);
+                setOpenedGrantTick((value) => value + 1);
+              }
+              toast.dismiss(toastKey);
+              router.push(routeHref, { scroll: false });
+              focusOneLocationSection(section);
+            }}
+            className="rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background transition-colors"
+          >
+            Open
+          </button>
+        </div>,
+        {
+          id: toastKey,
+          duration: 10000,
+          position: "top-center",
+        },
+      );
+    },
+    [auth.userId, focusOneLocationSection, router],
+  );
+
   const refresh = useCallback(async () => {
     if (!auth.userId) {
       setBusy(null);
@@ -1374,17 +1662,12 @@ export function OneLocationAgentPageContent() {
     const task = (async () => {
       setLoadError(null);
       try {
-        if (activeUser) {
-          await AccountIdentityService.syncCurrentUser(activeUser).catch(
-            (error) => {
-              console.warn(
-                "[OneLocationAgent] Identity shadow sync skipped:",
-                error,
-              );
-              return null;
-            },
-          );
+        if (!activeUser) {
+          throw new Error("Refresh your session before loading location sharing.");
         }
+        await AccountIdentityService.syncCurrentUser(activeUser).catch((error) => {
+          console.warn("[OneLocation] Failed to sync account identity:", error);
+        });
         const key = await ensureLocationRecipientKey(activeUserId);
         await OneLocationService.registerRecipientKey({
           vaultOwnerToken: activeVaultOwnerToken,
@@ -1462,11 +1745,162 @@ export function OneLocationAgentPageContent() {
     vaultOwnerToken,
   ]);
 
+  const refreshLocationPermission = useCallback(async () => {
+    const nextPermission = await OneLocationService.getPermissionState().catch(
+      () => ({
+        state: "unavailable" as const,
+        precise: false,
+        background: "unavailable" as const,
+        locationServicesEnabled: null,
+      }),
+    );
+    setPermission(nextPermission);
+    return nextPermission;
+  }, []);
+
+  const handleOpenLocationSettings = useCallback(async () => {
+    setBusy("locationSettings");
+    try {
+      const result = await OneLocationService.openLocationSettings();
+      toast.info(
+        result.opened
+          ? "Turn on Location, then return to One Location and refresh."
+          : "Open your phone or browser location settings, then return and refresh.",
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not open location settings.",
+      );
+    } finally {
+      setBusy(null);
+      window.setTimeout(() => void refreshLocationPermission(), 1200);
+    }
+  }, [refreshLocationPermission]);
+
+  const ensureForegroundLocationReady = useCallback(
+    async (options?: {
+      capturePoint?: boolean;
+      autoOpenSettings?: boolean;
+    }): Promise<{ ready: boolean; point?: PlainLocationPoint }> => {
+      const shouldCapturePoint = Boolean(options?.capturePoint);
+      const shouldOpenSettings = options?.autoOpenSettings !== false;
+      const currentPermission = await refreshLocationPermission();
+
+      if (isLocationServicesDisabled(currentPermission)) {
+        toast.error("Turn on phone Location before sharing.");
+        if (shouldOpenSettings) {
+          await OneLocationService.openLocationSettings().catch(() => null);
+        }
+        return { ready: false };
+      }
+
+      if (
+        currentPermission.state === "denied" ||
+        currentPermission.state === "restricted"
+      ) {
+        toast.error("Allow location permission before sharing.");
+        if (shouldOpenSettings) {
+          await OneLocationService.openLocationSettings().catch(() => null);
+        }
+        return { ready: false };
+      }
+
+      if (currentPermission.state === "unavailable") {
+        toast.error("Location is unavailable. Check your phone Location settings.");
+        if (shouldOpenSettings) {
+          await OneLocationService.openLocationSettings().catch(() => null);
+        }
+        return { ready: false };
+      }
+
+      if (currentPermission.state === "granted" && !shouldCapturePoint) {
+        return { ready: true };
+      }
+
+      try {
+        const point = await OneLocationService.captureCurrentPosition();
+        const nextPermission = await OneLocationService.getPermissionState().catch(
+          () => null,
+        );
+        setPermission(
+          nextPermission ?? {
+            state: "granted",
+            precise: null,
+            background: "foreground-only",
+            locationServicesEnabled: true,
+          },
+        );
+        return shouldCapturePoint ? { ready: true, point } : { ready: true };
+      } catch (error) {
+        const nextPermission = await OneLocationService.getPermissionState().catch(
+          () => null,
+        );
+        if (nextPermission) {
+          setPermission(nextPermission);
+        }
+        const message = locationServicesErrorMessage(error);
+        toast.error(message);
+        if (
+          shouldOpenSettings &&
+          (isLocationServicesDisabled(nextPermission) ||
+            message.toLowerCase().includes("turn on location"))
+        ) {
+          await OneLocationService.openLocationSettings().catch(() => null);
+        }
+        return { ready: false };
+      }
+    },
+    [refreshLocationPermission],
+  );
+
   useEffect(() => {
     if (!auth.loading) {
       void refresh();
     }
   }, [auth.loading, refresh]);
+
+  useEffect(() => {
+    if (
+      !auth.userId ||
+      !state ||
+      permission?.state !== "prompt" ||
+      permissionPromptInFlightRef.current
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    permissionPromptInFlightRef.current = true;
+    const promptForForegroundLocation = async () => {
+      try {
+        await ensureForegroundLocationReady({
+          capturePoint: false,
+          autoOpenSettings: false,
+        });
+      } finally {
+        if (!cancelled) {
+          permissionPromptInFlightRef.current = false;
+        }
+      }
+    };
+
+    void promptForForegroundLocation();
+
+    return () => {
+      cancelled = true;
+      permissionPromptInFlightRef.current = false;
+    };
+  }, [auth.userId, ensureForegroundLocationReady, permission?.state, state]);
+
+  useEffect(() => {
+    return () => {
+      if (focusClearRef.current && typeof window !== "undefined") {
+        window.clearTimeout(focusClearRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!auth.userId || typeof window === "undefined") return;
@@ -1496,18 +1930,62 @@ export function OneLocationAgentPageContent() {
   }, [auth.userId, refresh]);
 
   useEffect(() => {
-    if (!auth.userId) return;
+    if (!auth.userId || !state) return;
     const grantId = String(
       searchParams.get(ONE_LOCATION_GRANT_ID_PARAM) || "",
     ).trim();
+    const requestId = String(
+      searchParams.get(ONE_LOCATION_REQUEST_ID_PARAM) || "",
+    ).trim();
+    const referralId = String(
+      searchParams.get(ONE_LOCATION_REFERRAL_ID_PARAM) || "",
+    ).trim();
+    const submissionId = String(
+      searchParams.get(ONE_LOCATION_SUBMISSION_ID_PARAM) || "",
+    ).trim();
+    const section = String(
+      searchParams.get(ONE_LOCATION_SECTION_PARAM) || "",
+    ).trim() as OneLocationFocusTarget | "";
     const notificationState = String(
       searchParams.get(ONE_LOCATION_NOTIFICATION_OPEN_PARAM) || "",
     ).trim();
+    let focusTarget: OneLocationFocusTarget | null =
+      section && [
+        "people",
+        "approvals",
+        "shared",
+        "my_requests",
+        "public_responses",
+        "activity",
+      ].includes(section)
+        ? section
+        : null;
     if (grantId && notificationState === ONE_LOCATION_NOTIFICATION_OPEN_VALUE) {
       markOneLocationGrantOpened(auth.userId, grantId);
       setOpenedGrantTick((value) => value + 1);
+      focusTarget = focusTarget || "shared";
     }
-  }, [auth.userId, searchParams]);
+    if (requestId) {
+      focusTarget =
+        focusTarget ||
+        (pendingOwnerRequests.some((request) => request.id === requestId)
+          ? "approvals"
+          : "my_requests");
+    }
+    if (referralId) {
+      focusTarget = focusTarget || "my_requests";
+    }
+    if (submissionId) {
+      focusTarget = focusTarget || "public_responses";
+    }
+    focusOneLocationSection(focusTarget);
+  }, [
+    auth.userId,
+    focusOneLocationSection,
+    pendingOwnerRequests,
+    searchParams,
+    state,
+  ]);
 
   useEffect(() => {
     if (!auth.userId || typeof window === "undefined") return;
@@ -1548,6 +2026,84 @@ export function OneLocationAgentPageContent() {
     openedGrantTick,
     showLocationShareToast,
     state?.receivedGrants,
+  ]);
+
+  useEffect(() => {
+    if (!auth.userId || !state) return;
+
+    for (const request of pendingOwnerRequests) {
+      showWorkflowToast({
+        notificationType: "location_access_request",
+        id: request.id,
+        requestId: request.id,
+        requesterLabel: requestLabel(request),
+        section: "approvals",
+      });
+    }
+
+    for (const request of requestedByMe) {
+      const ownerLabel = requestOwnerLabel(request, recipients);
+      if (request.status === "approved") {
+        showWorkflowToast({
+          notificationType: "location_access_approved",
+          id: request.approvedGrantId || request.id,
+          requestId: request.id,
+          grantId: request.approvedGrantId,
+          ownerLabel,
+          section: "shared",
+          openGrant: Boolean(request.approvedGrantId),
+        });
+      }
+      if (request.status === "denied") {
+        showWorkflowToast({
+          notificationType: "location_access_denied",
+          id: request.id,
+          requestId: request.id,
+          ownerLabel,
+          section: "my_requests",
+        });
+      }
+    }
+
+    for (const grant of state.receivedGrants ?? []) {
+      if (grant.status === "revoked") {
+        showWorkflowToast({
+          notificationType: "location_share_revoked",
+          id: grant.id,
+          grantId: grant.id,
+          ownerLabel: receivedGrantOwnerLabel(grant),
+          section: "shared",
+        });
+      }
+      if (grant.status === "expired") {
+        showWorkflowToast({
+          notificationType: "location_share_expired",
+          id: grant.id,
+          grantId: grant.id,
+          ownerLabel: receivedGrantOwnerLabel(grant),
+          section: "shared",
+        });
+      }
+    }
+
+    for (const submission of publicSubmissions) {
+      if (submission.ownerUserId !== auth.userId) continue;
+      showWorkflowToast({
+        notificationType: "location_public_invite_submitted",
+        id: submission.id,
+        submissionId: submission.id,
+        visitorLabel: publicSubmissionLabel(submission),
+        section: "public_responses",
+      });
+    }
+  }, [
+    auth.userId,
+    pendingOwnerRequests,
+    publicSubmissions,
+    recipients,
+    requestedByMe,
+    showWorkflowToast,
+    state,
   ]);
 
   const recipientForGrant = useCallback(
@@ -1606,15 +2162,20 @@ export function OneLocationAgentPageContent() {
       !vaultOwnerToken ||
       !shareReadySelectedRecipients.length ||
       setupNeededSelectedRecipients.length ||
-      permission?.state === "denied" ||
-      permission?.state === "restricted" ||
-      permission?.state === "unavailable"
+      locationPermissionBlocksSharing(permission)
     )
       return;
     setBusy("share");
     let successCount = 0;
     try {
-      const point = await OneLocationService.captureCurrentPosition();
+      const readiness = await ensureForegroundLocationReady({
+        capturePoint: true,
+        autoOpenSettings: true,
+      });
+      if (!readiness.ready || !readiness.point) {
+        return;
+      }
+      const point = readiness.point;
       for (const recipient of shareReadySelectedRecipients) {
         const grant = await OneLocationService.createGrant({
           vaultOwnerToken,
@@ -1661,7 +2222,8 @@ export function OneLocationAgentPageContent() {
     }
   }, [
     durationHours,
-    permission?.state,
+    ensureForegroundLocationReady,
+    permission,
     publishEnvelopeWithRetry,
     refresh,
     setupNeededSelectedRecipients.length,
@@ -1679,7 +2241,14 @@ export function OneLocationAgentPageContent() {
       }
       setBusy("publish");
       try {
-        await publishEnvelopeWithRetry(grant, recipient, "manual");
+        const readiness = await ensureForegroundLocationReady({
+          capturePoint: true,
+          autoOpenSettings: true,
+        });
+        if (!readiness.ready || !readiness.point) {
+          return;
+        }
+        await publishEnvelopeWithRetry(grant, recipient, "manual", readiness.point);
         toast.success("Encrypted location update published.");
         await refresh();
       } catch (error) {
@@ -1690,7 +2259,7 @@ export function OneLocationAgentPageContent() {
         setBusy(null);
       }
     },
-    [publishEnvelopeWithRetry, recipientForGrant, refresh],
+    [ensureForegroundLocationReady, publishEnvelopeWithRetry, recipientForGrant, refresh],
   );
 
   const viewGrantEnvelope = useCallback(
@@ -1778,6 +2347,7 @@ export function OneLocationAgentPageContent() {
           );
         }
       } catch (error) {
+        void refreshLocationPermission();
         console.warn(
           "[OneLocationAgent] Foreground live update skipped:",
           error,
@@ -1799,6 +2369,7 @@ export function OneLocationAgentPageContent() {
     permission?.state,
     publishEnvelopeWithRetry,
     recipientForGrant,
+    refreshLocationPermission,
     vaultOwnerToken,
   ]);
 
@@ -2372,12 +2943,17 @@ export function OneLocationAgentPageContent() {
     selectedShareRecipients.length &&
     shareReadySelectedRecipients.length &&
     !setupNeededSelectedRecipients.length &&
-    permission?.state !== "denied" &&
-    permission?.state !== "restricted" &&
-    permission?.state !== "unavailable",
+    !locationPermissionBlocksSharing(permission),
   );
-  const handleOpenShareReview = useCallback(() => {
+  const handleOpenShareReview = useCallback(async () => {
     if (!canShare) return;
+    setBusy("share");
+    const readiness = await ensureForegroundLocationReady({
+      capturePoint: false,
+      autoOpenSettings: true,
+    });
+    setBusy(null);
+    if (!readiness.ready) return;
     setShareReviewOpen(true);
     trackEvent(
       "one_location_share_review_opened",
@@ -2400,6 +2976,7 @@ export function OneLocationAgentPageContent() {
   }, [
     canShare,
     durationHours,
+    ensureForegroundLocationReady,
     permission?.state,
     setupNeededSelectedRecipients.length,
     shareReadySelectedRecipients,
@@ -2415,6 +2992,21 @@ export function OneLocationAgentPageContent() {
     (auth.loading ||
       busy === "load" ||
       Boolean(auth.userId && vaultOwnerToken));
+  const locationReadiness = useMemo(
+    () => readinessCopy(permission),
+    [permission],
+  );
+  const handleRequestLocationPermission = useCallback(async () => {
+    setBusy("locationSettings");
+    try {
+      await ensureForegroundLocationReady({
+        capturePoint: false,
+        autoOpenSettings: true,
+      });
+    } finally {
+      setBusy(null);
+    }
+  }, [ensureForegroundLocationReady]);
 
   return (
     <AppPageShell
@@ -2428,13 +3020,15 @@ export function OneLocationAgentPageContent() {
             ? "authenticated"
             : "anonymous",
         dataState,
-        errorCode: loadError ? "one_location_unavailable" : null,
+        errorCode: loadError
+          ? "one_location_unavailable"
+          : null,
         errorMessage: loadError,
       }}
     >
-      <AppPageHeaderRegion className="mx-auto w-full max-w-[1120px]">
+      <AppPageHeaderRegion className="mx-auto w-full max-w-[1120px] min-w-0 overflow-hidden">
         <div className="flex flex-col gap-4 px-1 pt-3 sm:flex-row sm:items-end sm:justify-between">
-          <header className="max-w-[560px] space-y-2">
+          <header className="max-w-[560px] min-w-0 space-y-2">
             <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#007aff] dark:text-[#76b7ff]">
               When it matters most
             </span>
@@ -2447,24 +3041,36 @@ export function OneLocationAgentPageContent() {
               after they approve.
             </p>
           </header>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void refresh()}
-            disabled={busy === "load"}
-            className="h-9 w-fit rounded-full border-black/[0.06] bg-white/80 px-3 text-[#1c1c1e] shadow-sm backdrop-blur-xl hover:bg-[#f2f2f7] dark:border-white/[0.08] dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-          >
-            {busy === "load" ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-            ) : (
-              <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
-            )}
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={showTour}
+              className="h-9 w-auto rounded-full border-[#007aff]/20 bg-[#eaf3ff] px-3 text-[#007aff] shadow-sm hover:bg-[#daeeff] dark:border-[#0a84ff]/25 dark:bg-[#0a84ff]/10 dark:text-[#76b7ff] dark:hover:bg-[#0a84ff]/15"
+              aria-label="Show onboarding tour"
+            >
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+              Take Tour
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void refresh()}
+              disabled={busy === "load"}
+              className="h-9 w-full rounded-full border-black/[0.06] bg-white/80 px-3 text-[#1c1c1e] shadow-sm backdrop-blur-xl hover:bg-[#f2f2f7] sm:w-fit dark:border-white/[0.08] dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+            >
+              {busy === "load" ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+              )}
+              Refresh
+            </Button>
+          </div>
         </div>
       </AppPageHeaderRegion>
 
-      <AppPageContentRegion className="mx-auto w-full max-w-[1120px] space-y-6">
+      <AppPageContentRegion className="mx-auto w-full max-w-[1120px] min-w-0 space-y-6 overflow-hidden pb-36 sm:pb-8">
         {loadError ? (
           <div className="rounded-[20px] border border-[#ff3b30]/30 bg-[#ff3b30]/10 p-4 text-sm text-[#ff3b30] dark:text-[#ff9f9a]">
             {loadError}
@@ -2474,9 +3080,76 @@ export function OneLocationAgentPageContent() {
         {showInitialSkeleton ? (
           <OneLocationInitialSkeleton />
         ) : (
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)] xl:items-start">
-            <div className="space-y-7">
-              <section className="space-y-3 px-1">
+          <div className="grid min-w-0 max-w-full gap-6 xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)] xl:items-start">
+            <div className="min-w-0 max-w-full space-y-7">
+              <section className="min-w-0 max-w-full space-y-2 px-1">
+                {sectionLabel("Device readiness")}
+                <div
+                  className={cn(
+                    "flex min-w-0 max-w-full flex-col gap-3 overflow-hidden rounded-[20px] border p-3.5 shadow-sm sm:flex-row sm:items-center sm:justify-between",
+                    locationReadiness.tone === "ready" &&
+                      "border-[#34c759]/25 bg-[#34c759]/10 text-[#1c1c1e] dark:text-white",
+                    locationReadiness.tone === "warning" &&
+                      "border-[#ff9500]/30 bg-[#ff9500]/10 text-[#1c1c1e] dark:text-white",
+                    locationReadiness.tone === "blocked" &&
+                      "border-[#ff3b30]/30 bg-[#ff3b30]/10 text-[#1c1c1e] dark:text-white",
+                    locationReadiness.tone === "checking" &&
+                      "border-black/[0.04] bg-white/70 text-[#1c1c1e] dark:border-white/[0.08] dark:bg-white/[0.06] dark:text-white",
+                  )}
+                >
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span
+                      className={cn(
+                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
+                        locationReadiness.tone === "ready" &&
+                          "bg-[#34c759]/15 text-[#2dbd5a]",
+                        locationReadiness.tone === "warning" &&
+                          "bg-[#ff9500]/15 text-[#ff9500]",
+                        locationReadiness.tone === "blocked" &&
+                          "bg-[#ff3b30]/15 text-[#ff3b30]",
+                        locationReadiness.tone === "checking" &&
+                          "bg-[#007aff]/15 text-[#007aff]",
+                      )}
+                    >
+                      {locationReadiness.tone === "ready" ? (
+                        <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
+                      ) : locationReadiness.tone === "checking" ? (
+                        <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+                      )}
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className="break-words text-[16px] font-bold tracking-tight [overflow-wrap:anywhere]">
+                        {locationReadiness.title}
+                      </h3>
+                      <p className="mt-1 break-words text-[13px] leading-5 text-[#8e8e93] [overflow-wrap:anywhere] dark:text-white/55">
+                        {locationReadiness.description}
+                      </p>
+                    </div>
+                  </div>
+                  {locationReadiness.actionLabel ? (
+                    <ActionButton
+                      busy={busy}
+                      busyKey="locationSettings"
+                      onClick={
+                        permission?.state === "prompt"
+                          ? () => void handleRequestLocationPermission()
+                          : () => void handleOpenLocationSettings()
+                      }
+                      variant="outline"
+                      className="h-10 w-full shrink-0 rounded-full border-black/[0.06] bg-white px-4 text-[13px] font-semibold text-[#1c1c1e] shadow-sm hover:bg-[#f2f2f7] sm:w-auto dark:border-white/[0.08] dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                    >
+                      {busy !== "locationSettings" ? (
+                        <ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />
+                      ) : null}
+                      {locationReadiness.actionLabel}
+                    </ActionButton>
+                  ) : null}
+                </div>
+              </section>
+
+              <section className="min-w-0 max-w-full space-y-3 px-1">
                 <PromiseCard
                   icon={LocateFixed}
                   title="Chosen People"
@@ -2497,15 +3170,15 @@ export function OneLocationAgentPageContent() {
                 />
               </section>
 
-              <section className="space-y-4 px-1">
+              <section className="min-w-0 max-w-full space-y-4 px-1">
                 <SegmentedModeControl
                   value={activeMode}
                   onChange={setActiveMode}
                 />
 
-                <div className="space-y-2">
+                <div className="min-w-0 max-w-full space-y-2">
                   {sectionLabel("KAI Circle")}
-                  <div className="flex gap-4 overflow-x-auto px-1 pb-2 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <div className="flex max-w-full gap-4 overflow-x-auto overscroll-x-contain px-1 pb-2 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {rankedRecipients.length ? (
                       rankedRecipients.map((recipient, index) => {
                         const label = displayNameFromRecipient(recipient);
@@ -2574,7 +3247,7 @@ export function OneLocationAgentPageContent() {
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="min-w-0 max-w-full space-y-3">
                   <div className="relative">
                     <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8e8e93]" />
                     <input
@@ -2590,7 +3263,7 @@ export function OneLocationAgentPageContent() {
 
                   <div
                     aria-label="KAI Circle section states"
-                    className="grid gap-2 sm:grid-cols-2"
+                    className="grid min-w-0 max-w-full gap-2 sm:grid-cols-2"
                   >
                     {kaiCircleSections.map((section) => {
                       const emptyCopy =
@@ -2598,10 +3271,10 @@ export function OneLocationAgentPageContent() {
                       return (
                         <div
                           key={section.key}
-                          className="rounded-[14px] border border-black/[0.04] bg-white/70 p-3 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.06]"
+                          className="min-w-0 max-w-full overflow-hidden rounded-[14px] border border-black/[0.04] bg-white/70 p-3 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.06]"
                         >
                           {sectionLabel(section.title, section.recipients.length)}
-                          <p className="mt-1 text-[12px] leading-5 text-[#8e8e93] dark:text-white/55">
+                          <p className="mt-1 break-words text-[12px] leading-5 text-[#8e8e93] [overflow-wrap:anywhere] dark:text-white/55">
                             {section.recipients.length
                               ? section.description
                               : `${emptyCopy.title}. ${emptyCopy.description}`}
@@ -2611,7 +3284,7 @@ export function OneLocationAgentPageContent() {
                     })}
                   </div>
 
-                  <div className="rounded-[14px] border border-black/[0.04] bg-white/70 p-3 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.06]">
+                  <div className="min-w-0 max-w-full overflow-hidden rounded-[14px] border border-black/[0.04] bg-white/70 p-3 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.06]">
                     <div className="flex items-start gap-3">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#eaf9ef] text-[#2dbd5a] dark:bg-emerald-400/15 dark:text-emerald-200">
                         <ContactRound className="h-4 w-4" aria-hidden="true" />
@@ -2625,7 +3298,7 @@ export function OneLocationAgentPageContent() {
                             {contactSignalStatusLabel(contactSignal.status)}
                           </span>
                         </div>
-                        <p className="mt-1 text-[12px] leading-5 text-[#8e8e93] dark:text-white/55">
+                        <p className="mt-1 break-words text-[12px] leading-5 text-[#8e8e93] [overflow-wrap:anywhere] dark:text-white/55">
                           {contactSignalSummary(contactSignal)}
                         </p>
                         {contactSignal.status === "matched" ||
@@ -2644,7 +3317,7 @@ export function OneLocationAgentPageContent() {
                         onClick={() => void handleSyncContactSignal()}
                         disabled={!auth.user || busy === "contactInvite"}
                         variant="outline"
-                        className="h-10 rounded-[12px] border-black/[0.06] bg-white text-[13px] font-semibold text-[#1c1c1e] shadow-sm hover:bg-[#f2f2f7] dark:border-white/[0.08] dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                        className="h-10 w-full min-w-0 rounded-[12px] border-black/[0.06] bg-white text-[13px] font-semibold text-[#1c1c1e] shadow-sm hover:bg-[#f2f2f7] dark:border-white/[0.08] dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
                       >
                         {busy !== "contactSync" ? (
                           <ContactRound className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -2657,7 +3330,7 @@ export function OneLocationAgentPageContent() {
                         onClick={() => void handleShareContactInvite()}
                         disabled={!vaultOwnerToken || busy === "contactSync"}
                         variant="outline"
-                        className="h-10 rounded-[12px] border-black/[0.06] bg-white text-[13px] font-semibold text-[#007aff] shadow-sm hover:bg-[#f2f2f7] dark:border-white/[0.08] dark:bg-white/10 dark:text-[#76b7ff] dark:hover:bg-white/15"
+                        className="h-10 w-full min-w-0 rounded-[12px] border-black/[0.06] bg-white text-[13px] font-semibold text-[#007aff] shadow-sm hover:bg-[#f2f2f7] dark:border-white/[0.08] dark:bg-white/10 dark:text-[#76b7ff] dark:hover:bg-white/15"
                       >
                         {busy !== "contactInvite" ? (
                           <Send className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -2681,9 +3354,9 @@ export function OneLocationAgentPageContent() {
                         return (
                           <div
                             key={recipient.userId}
-                            className="relative flex flex-col gap-2.5 p-3.5 after:absolute after:bottom-0 after:left-[62px] after:right-0 after:border-b after:border-black/[0.05] last:after:hidden dark:after:border-white/[0.08]"
+                            className="relative flex min-w-0 max-w-full flex-col gap-2.5 overflow-hidden p-3.5 after:absolute after:bottom-0 after:left-[62px] after:right-0 after:border-b after:border-black/[0.05] last:after:hidden dark:after:border-white/[0.08]"
                           >
-                            <div className="flex items-center gap-3">
+                            <div className="flex min-w-0 items-start gap-3">
                               <AvatarBubble
                                 label={label}
                                 index={index}
@@ -2691,8 +3364,8 @@ export function OneLocationAgentPageContent() {
                                 muted={!recipient.canReceiveLocation}
                               />
                               <div className="min-w-0 flex-1">
-                                <div className="flex min-w-0 items-center gap-1.5">
-                                  <span className="truncate text-[16px] font-semibold tracking-tight text-[#1c1c1e] dark:text-white">
+                                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                                  <span className="min-w-0 max-w-full truncate text-[16px] font-semibold tracking-tight text-[#1c1c1e] dark:text-white">
                                     {recipientLabel(recipient)}
                                   </span>
                                   <span className="rounded-md bg-[#f0f5ff] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#007aff] dark:bg-[#0a84ff]/15 dark:text-[#76b7ff]">
@@ -2711,7 +3384,7 @@ export function OneLocationAgentPageContent() {
                                     {recommendationCategoryLabel(recipient)}
                                   </span>
                                 </div>
-                                <p className="mt-0.5 text-[12px] font-medium text-[#8e8e93] dark:text-white/55">
+                                <p className="mt-0.5 break-words text-[12px] font-medium text-[#8e8e93] [overflow-wrap:anywhere] dark:text-white/55">
                                   {recipientRecommendationLine(recipient)}
                                 </p>
                                 {reasons.length ? (
@@ -2728,7 +3401,7 @@ export function OneLocationAgentPageContent() {
                                 ) : null}
                               </div>
                               {selected ? (
-                                <CheckCircle2 className="h-[22px] w-[22px] text-[#007aff] dark:text-[#76b7ff]" />
+                                <CheckCircle2 className="mt-1 h-[22px] w-[22px] shrink-0 text-[#007aff] dark:text-[#76b7ff]" />
                               ) : (
                                 <button
                                   type="button"
@@ -2745,7 +3418,7 @@ export function OneLocationAgentPageContent() {
                                       );
                                     }
                                   }}
-                                  className="inline-flex h-8 items-center gap-1 rounded-full bg-[#f2f2f7] px-3 text-[12px] font-semibold text-[#007aff] transition-colors hover:bg-[#e5e5ea] dark:bg-white/10 dark:text-[#76b7ff] dark:hover:bg-white/15"
+                                  className="mt-0.5 inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-[#f2f2f7] px-3 text-[12px] font-semibold text-[#007aff] transition-colors hover:bg-[#e5e5ea] dark:bg-white/10 dark:text-[#76b7ff] dark:hover:bg-white/15"
                                 >
                                   <Plus className="h-3.5 w-3.5" />
                                   Select
@@ -2824,9 +3497,11 @@ export function OneLocationAgentPageContent() {
                               onClick={() =>
                                 removeShareRecipient(recipient.userId)
                               }
-                              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[#eef5ff] px-3 text-[12px] font-semibold text-[#005bb5] transition-colors hover:bg-[#dfefff] dark:bg-[#0a84ff]/15 dark:text-[#a7d4ff] dark:hover:bg-[#0a84ff]/25"
+                              className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full bg-[#eef5ff] px-3 text-[12px] font-semibold text-[#005bb5] transition-colors hover:bg-[#dfefff] dark:bg-[#0a84ff]/15 dark:text-[#a7d4ff] dark:hover:bg-[#0a84ff]/25"
                             >
-                              {recipientLabel(recipient)}
+                              <span className="min-w-0 truncate">
+                                {recipientLabel(recipient)}
+                              </span>
                               <X className="h-3.5 w-3.5" aria-hidden="true" />
                               <span className="sr-only">
                                 Remove {recipientLabel(recipient)}
@@ -2855,7 +3530,7 @@ export function OneLocationAgentPageContent() {
                         <div
                           role="region"
                           aria-label="Share safety review"
-                          className="space-y-3 rounded-[14px] border border-[#007aff]/20 bg-[#eef5ff] p-3 text-[13px] leading-5 text-[#17446f] dark:border-[#0a84ff]/30 dark:bg-[#0a84ff]/15 dark:text-[#cfe7ff]"
+                          className="min-w-0 max-w-full space-y-3 overflow-hidden rounded-[14px] border border-[#007aff]/20 bg-[#eef5ff] p-3 text-[13px] leading-5 text-[#17446f] dark:border-[#0a84ff]/30 dark:bg-[#0a84ff]/15 dark:text-[#cfe7ff]"
                         >
                           <div>
                             <p className="font-semibold text-[#0b3d70] dark:text-[#e6f2ff]">
@@ -2880,7 +3555,7 @@ export function OneLocationAgentPageContent() {
                             busyKey="share"
                             onClick={() => void handleShare()}
                             disabled={!canShare}
-                            className="h-10 rounded-full bg-[#007aff] px-4 text-[13px] font-semibold text-white hover:bg-[#006fe6]"
+                            className="h-10 w-full min-w-0 rounded-full bg-[#007aff] px-4 text-[13px] font-semibold text-white hover:bg-[#006fe6] sm:w-auto"
                           >
                             <Send
                               className="mr-2 h-4 w-4"
@@ -2893,7 +3568,7 @@ export function OneLocationAgentPageContent() {
                       <ActionButton
                         busy={busy}
                         busyKey="share"
-                        onClick={handleOpenShareReview}
+                        onClick={() => void handleOpenShareReview()}
                         disabled={!canShare}
                         className="h-12 w-full rounded-[16px] bg-gradient-to-b from-[#1a85ff] to-[#0066ff] text-[16px] font-semibold text-white shadow-[0_4px_14px_rgba(0,122,255,0.35)] hover:opacity-95"
                       >
@@ -2934,9 +3609,11 @@ export function OneLocationAgentPageContent() {
                               onClick={() =>
                                 removeRequestOwner(recipient.userId)
                               }
-                              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[#eef5ff] px-3 text-[12px] font-semibold text-[#005bb5] transition-colors hover:bg-[#dfefff] dark:bg-[#0a84ff]/15 dark:text-[#a7d4ff] dark:hover:bg-[#0a84ff]/25"
+                              className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full bg-[#eef5ff] px-3 text-[12px] font-semibold text-[#005bb5] transition-colors hover:bg-[#dfefff] dark:bg-[#0a84ff]/15 dark:text-[#a7d4ff] dark:hover:bg-[#0a84ff]/25"
                             >
-                              {recipientLabel(recipient)}
+                              <span className="min-w-0 truncate">
+                                {recipientLabel(recipient)}
+                              </span>
                               <X className="h-3.5 w-3.5" aria-hidden="true" />
                               <span className="sr-only">
                                 Remove {recipientLabel(recipient)}
@@ -2979,26 +3656,36 @@ export function OneLocationAgentPageContent() {
               </section>
             </div>
 
-            <div className="space-y-6">
-              <OneLocationActivityDashboard
-                activity={locationActivity}
-                range={activityRange}
-                loading={activityLoading}
-                error={activityError}
-                onRangeChange={(value) => {
-                  setActivityRange(value);
-                  setActivitySnapshot(null);
-                }}
-              />
+            <div className="min-w-0 max-w-full space-y-6">
+              <section
+                ref={activitySectionRef}
+                tabIndex={-1}
+                className={cn("min-w-0 max-w-full outline-none", sectionFocusClassName("activity"))}
+              >
+                <OneLocationActivityDashboard
+                  activity={locationActivity}
+                  range={activityRange}
+                  loading={activityLoading}
+                  error={activityError}
+                  onRangeChange={(value) => {
+                    setActivityRange(value);
+                    setActivitySnapshot(null);
+                  }}
+                />
+              </section>
 
-              <section className="space-y-2 px-1">
+              <section
+                ref={peopleSectionRef}
+                tabIndex={-1}
+                className={cn("min-w-0 max-w-full space-y-2 px-1 outline-none", sectionFocusClassName("people"))}
+              >
                 {sectionLabel("People who can see me")}
                 <div className={onePanelClassName}>
                   {(state?.ownerGrants ?? []).length ? (
                     state?.ownerGrants.map((grant, index) => (
                       <div
                         key={grant.id}
-                        className="relative flex items-center gap-3 p-3.5 after:absolute after:bottom-0 after:left-[62px] after:right-0 after:border-b after:border-black/[0.05] last:after:hidden dark:after:border-white/[0.08]"
+                        className="relative flex min-w-0 max-w-full flex-col gap-3 overflow-hidden p-3.5 after:absolute after:bottom-0 after:left-[62px] after:right-0 after:border-b after:border-black/[0.05] sm:flex-row sm:items-center last:after:hidden dark:after:border-white/[0.08]"
                       >
                         <AvatarBubble
                           label={grantCounterpartyLabel(grant)}
@@ -3006,20 +3693,20 @@ export function OneLocationAgentPageContent() {
                           size="sm"
                         />
                         <div className="min-w-0 flex-1">
-                          <h3 className="truncate text-[16px] font-medium tracking-tight text-[#1c1c1e] dark:text-white">
+                          <h3 className="break-words text-[16px] font-medium tracking-tight text-[#1c1c1e] [overflow-wrap:anywhere] dark:text-white">
                             {grantCounterpartyLabel(grant)}
                           </h3>
                           <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                             <Badge variant={statusVariant(grant.status)}>
                               {grant.status}
                             </Badge>
-                            <span className="text-[12px] font-medium text-[#8e8e93] dark:text-white/55">
+                            <span className="min-w-0 break-words text-[12px] font-medium text-[#8e8e93] [overflow-wrap:anywhere] dark:text-white/55">
                               {expiresLabel(grant)} - {grant.durationHours}h
                             </span>
                           </div>
                         </div>
                         {grant.status === "active" ? (
-                          <div className="flex shrink-0 gap-1.5">
+                          <div className="flex w-full shrink-0 justify-end gap-1.5 sm:w-auto">
                             <Button
                               aria-label="Update share"
                               variant="outline"
@@ -3058,7 +3745,11 @@ export function OneLocationAgentPageContent() {
                 </div>
               </section>
 
-              <section className="space-y-2 px-1">
+              <section
+                ref={approvalsSectionRef}
+                tabIndex={-1}
+                className={cn("min-w-0 max-w-full space-y-2 px-1 outline-none", sectionFocusClassName("approvals"))}
+              >
                 {sectionLabel("Approvals", pendingOwnerRequests.length)}
                 <div
                   className={cn(
@@ -3069,19 +3760,19 @@ export function OneLocationAgentPageContent() {
                 >
                   {pendingOwnerRequests.length ? (
                     pendingOwnerRequests.map((request) => (
-                      <div key={request.id} className="flex items-start gap-3 p-3.5">
+                      <div key={request.id} className="flex min-w-0 max-w-full items-start gap-3 overflow-hidden p-3.5">
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f2f2f7] text-[#8e8e93] dark:bg-white/10 dark:text-white/55">
                           <UserRoundCheck className="h-[18px] w-[18px]" />
                         </span>
                         <div className="min-w-0 flex-1 space-y-1">
-                          <h3 className="text-[16px] font-semibold tracking-tight text-[#1c1c1e] dark:text-white">
+                          <h3 className="break-words text-[16px] font-semibold tracking-tight text-[#1c1c1e] [overflow-wrap:anywhere] dark:text-white">
                             {requestLabel(request)}
                           </h3>
                           <p className="text-[13px] font-medium leading-relaxed text-[#8e8e93] dark:text-white/55">
                             {request.message ||
                               `Requested ${formatDateTime(request.requestedAt)}`}
                           </p>
-                          <div className="flex gap-2 pt-2">
+                          <div className="flex flex-col gap-2 pt-2 sm:flex-row">
                             <Button
                               variant="outline"
                               onClick={() => void handleDeny(request.id)}
@@ -3112,16 +3803,16 @@ export function OneLocationAgentPageContent() {
                 </div>
               </section>
 
-              <section className="space-y-2 px-1">
+              <section className="min-w-0 max-w-full space-y-2 px-1">
                 {sectionLabel("Create request link")}
                 <div className={cn(onePanelClassName, "space-y-4 p-3.5")}>
-                  <p className="text-[13px] leading-5 text-[#8e8e93] dark:text-white/55">
+                  <p className="break-words text-[13px] leading-5 text-[#8e8e93] [overflow-wrap:anywhere] dark:text-white/55">
                     Share a request link. It asks for their details and never
                     shows your location until you approve an encrypted grant.
                   </p>
                   <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px]">
-                    <div className={cn(oneInsetClassName, "px-3 py-2 text-sm")}>
-                      <span className={oneSecondaryTextClassName}>
+                    <div className={cn(oneInsetClassName, "min-w-0 px-3 py-2 text-sm")}>
+                      <span className={cn(oneSecondaryTextClassName, "break-all")}>
                         {publicInviteUrl ||
                           "Create a fresh request link to copy or share."}
                       </span>
@@ -3142,13 +3833,13 @@ export function OneLocationAgentPageContent() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid min-w-0 max-w-full grid-cols-1 gap-2 sm:flex sm:flex-wrap">
                     <ActionButton
                       busy={busy}
                       busyKey="publicInvite"
                       onClick={() => void handleCreatePublicInvite()}
                       disabled={!vaultOwnerToken}
-                      className="rounded-full bg-[#007aff] text-white hover:bg-[#0066ff]"
+                      className="w-full min-w-0 rounded-full bg-[#007aff] text-white hover:bg-[#0066ff] sm:w-auto"
                     >
                       <ExternalLink className="mr-2 h-4 w-4" />
                       Create Request Link
@@ -3157,7 +3848,7 @@ export function OneLocationAgentPageContent() {
                       variant="outline"
                       onClick={() => void handleSharePublicInvite()}
                       disabled={!publicInviteUrl}
-                      className="rounded-full border-black/[0.06] bg-[#f2f2f7] dark:border-white/[0.08] dark:bg-white/10"
+                      className="w-full min-w-0 rounded-full border-black/[0.06] bg-[#f2f2f7] sm:w-auto dark:border-white/[0.08] dark:bg-white/10"
                     >
                       <Send className="mr-2 h-4 w-4" />
                       Share
@@ -3166,7 +3857,7 @@ export function OneLocationAgentPageContent() {
                       variant="outline"
                       onClick={() => void handleCopyPublicInvite()}
                       disabled={!publicInviteUrl}
-                      className="rounded-full border-black/[0.06] bg-[#f2f2f7] dark:border-white/[0.08] dark:bg-white/10"
+                      className="w-full min-w-0 rounded-full border-black/[0.06] bg-[#f2f2f7] sm:w-auto dark:border-white/[0.08] dark:bg-white/10"
                     >
                       <Copy className="mr-2 h-4 w-4" />
                       Copy
@@ -3177,13 +3868,13 @@ export function OneLocationAgentPageContent() {
                       {activePublicInvites.map((invite) => (
                         <div
                           key={invite.id}
-                          className="flex items-center justify-between gap-3 rounded-[14px] bg-[#f2f2f7] p-3 dark:bg-white/10"
+                          className="flex flex-col gap-3 rounded-[14px] bg-[#f2f2f7] p-3 sm:flex-row sm:items-center sm:justify-between dark:bg-white/10"
                         >
                           <div className="min-w-0">
                             <p className="text-[14px] font-semibold text-[#1c1c1e] dark:text-white">
                               Active request link
                             </p>
-                            <p className="truncate text-[12px] text-[#8e8e93] dark:text-white/55">
+                            <p className="break-words text-[12px] text-[#8e8e93] [overflow-wrap:anywhere] dark:text-white/55">
                               Requests expire{" "}
                               {formatDateTime(invite.expiresAt)} -{" "}
                               {invite.durationHours}h
@@ -3194,7 +3885,7 @@ export function OneLocationAgentPageContent() {
                             size="sm"
                             onClick={() => void handleRevokePublicInvite(invite)}
                             disabled={busy === "publicRevoke"}
-                            className="rounded-full"
+                            className="w-full rounded-full sm:w-auto"
                           >
                             Revoke
                           </Button>
@@ -3205,7 +3896,11 @@ export function OneLocationAgentPageContent() {
                 </div>
               </section>
 
-              <section className="space-y-2 px-1">
+              <section
+                ref={sharedSectionRef}
+                tabIndex={-1}
+                className={cn("min-w-0 max-w-full space-y-2 px-1 outline-none", sectionFocusClassName("shared"))}
+              >
                 {sectionLabel("Shared with me")}
                 <div className={onePanelClassName}>
                   {visibleReceivedGrants.length ? (
@@ -3214,23 +3909,23 @@ export function OneLocationAgentPageContent() {
                       return (
                         <div
                           key={grant.id}
-                          className="border-b border-black/[0.05] last:border-b-0 dark:border-white/[0.08]"
+                          className="min-w-0 max-w-full overflow-hidden border-b border-black/[0.05] last:border-b-0 dark:border-white/[0.08]"
                         >
-                          <div className="flex items-center gap-3 p-3.5">
+                          <div className="flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center">
                             <AvatarBubble
                               label={receivedGrantOwnerLabel(grant)}
                               index={index + 2}
                               size="sm"
                             />
                             <div className="min-w-0 flex-1">
-                              <h3 className="truncate text-[16px] font-medium tracking-tight text-[#1c1c1e] dark:text-white">
+                              <h3 className="break-words text-[16px] font-medium tracking-tight text-[#1c1c1e] [overflow-wrap:anywhere] dark:text-white">
                                 {receivedGrantOwnerLabel(grant)}
                               </h3>
                               <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                                 <Badge variant={statusVariant(grant.status)}>
                                   {grant.status}
                                 </Badge>
-                                <span className="text-[12px] font-medium text-[#8e8e93] dark:text-white/55">
+                                <span className="min-w-0 break-words text-[12px] font-medium text-[#8e8e93] [overflow-wrap:anywhere] dark:text-white/55">
                                   {expiresLabel(grant)}
                                 </span>
                               </div>
@@ -3241,7 +3936,7 @@ export function OneLocationAgentPageContent() {
                                 size="sm"
                                 onClick={() => void handleView(grant)}
                                 disabled={busy === "view"}
-                                className="rounded-full border-black/[0.06] bg-[#f2f2f7] dark:border-white/[0.08] dark:bg-white/10"
+                                className="w-full rounded-full border-black/[0.06] bg-[#f2f2f7] sm:w-auto dark:border-white/[0.08] dark:bg-white/10"
                               >
                                 {busy === "view" ? (
                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -3278,23 +3973,27 @@ export function OneLocationAgentPageContent() {
                 </div>
               </section>
 
-              <section className="space-y-2 px-1">
+              <section
+                ref={publicResponsesSectionRef}
+                tabIndex={-1}
+                className={cn("min-w-0 max-w-full space-y-2 px-1 outline-none", sectionFocusClassName("public_responses"))}
+              >
                 {sectionLabel("Public link responses")}
                 <div className={onePanelClassName}>
                   {publicSubmissions.length ? (
                     publicSubmissions.map((submission) => (
                       <div
                         key={submission.id}
-                        className="flex items-center gap-3 p-3.5"
+                        className="flex min-w-0 max-w-full flex-col gap-3 overflow-hidden p-3.5 sm:flex-row sm:items-center"
                       >
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f2f2f7] text-[#8e8e93] dark:bg-white/10 dark:text-white/55">
                           <ExternalLink className="h-[18px] w-[18px]" />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <h3 className="truncate text-[16px] font-medium text-[#1c1c1e] dark:text-white">
+                          <h3 className="break-words text-[16px] font-medium text-[#1c1c1e] [overflow-wrap:anywhere] dark:text-white">
                             {publicSubmissionLabel(submission)}
                           </h3>
-                          <p className="truncate text-[12px] text-[#8e8e93] dark:text-white/55">
+                          <p className="break-words text-[12px] text-[#8e8e93] [overflow-wrap:anywhere] dark:text-white/55">
                             {submission.message ||
                               `Status ${submission.status} - ${formatDateTime(submission.submittedAt)}`}
                           </p>
@@ -3314,7 +4013,7 @@ export function OneLocationAgentPageContent() {
                 </div>
               </section>
 
-              <section className="space-y-2 px-1">
+              <section className="min-w-0 max-w-full space-y-2 px-1">
                 {sectionLabel("Refer someone else")}
                 <div className={cn(onePanelClassName, "p-3.5")}>
                   {(state?.receivedGrants ?? []).filter(
@@ -3325,7 +4024,7 @@ export function OneLocationAgentPageContent() {
                       .map((grant) => (
                         <div
                           key={grant.id}
-                          className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
+                          className="grid min-w-0 max-w-full gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
                         >
                           <Select
                             value={referralTargets[grant.id] || ""}
@@ -3361,7 +4060,7 @@ export function OneLocationAgentPageContent() {
                             variant="outline"
                             onClick={() => void handleRefer(grant)}
                             disabled={!referralTargets[grant.id]}
-                            className="rounded-full"
+                            className="w-full min-w-0 rounded-full sm:w-auto"
                           >
                             Refer
                           </ActionButton>
@@ -3378,22 +4077,26 @@ export function OneLocationAgentPageContent() {
               </section>
 
               {requestedByMe.length ? (
-                <section className="space-y-2 px-1">
+                <section
+                  ref={myRequestsSectionRef}
+                  tabIndex={-1}
+                  className={cn("min-w-0 max-w-full space-y-2 px-1 outline-none", sectionFocusClassName("my_requests"))}
+                >
                   {sectionLabel("My requests")}
                   <div className={onePanelClassName}>
                     {requestedByMe.map((request) => (
                       <div
                         key={request.id}
-                        className="flex items-center gap-3 p-3.5"
+                        className="flex min-w-0 max-w-full flex-col gap-3 overflow-hidden p-3.5 sm:flex-row sm:items-center"
                       >
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f2f2f7] text-[#8e8e93] dark:bg-white/10 dark:text-white/55">
                           <Clock3 className="h-[18px] w-[18px]" />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <h3 className="truncate text-[16px] font-medium text-[#1c1c1e] dark:text-white">
-                            {request.ownerUserId}
+                          <h3 className="break-words text-[16px] font-medium text-[#1c1c1e] [overflow-wrap:anywhere] dark:text-white">
+                            {requestOwnerLabel(request, recipients)}
                           </h3>
-                          <p className="truncate text-[12px] text-[#8e8e93] dark:text-white/55">
+                          <p className="break-words text-[12px] text-[#8e8e93] [overflow-wrap:anywhere] dark:text-white/55">
                             Status {request.status} -{" "}
                             {formatDateTime(request.requestedAt)}
                           </p>
@@ -3410,6 +4113,10 @@ export function OneLocationAgentPageContent() {
           </div>
         )}
       </AppPageContentRegion>
+
+      {showOnboarding && (
+        <OneLocationOnboardingOverlay onDismiss={dismissOnboarding} />
+      )}
     </AppPageShell>
   );
 }

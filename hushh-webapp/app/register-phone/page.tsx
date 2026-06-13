@@ -17,9 +17,14 @@ import { shouldBypassPhoneMandateForLocalhost } from "@/lib/services/phone-manda
 const FLOW_SHELL_STYLE = {
   "--page-top-local-offset": "0px",
   "--phone-mandate-safe-pt":
-    "calc(var(--app-safe-area-top-effective, env(safe-area-inset-top, 0px)) + 2rem)",
+    "max(5.75rem, calc(var(--app-safe-area-top-effective, env(safe-area-inset-top, 0px)) + clamp(2rem, 4vh, 3.25rem)))",
   "--phone-mandate-safe-pb":
     "calc(var(--app-safe-area-bottom-effective, env(safe-area-inset-bottom, 0px)) + 2.5rem)",
+  minHeight: "100dvh",
+  paddingTop: "var(--phone-mandate-safe-pt)",
+  paddingBottom: "var(--phone-mandate-safe-pb)",
+  paddingLeft: "clamp(1.25rem, 5vw, 2rem)",
+  paddingRight: "clamp(1.25rem, 5vw, 2rem)",
 } as CSSProperties;
 
 function requiresVaultUnlockForRedirect(path?: string | null): boolean {
@@ -90,12 +95,13 @@ function PhoneMandatePageContent() {
   const [shouldBypassLocalPhoneMandate, setShouldBypassLocalPhoneMandate] = useState(false);
 
   useEffect(() => {
-    if (!loading && Boolean(user) && !phoneNumber) {
-      if (typeof window !== "undefined" && shouldBypassPhoneMandateForLocalhost(window.location.hostname)) {
-        setShouldBypassLocalPhoneMandate(true);
-      }
-    }
-  }, [loading, user, phoneNumber]);
+    setShouldBypassLocalPhoneMandate(
+      !loading &&
+        Boolean(user) &&
+        typeof window !== "undefined" &&
+        shouldBypassPhoneMandateForLocalhost(window.location.hostname),
+    );
+  }, [loading, phoneNumber, redirectPath, user]);
 
   useEffect(() => {
     if (!shouldBypassLocalPhoneMandate || !user) {

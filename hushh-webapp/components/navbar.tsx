@@ -91,6 +91,7 @@ export const Navbar = () => {
     }
   }, [pathname]);
   const hideNavbar =
+    (isAuthenticated && chromeState.hideBottomNav) ||
     pathname?.startsWith(ROUTES.LABS_PROFILE_APPEARANCE) ||
     pathname === ROUTES.DEVELOPERS;
 

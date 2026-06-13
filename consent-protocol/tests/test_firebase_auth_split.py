@@ -90,6 +90,33 @@ def test_verify_firebase_bearer_invalid_id_token_returns_401(monkeypatch):
     assert exc.value.detail == "Invalid Firebase ID token"
 
 
+def test_verify_firebase_bearer_retries_token_used_too_early(monkeypatch):
+    import firebase_admin.auth as firebase_auth
+
+    monkeypatch.setattr(
+        "api.utils.firebase_auth.ensure_firebase_auth_admin",
+        lambda: (True, "test-project"),
+    )
+    monkeypatch.setattr("api.utils.firebase_auth.get_firebase_auth_app", lambda: object())
+    monkeypatch.setattr("api.utils.firebase_auth.time.sleep", lambda _seconds: None)
+    monkeypatch.setattr("api.utils.firebase_auth.time.monotonic", lambda: 1.0)
+
+    attempts = {"count": 0}
+
+    def _verify_after_clock_skew(*_args, **_kwargs):
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            raise firebase_auth.InvalidIdTokenError(
+                "Token used too early, 100 < 108. Check that your computer's clock is set correctly."
+            )
+        return {"uid": "reviewer-user"}
+
+    monkeypatch.setattr(firebase_auth, "verify_id_token", _verify_after_clock_skew)
+
+    assert verify_firebase_bearer("Bearer some-token") == "reviewer-user"
+    assert attempts["count"] == 2
+
+
 def test_verify_firebase_bearer_unexpected_error_returns_500(monkeypatch):
     import firebase_admin.auth as firebase_auth
 
