@@ -66,6 +66,105 @@ def test_iam_persona_schema_not_ready_returns_compat_payload(monkeypatch):
     assert payload["mode"] == "compat_investor"
 
 
+def test_iam_persona_switch_success(monkeypatch):
+    async def _mock_switch(self, user_id: str, persona: str):
+        assert user_id == "user_test_123"
+        assert persona == "ria"
+        return {
+            "user_id": user_id,
+            "active_persona": persona,
+        }
+
+    monkeypatch.setattr(RIAIAMService, "switch_persona", _mock_switch)
+
+    client = TestClient(_build_app())
+
+    response = client.post(
+        "/api/iam/persona/switch",
+        json={"persona": "ria"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["active_persona"] == "ria"
+
+
+def test_iam_persona_switch_schema_not_ready(monkeypatch):
+    async def _mock_switch(self, user_id: str, persona: str):
+        raise IAMSchemaNotReadyError("schema not ready")
+
+    monkeypatch.setattr(RIAIAMService, "switch_persona", _mock_switch)
+
+    client = TestClient(_build_app())
+
+    response = client.post(
+        "/api/iam/persona/switch",
+        json={"persona": "ria"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["code"] == "IAM_SCHEMA_NOT_READY"
+
+
+def test_iam_persona_switch_policy_error(monkeypatch):
+    async def _mock_switch(self, user_id: str, persona: str):
+        raise RIAIAMPolicyError(
+            "RIA verification incomplete",
+            status_code=403,
+        )
+
+    monkeypatch.setattr(RIAIAMService, "switch_persona", _mock_switch)
+
+    client = TestClient(_build_app())
+
+    response = client.post(
+        "/api/iam/persona/switch",
+        json={"persona": "ria"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_marketplace_opt_in_success(monkeypatch):
+    async def _mock_opt_in(self, user_id: str, enabled: bool):
+        return {"enabled": enabled}
+
+    monkeypatch.setattr(
+        RIAIAMService,
+        "set_marketplace_opt_in",
+        _mock_opt_in,
+    )
+
+    client = TestClient(_build_app())
+
+    response = client.post(
+        "/api/iam/marketplace/opt-in",
+        json={"enabled": True},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["enabled"] is True
+
+
+def test_marketplace_opt_in_schema_not_ready(monkeypatch):
+    async def _mock_opt_in(self, user_id: str, enabled: bool):
+        raise IAMSchemaNotReadyError("schema not ready")
+
+    monkeypatch.setattr(
+        RIAIAMService,
+        "set_marketplace_opt_in",
+        _mock_opt_in,
+    )
+
+    client = TestClient(_build_app())
+
+    response = client.post(
+        "/api/iam/marketplace/opt-in",
+        json={"enabled": True},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["code"] == "IAM_SCHEMA_NOT_READY"
+
 def test_ria_request_enforces_verification_policy(monkeypatch):
     async def _mock_require(self, user_id: str):
         raise RIAIAMPolicyError("RIA verification incomplete", status_code=403)
