@@ -138,6 +138,7 @@ type BusyState =
   | "refer"
   | "revoke"
   | "locationSettings"
+  | "selfLocation"
   | "contactSync"
   | "contactInvite"
   | "publicInvite"
@@ -1313,6 +1314,9 @@ function OneLocationAgentPageContent() {
     Record<string, string>
   >({});
   const [publicInviteUrl, setPublicInviteUrl] = useState("");
+  const [myLocationPoint, setMyLocationPoint] =
+    useState<PlainLocationPoint | null>(null);
+  const [myLocationError, setMyLocationError] = useState<string | null>(null);
   const [decryptedPoints, setDecryptedPoints] = useState<
     Record<string, PlainLocationPoint>
   >({});
@@ -3037,6 +3041,30 @@ function OneLocationAgentPageContent() {
     }
   }, [ensureForegroundLocationReady]);
 
+  const handleShowMyLiveLocation = useCallback(async () => {
+    setBusy("selfLocation");
+    setMyLocationError(null);
+    try {
+      const result = await ensureForegroundLocationReady({
+        capturePoint: true,
+        autoOpenSettings: true,
+      });
+      if (!result.ready || !result.point) {
+        const message = "Live location preview needs device Location permission.";
+        setMyLocationError(message);
+        return;
+      }
+      setMyLocationPoint(result.point);
+      toast.success("Your live location preview is ready.");
+    } catch (error) {
+      const message = locationServicesErrorMessage(error);
+      setMyLocationError(message);
+      toast.error(message);
+    } finally {
+      setBusy(null);
+    }
+  }, [ensureForegroundLocationReady]);
+
   return (
     <AppPageShell
       width="standard"
@@ -3182,6 +3210,66 @@ function OneLocationAgentPageContent() {
                       {locationReadiness.actionLabel}
                     </ActionButton>
                   ) : null}
+                </div>
+
+                <div className="overflow-hidden rounded-[20px] border border-black/[0.06] bg-white shadow-[0_2px_12px_rgba(15,23,42,0.06)] dark:border-white/[0.08] dark:bg-[#1c1c1e]/90 dark:shadow-[0_12px_30px_rgba(0,0,0,0.22)]">
+                  <div className="flex min-w-0 flex-col gap-3 p-3.5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eaf3ff] text-[#007aff] dark:bg-[#0a84ff]/15 dark:text-[#76b7ff]">
+                        <LocateFixed className="h-5 w-5" aria-hidden="true" />
+                      </span>
+                      <div className="min-w-0">
+                        <h3 className="break-words text-[16px] font-bold tracking-tight text-[#1c1c1e] [overflow-wrap:anywhere] dark:text-white">
+                          My live location
+                        </h3>
+                        <p className="mt-1 break-words text-[13px] leading-5 text-[#8e8e93] [overflow-wrap:anywhere] dark:text-white/55">
+                          Preview your current GPS location privately before you
+                          share it with anyone.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant={myLocationPoint ? "outline" : "default"}
+                      size="sm"
+                      onClick={() => void handleShowMyLiveLocation()}
+                      disabled={busy !== null && busy !== "selfLocation"}
+                      className={cn(
+                        "h-10 w-full shrink-0 rounded-full px-4 text-[13px] font-semibold sm:w-auto",
+                        myLocationPoint
+                          ? "border-[#0a84ff]/30 bg-[#0a84ff]/10 text-[#0066cc] hover:bg-[#0a84ff]/15 dark:text-[#76b7ff]"
+                          : "bg-[#007aff] text-white hover:bg-[#006fe6]",
+                      )}
+                    >
+                      {busy === "selfLocation" ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <LocateFixed className="mr-2 h-4 w-4" aria-hidden="true" />
+                      )}
+                      {myLocationPoint ? "Refresh my location" : "Show my location"}
+                    </Button>
+                  </div>
+
+                  {myLocationError ? (
+                    <div className="mx-3.5 mb-3.5 rounded-[14px] border border-[#ff3b30]/25 bg-[#ff3b30]/10 px-3 py-2 text-[12px] font-medium text-[#b42318] dark:text-[#ff9f9a]">
+                      {myLocationError}
+                    </div>
+                  ) : null}
+
+                  {myLocationPoint ? (
+                    <div className="space-y-2 px-3.5 pb-3.5">
+                      <LocalMapPreview point={myLocationPoint} />
+                      <p className="text-[12px] font-medium leading-5 text-[#8e8e93] dark:text-white/55">
+                        This preview stays on this device. It does not create a
+                        private grant, public link, or access request.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mx-3.5 mb-3.5 rounded-[16px] border border-dashed border-black/[0.08] bg-[#f8f8fb] p-3 text-[13px] font-medium leading-5 text-[#8e8e93] dark:border-white/[0.1] dark:bg-white/[0.04] dark:text-white/55">
+                      This preview stays on this device. It does not create a
+                      private grant, public link, or access request.
+                    </div>
+                  )}
                 </div>
               </section>
 
