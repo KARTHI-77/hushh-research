@@ -575,6 +575,11 @@ describe("OneLocationAgentPage", () => {
   });
 
   it("tracks public location link creation without analytics identity payloads", async () => {
+    mockGetState.mockResolvedValueOnce({
+      ...locationState(),
+      ownerGrants: [],
+    });
+
     render(<OneLocationAgentPageContent />);
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
