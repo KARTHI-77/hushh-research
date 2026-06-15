@@ -499,30 +499,21 @@ class KaiChatService:
             logger.debug("kai_chat.attribute_learning_skipped user_id=%s; no active loop", user_id)
             return
 
-        task = loop.create_task(
-            self.attribute_learner.extract_and_store(
-                user_id=user_id,
-                user_message=user_message,
-                assistant_response=assistant_response,
-            ),
-            name=f"attr_learn:{user_id}",
-        )
+        async def _run_attribute_learning() -> None:
+            try:
+                await self.attribute_learner.extract_and_store(
+                    user_id=user_id,
+                    user_message=user_message,
+                    assistant_response=assistant_response,
+                )
+            except Exception:
+                logger.exception("kai_chat.attribute_learning_failed user_id=%s", user_id)
 
         # Retain a strong reference until completion so the loop does not garbage
-        # collect this background extraction mid-execution.
+        # collect this background extraction mid-execution, and log any failure.
+        task = loop.create_task(_run_attribute_learning(), name=f"attr_learn:{user_id}")
         _attribute_learning_tasks.add(task)
-
-        def _log_attribute_learning_failure(done: asyncio.Task) -> None:
-            _attribute_learning_tasks.discard(done)
-            try:
-                done.result()
-            except Exception:
-                logger.exception(
-                    "kai_chat.attribute_learning_failed user_id=%s",
-                    user_id,
-                )
-
-        task.add_done_callback(_log_attribute_learning_failure)
+        task.add_done_callback(_attribute_learning_tasks.discard)
 
     async def _should_prompt_portfolio(
         self,
