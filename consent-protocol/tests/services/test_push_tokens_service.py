@@ -5,6 +5,8 @@ import pytest
 
 from hushh_mcp.services.push_tokens_service import PushTokensService
 
+TEST_PUSH_VALUE = "sample_value"  # nosec B105
+
 def test_upsert_user_push_token_returns_inserted_id():
     fake_db = Mock()
 
@@ -21,7 +23,7 @@ def test_upsert_user_push_token_returns_inserted_id():
 
         result = service.upsert_user_push_token(
             user_id="user1",
-            token="abc",
+            token=TEST_PUSH_VALUE,
             platform="web",
         )
 
@@ -43,7 +45,7 @@ def test_upsert_user_push_token_returns_none_when_no_row():
 
         result = service.upsert_user_push_token(
             user_id="user1",
-            token="abc",
+            token=TEST_PUSH_VALUE,
             platform="web",
         )
 
@@ -66,7 +68,7 @@ def test_upsert_user_push_token_raises_on_db_error():
         with pytest.raises(RuntimeError):
             service.upsert_user_push_token(
                 user_id="user1",
-                token="abc",
+                token=TEST_PUSH_VALUE,
                 platform="web",
             )
 
