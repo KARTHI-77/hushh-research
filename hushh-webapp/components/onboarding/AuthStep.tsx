@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { getRedirectResult } from "firebase/auth";
 import { Shield } from "lucide-react";
@@ -12,7 +13,7 @@ import { HushhLoader } from "@/components/app-ui/hushh-loader";
 import { NativeTestBeacon } from "@/components/app-ui/native-test-beacon";
 import { useStepProgress } from "@/lib/progress/step-progress-context";
 import { isAndroid } from "@/lib/capacitor/platform";
-import { BrandMark, Icon } from "@/lib/morphy-ux/ui";
+import { Icon } from "@/lib/morphy-ux/ui";
 import { morphyToast } from "@/lib/morphy-ux/morphy";
 import { AuthProviderButton } from "@/components/onboarding/AuthProviderButton";
 import { PostAuthRouteService } from "@/lib/services/post-auth-route-service";
@@ -77,6 +78,24 @@ export function AuthStep({
   const [activeLegalDoc, setActiveLegalDoc] = useState<KaiLegalDocumentType | null>(
     null
   );
+  const localReviewerCredentialsAvailable = useMemo(() => {
+    return Boolean(
+      resolveLocalReviewerCredentials(
+        typeof window !== "undefined" ? window.location.hostname : null
+      )
+    );
+  }, []);
+  const isLocalReviewerSurface = useMemo(() => {
+    if (typeof window === "undefined") {
+      return process.env.NODE_ENV !== "production";
+    }
+    const hostname = window.location.hostname.toLowerCase();
+    return (
+      process.env.NODE_ENV !== "production" ||
+      hostname === "localhost" ||
+      hostname === "127.0.0.1"
+    );
+  }, []);
   const openLegalDoc = useCallback((docType: KaiLegalDocumentType) => {
     // Defer open so the originating tap does not get interpreted as outside-interact.
     requestAnimationFrame(() => setActiveLegalDoc(docType));
@@ -292,7 +311,7 @@ export function AuthStep({
         });
         morphyToast.error("Reviewer login failed: no user session returned.");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setNativeAuthState("anonymous");
       setNativeDataState("error");
       setNativeErrorCode("reviewer_login_failed");
@@ -302,7 +321,7 @@ export function AuthStep({
         result: "error",
         error_class: "auth_failed",
       });
-      morphyToast.error(err.message || "Failed to sign in as reviewer");
+      morphyToast.error(err instanceof Error ? err.message : "Failed to sign in as reviewer");
     }
   }, [
     growthEntrySurface,
@@ -500,7 +519,10 @@ export function AuthStep({
       ];
 
   return (
-    <main className="min-h-[100dvh] w-full bg-transparent" data-testid="auth-step-primary">
+    <main
+      className="min-h-[100dvh] w-full bg-white text-[#1d1d1f] dark:bg-[#000000] dark:text-[#f5f5f7]"
+      data-testid="auth-step-primary"
+    >
       <NativeTestBeacon
         routeId="/login"
         marker="native-route-login"
@@ -527,39 +549,39 @@ export function AuthStep({
       <div
         className={
           compact
-            ? "mx-auto flex min-h-[100dvh] w-full max-w-md flex-col px-8 pt-[calc(16px+var(--app-safe-area-top-effective,0px))] pb-[var(--app-screen-footer-pad)]"
-            : "mx-auto flex min-h-[100dvh] w-full max-w-md flex-col px-8 pt-10 pb-[var(--app-screen-footer-pad)]"
+            ? "mx-auto flex min-h-[100dvh] w-full max-w-[27rem] flex-col px-6 pt-[calc(24px+var(--app-safe-area-top-effective,0px))] pb-[calc(24px+var(--app-screen-footer-pad))]"
+            : "mx-auto flex min-h-[100dvh] w-full max-w-[27rem] flex-col px-6 pt-[calc(48px+var(--app-safe-area-top-effective,0px))] pb-[calc(28px+var(--app-screen-footer-pad))]"
         }
       >
         <header className="flex-none text-center">
-          <BrandMark size={compact ? "sm" : "md"} unframed className="mx-auto" />
-          {compact ? (
-            <>
-              <h1 className="mt-6 text-[clamp(1.75rem,5.8vw,2.35rem)] font-black tracking-tight leading-[1.12]">
-                Sign in to One
-              </h1>
-              <p className="mx-auto mt-3 max-w-[17.5rem] text-sm leading-relaxed text-muted-foreground">
-                Continue with your preferred provider.
-              </p>
-            </>
-          ) : (
-            <>
-              <h1 className="mt-8 text-[clamp(2.2rem,7vw,3rem)] font-black tracking-tight leading-[1.08]">
-                Meet One,
-                <br />
-                Your Personal
-                <br />
-                Financial Advisor
-              </h1>
-              <p className="mx-auto mt-4 max-w-[17.5rem] text-[17px] leading-relaxed text-muted-foreground">
-                The fastest path to actionable wealth insights.
-              </p>
-            </>
-          )}
+          <Image
+            src="/one-quiet-emoji.png"
+            alt="One"
+            width={compact ? 52 : 58}
+            height={compact ? 52 : 58}
+            priority
+            className="mx-auto h-[52px] w-[52px] object-contain drop-shadow-[0_14px_28px_rgba(0,0,0,0.08)] sm:h-[58px] sm:w-[58px]"
+          />
+          <div
+            role="heading"
+            aria-level={1}
+            className="mt-2.5 text-[36px] font-medium leading-[1.06] tracking-normal text-[#1d1d1f] sm:text-[42px] dark:text-[#f5f5f7]"
+          >
+            Sign in to One.
+          </div>
+          <p className="mx-auto mt-3 max-w-[20rem] text-[16px] font-normal leading-[1.45] tracking-normal text-[#6e6e73] sm:text-[17px] dark:text-[#a1a1a6]">
+            Continue to your personal financial advisor.
+          </p>
         </header>
 
-        <section className={compact ? "flex-1 min-h-0 flex items-center pt-6" : "flex-1 min-h-0 flex items-center"}>
-          <div className="mx-auto w-full max-w-[20rem] space-y-3">
+        <section
+          className={
+            compact
+              ? "flex-none pt-11"
+              : "flex-none pt-12"
+          }
+        >
+          <div className="mx-auto w-full max-w-[21.5rem] space-y-3">
             {authOptions.map((option) => (
               <AuthProviderButton
                 key={option.id}
@@ -569,28 +591,30 @@ export function AuthStep({
               />
             ))}
 
-            <p className="pt-1 text-center text-xs text-muted-foreground">
-              After sign-in, Kai requires a verified phone number before you continue.
+            <p className="mx-auto max-w-[18.75rem] pt-2 text-center text-[13px] leading-[1.45] text-[#86868b] dark:text-[#8e8e93]">
+              A verified phone number is required before you continue.
             </p>
 
-            {(reviewModeConfig.enabled || nativeReviewerVisible) && (
+            {(reviewModeConfig.enabled ||
+              nativeReviewerVisible ||
+              localReviewerCredentialsAvailable ||
+              isLocalReviewerSurface) && (
               <AuthProviderButton
                 label="Continue as Reviewer"
                 icon={<Icon icon={Shield} size="md" />}
                 onClick={handleReviewerLogin}
-                className="border-yellow-500/30"
               />
             )}
           </div>
         </section>
 
-        <footer className={compact ? "flex-none pt-4" : "flex-none pt-3"}>
-          <p className="mx-auto max-w-[18.75rem] text-center text-[11px] leading-normal text-muted-foreground/80">
+        <footer className={compact ? "mt-auto flex-none pt-8" : "mt-auto flex-none pt-10"}>
+          <p className="mx-auto max-w-[19.5rem] text-center text-[11px] leading-[1.45] text-[#86868b] dark:text-[#8e8e93]">
             By continuing, you agree to Kai&apos;s{" "}
             <button
               type="button"
               onClick={() => openLegalDoc("terms")}
-              className="font-semibold text-foreground underline underline-offset-2 transition-opacity hover:opacity-70"
+              className="font-semibold text-[#0066cc] transition-opacity hover:opacity-70 dark:text-[#2997ff]"
             >
               Terms
             </button>{" "}
@@ -598,7 +622,7 @@ export function AuthStep({
             <button
               type="button"
               onClick={() => openLegalDoc("privacy")}
-              className="font-semibold text-foreground underline underline-offset-2 transition-opacity hover:opacity-70"
+              className="font-semibold text-[#0066cc] transition-opacity hover:opacity-70 dark:text-[#2997ff]"
             >
               Privacy Policy
             </button>
@@ -619,6 +643,7 @@ export function AuthStep({
 function GoogleIcon() {
   return (
     <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
+      <title>Google</title>
       <path
         fill="#4285F4"
         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -642,6 +667,7 @@ function GoogleIcon() {
 function AppleIcon() {
   return (
     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <title>Apple</title>
       <path d="M17.05 20.28c-.98.95-2.05.88-3.08.38-1.07-.52-2.07-.51-3.2 0-1.01.43-2.1.49-2.98-.38C5.22 17.63 2.7 12 5.45 8.04c1.47-2.09 3.8-2.31 5.33-1.18 1.1.75 3.3.73 4.45-.04 2.1-1.31 3.55-.95 4.5 1.14-.15.08.2.14 0 .2-2.63 1.34-3.35 6.03.95 7.84-.46 1.4-1.25 2.89-2.26 4.4l-.07.08-.05-.2zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.17 2.22-1.8 4.19-3.74 4.25z" />
     </svg>
   );

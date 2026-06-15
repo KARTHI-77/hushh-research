@@ -361,18 +361,19 @@ export function AnalysisSummaryView({
     <div className="mx-auto w-full space-y-4 pb-safe pt-1" style={APP_MEASURE_STYLES.reading}>
       {!embedded ? (
         <div className="flex items-center justify-between gap-3">
-          <Button variant="none" effect="fade" size="sm" onClick={onBack} disabled={!onBack}>
-            <Icon icon={ArrowLeft} size="sm" className="mr-1" />
+          <Button type="button" variant="none" effect="fade" size="sm" onClick={onBack} disabled={!onBack}>
+            <Icon icon={ArrowLeft} size="sm" className="mr-1" aria-hidden="true" />
             History
           </Button>
           <Button
+            type="button"
             variant="none"
             effect="fade"
             size="sm"
             onClick={() => onReanalyze?.(entry.ticker)}
             disabled={!onReanalyze}
           >
-            <Icon icon={RefreshCw} size="sm" className="mr-1" />
+            <Icon icon={RefreshCw} size="sm" className="mr-1" aria-hidden="true" />
             Re-analyze
           </Button>
         </div>
@@ -465,8 +466,8 @@ export function AnalysisSummaryView({
             </p>
           </div>
           {!embedded && onOpenDebate ? (
-            <Button variant="blue-gradient" effect="fill" size="sm" onClick={onOpenDebate}>
-              <Icon icon={Scale} size="sm" className="mr-1" />
+            <Button type="button" variant="blue-gradient" effect="fill" size="sm" onClick={onOpenDebate}>
+              <Icon icon={Scale} size="sm" className="mr-1" aria-hidden="true" />
               Open Detailed Debate
             </Button>
           ) : null}
