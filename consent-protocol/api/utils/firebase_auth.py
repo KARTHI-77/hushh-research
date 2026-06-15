@@ -23,7 +23,11 @@ def _is_token_used_too_early_error(exc: Exception) -> bool:
     return "used too early" in str(exc).lower()
 
 
-def verify_firebase_bearer(authorization: Optional[str]) -> str:
+def verify_firebase_bearer(
+    authorization: Optional[str],
+    *,
+    retry_token_used_too_early: bool = False,
+) -> str:
     """
     Verify `Authorization: Bearer <firebaseIdToken>` and return UID.
     """
@@ -49,7 +53,11 @@ def verify_firebase_bearer(authorization: Optional[str]) -> str:
                 decoded = firebase_auth.verify_id_token(id_token, app=firebase_app)
                 break
             except firebase_auth.InvalidIdTokenError as exc:
-                if not _is_token_used_too_early_error(exc) or time.monotonic() >= deadline:
+                if (
+                    not retry_token_used_too_early
+                    or not _is_token_used_too_early_error(exc)
+                    or time.monotonic() >= deadline
+                ):
                     raise
                 time.sleep(1)
         uid = decoded.get("uid")
