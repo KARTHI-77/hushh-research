@@ -575,7 +575,7 @@ describe("OneLocationAgentPage", () => {
   });
 
   it("tracks public location link creation without analytics identity payloads", async () => {
-    mockGetState.mockResolvedValueOnce({
+    mockGetState.mockResolvedValue({
       ...locationState(),
       ownerGrants: [],
     });
