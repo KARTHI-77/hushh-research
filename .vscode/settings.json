@@ -1,5 +1,4 @@
 {
     "CodeGPT.apiKey": "LM Studio",
-    "git.ignoreLimitWarning": true,
-    "emulator.emulatorPathWindows": "C:\\Users\\Asus\\AppData\\Local\\Android\\Sdk\\emulator"
+    "git.ignoreLimitWarning": true
 }
