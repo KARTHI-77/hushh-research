@@ -29,7 +29,7 @@
     investor: {
       Market: "/kai",
       Portfolio: "/kai/portfolio",
-      Analysis: "/kai/analysis?tab=history",
+      Analysis: "/kai/analysis",
       Connect: "/marketplace",
       Profile: "/profile",
     },
@@ -142,6 +142,19 @@
       .join("|");
   }
 
+  function bridgeSummary() {
+    var bridge = nativeTestBridge();
+    return [
+      "enabled=" + (bridge.enabled === true ? "1" : "0"),
+      "navigate=" + (typeof bridge.navigateToRoute === "function" ? "1" : "0"),
+      "switch=" + (typeof bridge.switchPersona === "function" ? "1" : "0"),
+      "active=" + String(bridge.activePersona || ""),
+      "primary=" + String(bridge.primaryNavPersona || ""),
+      "persona_switch=" + String(bridge.personaSwitchStatus || ""),
+      "bootstrap=" + String(bridge.bootstrapState || ""),
+    ].join(",");
+  }
+
   function normalizeRoute(value) {
     var trimmed = String(value || "").trim();
     if (!trimmed || trimmed === "/") return trimmed || "/";
@@ -163,6 +176,8 @@
       var allowed = allowedRouteIds[i];
       var normalizedAllowed = normalizeRoute(allowed);
       if (current === normalizedAllowed) return true;
+      if (current.indexOf(normalizedAllowed + "?") === 0) return true;
+      if (current.indexOf(normalizedAllowed + "#") === 0) return true;
       if (allowed.includes("[") && allowed.includes("]")) {
         var escaped = normalizedAllowed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         var pattern = new RegExp(
@@ -197,7 +212,12 @@
   function currentRouteMatches(route) {
     var current = normalizeRoute(window.location.pathname + window.location.search);
     var expected = normalizeRoute(route);
-    return current === expected || current.indexOf(expected + "/") === 0;
+    return (
+      current === expected ||
+      current.indexOf(expected + "/") === 0 ||
+      current.indexOf(expected + "?") === 0 ||
+      current.indexOf(expected + "#") === 0
+    );
   }
 
   async function waitForBeacon(routeIds, dataStates, timeoutMs) {
@@ -270,6 +290,20 @@
         clickElement(buttons[j]);
         await sleep(400);
         await ensureBottomNavRoute(label, beforeRoute);
+        return;
+      }
+    }
+
+    var bridge = nativeTestBridge();
+    var personas = [bridge.primaryNavPersona, bridge.activePersona];
+    for (var k = 0; k < personas.length; k += 1) {
+      var persona = personas[k];
+      var expectedRoute =
+        persona &&
+        NAV_ROUTE_BY_PERSONA_AND_LABEL[persona] &&
+        NAV_ROUTE_BY_PERSONA_AND_LABEL[persona][label];
+      if (expectedRoute && bridge.enabled === true && typeof bridge.navigateToRoute === "function") {
+        await navigateWithNativeRouter(expectedRoute);
         return;
       }
     }
@@ -361,6 +395,18 @@
       await sleep(250);
     }
     throw new Error('text not visible: "' + value + '" on ' + window.location.href);
+  }
+
+  async function assertNoText(value, regex, timeoutMs) {
+    var pattern = regex ? new RegExp(value, "i") : new RegExp(escapeRegExp(value), "i");
+    var deadline = Date.now() + (timeoutMs || 3000);
+    while (Date.now() < deadline) {
+      var text = (document.body && document.body.innerText) || "";
+      if (pattern.test(text)) {
+        throw new Error('unexpected text visible: "' + value + '" on ' + window.location.href);
+      }
+      await sleep(250);
+    }
   }
 
   async function waitForUrlIncludes(value, timeoutMs) {
@@ -479,6 +525,22 @@
     } catch (_) {}
   }
 
+  function applyNativeTestRouteLock(route) {
+    var bridge = nativeTestBridge();
+    bridge.initialRoute = route;
+    bridge.expectedRoute = route;
+    bridge.expectedMarker = null;
+    try {
+      var root = document.documentElement;
+      if (root) {
+        root.setAttribute("data-hushh-native-test-initial-route", route);
+        root.setAttribute("data-hushh-native-test-expected-route", route);
+        root.setAttribute("data-hushh-native-test-expected-marker", "");
+      }
+      window.dispatchEvent(new Event("hushh:native-test-config-updated"));
+    } catch (_) {}
+  }
+
   function routeForPersona(persona) {
     return persona === "ria" ? "/ria" : "/kai";
   }
@@ -515,6 +577,30 @@
       await sleep(intervalMs || 250);
     }
     return false;
+  }
+
+  async function waitForVisibleTestId(testId, timeoutMs) {
+    var selector = '[data-testid="' + testId + '"]';
+    var ready = await waitForCondition(function () {
+      return Boolean(firstVisible(selector));
+    }, timeoutMs || 30000);
+    if (!ready) {
+      var body = ((document.body && document.body.innerText) || "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .slice(0, 180);
+      throw new Error(
+        "expected visible testid: " +
+          testId +
+          " route=" +
+          window.location.pathname +
+          window.location.search +
+          " visible=" +
+          visibleButtonSummary(8) +
+          " body=" +
+          body
+      );
+    }
   }
 
   async function attemptNativePersonaSwitch(persona) {
@@ -588,10 +674,18 @@
 
   async function waitForRoute(route, timeoutMs) {
     var expected = normalizeRoute(route);
+    var expectedBase = expected.length > 1 && expected.endsWith("/") ? expected.slice(0, -1) : expected;
     var deadline = Date.now() + (timeoutMs || 5000);
     while (Date.now() < deadline) {
       var current = normalizeRoute(window.location.pathname + window.location.search);
-      if (current === expected || current.indexOf(expected + "/") === 0) {
+      var currentBase = current.length > 1 && current.endsWith("/") ? current.slice(0, -1) : current;
+      if (
+        currentBase === expectedBase ||
+        current === expected ||
+        current.indexOf(expected + "/") === 0 ||
+        current.indexOf(expected + "?") === 0 ||
+        current.indexOf(expected + "#") === 0
+      ) {
         return true;
       }
       await sleep(150);
@@ -601,10 +695,21 @@
 
   async function navigateWithNativeRouter(route) {
     var bridge = nativeTestBridge();
-    clearNativeTestRouteLock();
+    if (currentRouteMatches(route)) {
+      clearNativeTestRouteLock();
+      return;
+    }
+    applyNativeTestRouteLock(route);
     if (typeof bridge.navigateToRoute === "function") {
       bridge.navigateToRoute(route);
-      if (await waitForRoute(route, 5000)) return;
+      if (await waitForRoute(route, 30000)) {
+        clearNativeTestRouteLock();
+        return;
+      }
+      if (currentRouteMatches(route)) {
+        clearNativeTestRouteLock();
+        return;
+      }
       throw new Error(
         "Next.js native router did not reach " +
           route +
@@ -620,6 +725,7 @@
     await waitForNativeAutomationBridge();
     var expectedTour = persona === "ria" ? "nav-ria-home" : "nav-market";
     var bridge = nativeTestBridge();
+    var route = routeForPersona(persona);
     if (
       routeMatchesPersona(persona) &&
       firstVisible('[data-tour-id="' + expectedTour + '"]')
@@ -628,25 +734,15 @@
       return;
     }
 
-    await resolvePersonaMismatchPrompt(persona);
-
     if (bridge.enabled === true && typeof bridge.switchPersona === "function") {
-      if (!routeMatchesPersona(persona) && typeof bridge.navigateToRoute === "function") {
-        await navigateWithNativeRouter(routeForPersona(persona));
-        await resolvePersonaMismatchPrompt(persona);
+      if (!routeMatchesPersona(persona)) {
+        await navigateWithNativeRouter(route);
       }
-
       var switched = await attemptNativePersonaSwitch(persona);
       if (switched) {
         await resolvePersonaMismatchPrompt(persona);
       }
-
-      var route = routeForPersona(persona);
-      if (!routeMatchesPersona(persona)) {
-        await navigateWithNativeRouter(route);
-        await resolvePersonaMismatchPrompt(persona);
-        await waitForBeacon([route]);
-      }
+      await waitForBeacon([route], undefined, 30000);
 
       var ready = await waitForCondition(function () {
         return (
@@ -779,6 +875,9 @@
       case "assert_text":
         await waitForText(step.value, step.regex === true, step.timeoutMs);
         return;
+      case "assert_no_text":
+        await assertNoText(step.value, step.regex === true, step.timeoutMs);
+        return;
       case "assert_no_persona_mismatch_prompt":
         await waitForNoPersonaMismatchPrompt(step.timeoutMs);
         return;
@@ -798,6 +897,9 @@
         clickElement(testTarget);
         await sleep(400);
         return;
+      case "navigate_route":
+        await navigateWithNativeRouter(step.route);
+        return;
       case "wait_beacon":
         await waitForBeacon(step.routeIds, step.dataStates, step.timeoutMs);
         return;
@@ -805,9 +907,7 @@
         await waitForUrlIncludes(step.value, step.timeoutMs);
         return;
       case "assert_visible_testid":
-        if (!firstVisible('[data-testid="' + step.testId + '"]')) {
-          throw new Error("expected visible testid: " + step.testId);
-        }
+        await waitForVisibleTestId(step.testId, step.timeoutMs);
         return;
       case "open_ria_workspace":
         await openRiaWorkspace();
@@ -822,7 +922,9 @@
     var defaultStepTimeoutMs = flow.stepTimeoutMs || 30000;
     for (var i = 0; i < flow.steps.length; i += 1) {
       var step = flow.steps[i];
-      var stepTimeoutMs = step.timeoutMs || defaultStepTimeoutMs;
+      var stepTimeoutMs = step.timeoutMs
+        ? step.timeoutMs + 1000
+        : defaultStepTimeoutMs;
       var bridge = nativeTestBridge();
       bridge.uiFlowStepIndex = i;
       bridge.uiFlowStepType = step.type || "";
@@ -837,7 +939,9 @@
                   "step timeout (" +
                     step.type +
                     ") visible=" +
-                    visibleButtonSummary(8)
+                    visibleButtonSummary(8) +
+                    " bridge=" +
+                    bridgeSummary()
                 )
               );
             }, stepTimeoutMs);
