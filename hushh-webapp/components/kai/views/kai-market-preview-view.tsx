@@ -12,12 +12,12 @@ import {
   Cpu,
   LineChart,
   Loader2,
-  MessageCircle,
   Mic,
   Newspaper,
   Percent,
   Search,
   Sparkles,
+  Star,
   TrendingDown,
   TrendingUp,
   X,
@@ -310,9 +310,8 @@ function toIndexStripItems(
   ]
     .map(({ label, match }) => {
       const row = overviewRows.find((candidate) => match(String(candidate.label || "").toLowerCase())) || null;
-      return hasUsableOverviewRow(row) ? toIndexOverviewMetric(row, label) : null;
-    })
-    .filter((row): row is MarketOverviewMetric => Boolean(row));
+      return hasUsableOverviewRow(row) ? toIndexOverviewMetric(row, label) : toIndexOverviewMetric(null, label);
+    });
 
   const providerRows = overviewRows
     .filter(hasUsableOverviewRow)
@@ -843,7 +842,7 @@ function OneMarketKaiSheet({
   return (
     <section
       className={cn(
-        "fixed inset-x-0 bottom-0 z-50 mx-auto flex h-[min(92vh,760px)] max-w-[720px] flex-col rounded-t-[28px] bg-white/95 shadow-[0_-18px_50px_-20px_rgba(0,0,0,0.40)] backdrop-blur-[20px] transition-transform duration-300",
+        "fixed inset-x-0 bottom-0 z-[430] mx-auto flex h-[min(92vh,760px)] max-w-[720px] flex-col rounded-t-[28px] bg-white/95 shadow-[0_-18px_50px_-20px_rgba(0,0,0,0.40)] backdrop-blur-[20px] transition-transform duration-300",
         open ? "translate-y-0" : "translate-y-[105%]"
       )}
       aria-label="Kai agent"
@@ -852,7 +851,7 @@ function OneMarketKaiSheet({
       <div className="mx-auto mt-2.5 h-[5px] w-9 rounded-full bg-[color:var(--one-fg3)] opacity-35" />
       <header className="flex items-center gap-3 border-b border-[color:var(--one-line)] px-[18px] pb-3 pt-3">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--one-blue)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.30)]">
-          <MessageCircle className="h-4 w-4" />
+          <Star className="h-4 w-4 fill-current" />
         </span>
         <span className="min-w-0 flex-1">
           <b className="block text-[17px] font-semibold text-[color:var(--one-fg)]">Kai</b>
@@ -2115,7 +2114,7 @@ export function KaiMarketPreviewView() {
             className={cn(oneMarketGlassClassName, "mt-[22px] flex w-full items-center gap-[11px] rounded-2xl px-4 py-3.5 text-left transition-transform active:scale-[0.99]")}
           >
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[color:var(--one-blue)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.30)]">
-              <MessageCircle className="h-4 w-4" />
+              <Star className="h-4 w-4 fill-current" />
             </span>
             <span className="min-w-0 flex-1 text-[13px] leading-snug text-[color:var(--one-fg)]">
               <b className="font-semibold">Kai:</b> {kaiStripText}
