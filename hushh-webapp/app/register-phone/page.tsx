@@ -17,7 +17,7 @@ import { shouldBypassPhoneMandateForLocalhost } from "@/lib/services/phone-manda
 const FLOW_SHELL_STYLE = {
   "--page-top-local-offset": "0px",
   "--phone-mandate-safe-pt":
-    "max(5.75rem, calc(var(--app-safe-area-top-effective, env(safe-area-inset-top, 0px)) + clamp(2rem, 4vh, 3.25rem)))",
+    "max(5.75rem, calc(var(--app-safe-area-top-effective, env(safe-area-inset-top, 0px)) + 2rem))",
   "--phone-mandate-safe-pb":
     "calc(var(--app-safe-area-bottom-effective, env(safe-area-inset-bottom, 0px)) + 2.5rem)",
   minHeight: "100dvh",
