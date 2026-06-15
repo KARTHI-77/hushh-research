@@ -1342,7 +1342,7 @@ export class RiaService {
       limit?: number;
     },
   ): Promise<MarketplaceContactMatch[]> {
-    const response = await authFetch("/api/marketplace/contacts/match", {
+    const response = await authFetch("/api/ria/marketplace/contacts/match", {
       method: "POST",
       idToken,
       body: payload,
