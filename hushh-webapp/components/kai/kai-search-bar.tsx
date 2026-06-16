@@ -1742,11 +1742,11 @@ const debouncedSearch = useDebouncedValue(finalTranscript, 500);
               </ShellActionSurface>
             </div>
           ) : (
-            <div className="relative flex h-[172px] w-full items-end justify-end">
-              <div className="ml-auto flex h-[172px] w-[58px] flex-col items-center justify-end gap-1.5">
+            <div className="relative flex h-[124px] w-full items-end justify-end">
+              <div className="ml-auto flex w-[min(17rem,calc(100vw-2rem))] flex-col items-end justify-end gap-2">
                 <button
                   type="button"
-                  className="pointer-events-auto grid h-[58px] w-[58px] place-items-center rounded-full transition-transform duration-200 ease-out hover:scale-[1.03] active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="pointer-events-auto grid h-12 w-12 place-items-center rounded-full transition-transform duration-200 ease-out hover:scale-[1.03] active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label="Open Kai agent"
                   disabled={!agentPopover}
                   onClick={() => agentPopover?.openAgent()}
@@ -1755,100 +1755,67 @@ const debouncedSearch = useDebouncedValue(finalTranscript, 500);
                     <Bot className="h-[18px] w-[18px]" strokeWidth={1.95} />
                   </span>
                 </button>
-                <ShellActionSurface
-                  variant="icon"
-                  wrapperClassName="pointer-events-auto"
-                  className="kai-bottom-search-action grid h-[58px] w-[58px] place-items-center text-muted-foreground"
-                  aria-label={
-                    ambientMode === "idle"
-                      ? "Start Kai voice"
-                      : "End Kai voice session"
-                  }
-                  aria-disabled={micDisabled}
-                  onClick={(event) => {
-                    if (ambientMode !== "idle") {
-                      cancelListening();
-                      return;
+                <div className="pointer-events-auto w-full rounded-full kai-bottom-search-action p-[5px]">
+                  <VoiceAmbientSearchSurface
+                    mode={ambientMode}
+                    placeholder="Analyze, dashboard, consent with Kai"
+                    transcriptPreview={transcriptPreview}
+                    stageText={processingStageText}
+                    replyText={
+                      showSpeakingCompact || showRetryCompact
+                        ? lastReplyText || debouncedSearch
+                        : debouncedSearch
                     }
-                    if (micDisabled) {
-                      toast.info(stableMicDisabledReason || "Voice is unavailable right now.");
-                      return;
+                    smoothedLevel={smoothedLevel}
+                    disabled={disabled}
+                    showMic={!micHidden}
+                    micDisabled={micDisabled}
+                    micDisabledReason={stableMicDisabledReason}
+                    showDebug={DEV_VOICE_DEBUG_ENABLED}
+                    debugActive={voiceDebugOpen}
+                    showSubmit={
+                      VOICE_V2_FLAGS.submitDebugVisible &&
+                      (showVoiceSheet || realtimeConnecting)
                     }
-                    handleMicTap(event);
-                  }}
-                >
-                  {ambientMode === "idle" ? (
-                    <Mic className="h-5 w-5" strokeWidth={2.05} />
-                  ) : (
-                    <X className="h-5 w-5" strokeWidth={2.05} />
-                  )}
-                </ShellActionSurface>
-                <ShellActionSurface
-                  variant="icon"
-                  wrapperClassName="pointer-events-auto"
-                  className="kai-bottom-search-action grid h-[58px] w-[58px] place-items-center"
-                  aria-label="Search"
-                  onClick={() => setOpen(true)}
-                >
-                  <Search className="h-5 w-5" strokeWidth={2.2} />
-                </ShellActionSurface>
-              </div>
-              <div className="hidden">
-                <VoiceAmbientSearchSurface
-                  mode={ambientMode}
-                  placeholder="Analyze, dashboard, consent with Kai"
-                  transcriptPreview={transcriptPreview}
-                  stageText={processingStageText}
-                  replyText={
-                    showSpeakingCompact || showRetryCompact
-                      ? lastReplyText || debouncedSearch
-                      : debouncedSearch
-                  }
-                  smoothedLevel={smoothedLevel}
-                  disabled={disabled}
-                  showMic={!micHidden}
-                  micDisabled={micDisabled}
-                  micDisabledReason={stableMicDisabledReason}
-                  showDebug={DEV_VOICE_DEBUG_ENABLED}
-                  debugActive={voiceDebugOpen}
-                  showSubmit={
-                    VOICE_V2_FLAGS.submitDebugVisible &&
-                    (showVoiceSheet || realtimeConnecting)
-                  }
-                  submitEnabled={
-                    VOICE_V2_FLAGS.submitDebugVisible && realtimeSessionReady
-                  }
-                  ttsPlaying={ttsPlaybackState === "playing"}
-                  pendingConfirmation={Boolean(
-                    showRetryCompact && pendingConfirmation,
-                  )}
-                  onOpenSearch={() => setOpen(true)}
-                  onMicToggle={handleMicTap}
-                  onDebugToggle={(event) => {
-                    event.stopPropagation();
-                    setVoiceDebugOpen((current) => !current);
-                  }}
-                  onMuteToggle={toggleMuteListening}
-                  onSubmit={submitDebugTurn}
-                  onEnd={cancelListening}
-                  onStopSpeaking={handleStopSpeaking}
-                  onReplay={
-                    showSpeakingCompact || showRetryCompact ? handleReplay : undefined
-                  }
-                  onRetry={
-                    showRetryCompact && !pendingConfirmation ? handleRetry : undefined
-                  }
-                  onConfirm={
-                    showRetryCompact && pendingConfirmation
-                      ? handleConfirmPending
-                      : undefined
-                  }
-                  onCancel={
-                    showRetryCompact && pendingConfirmation
-                      ? handleCancelPending
-                      : undefined
-                  }
-                />
+                    submitEnabled={
+                      VOICE_V2_FLAGS.submitDebugVisible && realtimeSessionReady
+                    }
+                    ttsPlaying={ttsPlaybackState === "playing"}
+                    pendingConfirmation={Boolean(
+                      showRetryCompact && pendingConfirmation,
+                    )}
+                    onOpenSearch={() => setOpen(true)}
+                    onMicToggle={handleMicTap}
+                    onDebugToggle={(event) => {
+                      event.stopPropagation();
+                      setVoiceDebugOpen((current) => !current);
+                    }}
+                    onMuteToggle={toggleMuteListening}
+                    onSubmit={submitDebugTurn}
+                    onEnd={cancelListening}
+                    onStopSpeaking={handleStopSpeaking}
+                    onReplay={
+                      showSpeakingCompact || showRetryCompact
+                        ? handleReplay
+                        : undefined
+                    }
+                    onRetry={
+                      showRetryCompact && !pendingConfirmation
+                        ? handleRetry
+                        : undefined
+                    }
+                    onConfirm={
+                      showRetryCompact && pendingConfirmation
+                        ? handleConfirmPending
+                        : undefined
+                    }
+                    onCancel={
+                      showRetryCompact && pendingConfirmation
+                        ? handleCancelPending
+                        : undefined
+                    }
+                  />
+                </div>
               </div>
             </div>
           )}
