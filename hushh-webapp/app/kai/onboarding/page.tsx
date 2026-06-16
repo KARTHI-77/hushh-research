@@ -307,7 +307,7 @@ function KaiOnboardingPageContent() {
     return (
       <div
         data-top-content-anchor="true"
-        className="mx-auto flex min-h-[calc(100dvh_-_var(--top-content-pad))] w-full max-w-6xl items-start px-5 pb-8 pt-[calc(var(--top-content-pad)_+_1rem)] sm:px-6 lg:px-[var(--page-inline-gutter-standard)]"
+        className="mx-auto flex min-h-[calc(100dvh_-_var(--top-content-pad))] w-full max-w-5xl items-start px-5 pb-8 pt-[calc(var(--top-content-pad)_+_1rem)] sm:px-6 lg:px-[var(--page-inline-gutter-standard)]"
       >
         <NativeTestBeacon
           routeId="/kai/onboarding"
@@ -315,21 +315,21 @@ function KaiOnboardingPageContent() {
           authState={user ? "authenticated" : "pending"}
           dataState="loaded"
         />
-        <div className="w-full space-y-6">
-          <div className="text-center space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary/80">
+        <div className="w-full space-y-9">
+          <div className="space-y-3 text-center">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.22em] text-primary/75">
               Choose your starting path
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+            <h1 className="text-[38px] font-medium leading-[1.05] tracking-normal text-foreground sm:text-[40px]">
               Start as an investor or set up RIA first
             </h1>
-            <p className="mx-auto max-w-2xl text-sm leading-7 text-muted-foreground">
+            <p className="mx-auto max-w-[36rem] text-[17px] leading-[1.45] text-muted-foreground sm:text-[18px]">
               You can add the other profile later from Profile. This choice only sets the first
               workflow we open right now.
             </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid items-stretch gap-4 md:grid-cols-2">
             <Card
               preset="hero"
               variant="none"
@@ -364,18 +364,21 @@ function KaiOnboardingPageContent() {
                     setSaving(false);
                   }
                 }}
-                className="w-full p-6 text-left"
+                className="flex min-h-[210px] w-full flex-col p-6 text-left sm:p-7"
               >
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-primary/75">
                   Investor
                 </p>
-                <h2 className="mt-3 text-2xl font-semibold text-foreground">
-                  Build your Kai profile first
+                <h2 className="mt-3 text-[24px] font-medium leading-[1.12] tracking-normal text-foreground">
+                  Continue as Investor
                 </h2>
-                <p className="mt-3 text-sm leading-7 text-muted-foreground">
+                <p className="mt-3 text-[15px] leading-[1.55] text-muted-foreground">
                   Answer your risk and preference questions, then connect accounts and start using
                   Kai.
                 </p>
+                <span className="mt-auto pt-6 text-[14px] font-medium text-primary">
+                  Open investor setup
+                </span>
               </button>
             </Card>
 
@@ -411,15 +414,15 @@ function KaiOnboardingPageContent() {
                     setSaving(false);
                   }
                 }}
-                className="w-full p-6 text-left disabled:cursor-not-allowed"
+                className="flex min-h-[210px] w-full flex-col p-6 text-left disabled:cursor-not-allowed sm:p-7"
               >
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-primary/75">
                   RIA
                 </p>
-                <h2 className="mt-3 text-2xl font-semibold text-foreground">
-                  Verify the advisor workspace
+                <h2 className="mt-3 text-[24px] font-medium leading-[1.12] tracking-normal text-foreground">
+                  Continue as RIA
                 </h2>
-                <p className="mt-3 text-sm leading-7 text-muted-foreground">
+                <p className="mt-3 text-[15px] leading-[1.55] text-muted-foreground">
                   Set up your advisor identity, verification, firm details, and marketplace trust
                   profile before sending consent requests.
                 </p>
@@ -428,6 +431,9 @@ function KaiOnboardingPageContent() {
                     RIA mode is unavailable in this environment until IAM is active.
                   </p>
                 ) : null}
+                <span className="mt-auto pt-6 text-[14px] font-medium text-primary">
+                  Open advisor setup
+                </span>
               </button>
             </Card>
           </div>
