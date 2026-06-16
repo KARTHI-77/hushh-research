@@ -10,7 +10,7 @@ import {
   useState,
   type MouseEvent,
 } from "react";
-import { Bot, Sparkles, Mic, Search, X } from "lucide-react";
+import { Bot, MessageCircle, Mic, Search, X } from "lucide-react";
 
 import {
   KaiCommandPalette,
@@ -1752,7 +1752,7 @@ const debouncedSearch = useDebouncedValue(finalTranscript, 500);
                   onClick={() => agentPopover?.openAgent()}
                 >
                   <span className="kai-bottom-agent-action grid h-[40px] w-[40px] place-items-center rounded-[14px]">
-                    <Sparkles className="h-[18px] w-[18px]" strokeWidth={2.15} />
+                    <MessageCircle className="h-[18px] w-[18px]" strokeWidth={2.15} />
                   </span>
                 </button>
                 <ShellActionSurface
