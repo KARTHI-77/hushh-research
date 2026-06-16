@@ -272,7 +272,7 @@ export function KaiPreferencesWizard(props: {
               className={cn(
                 "tracking-normal text-balance text-foreground",
                 isPageLayout
-                  ? "max-w-[34rem] text-[clamp(2.25rem,3.2vw,3.45rem)] font-medium leading-[1.08]"
+                  ? "max-w-[32rem] text-[clamp(1.9rem,2.35vw,2.65rem)] font-normal leading-[1.12]"
                   : "text-[clamp(0.95rem,2.8vw,1.2rem)] leading-[1.3] font-semibold"
               )}
             >
