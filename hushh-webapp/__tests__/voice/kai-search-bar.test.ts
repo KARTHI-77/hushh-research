@@ -19,6 +19,7 @@ vi.mock("lucide-react", () => ({
     createElement("span", { "data-testid": "message-circle-icon" }),
   Mic: () => createElement("span", { "data-testid": "mic-icon" }),
   Search: () => createElement("span", { "data-testid": "search-icon" }),
+  Sparkles: () => createElement("span", { "data-testid": "sparkles-icon" }),
   X: () => createElement("span", { "data-testid": "x-icon" }),
 }));
 
