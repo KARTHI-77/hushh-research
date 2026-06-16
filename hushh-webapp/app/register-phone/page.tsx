@@ -95,13 +95,12 @@ function PhoneMandatePageContent() {
   const [shouldBypassLocalPhoneMandate, setShouldBypassLocalPhoneMandate] = useState(false);
 
   useEffect(() => {
-    setShouldBypassLocalPhoneMandate(
-      !loading &&
-        Boolean(user) &&
-        typeof window !== "undefined" &&
-        shouldBypassPhoneMandateForLocalhost(window.location.hostname),
-    );
-  }, [loading, phoneNumber, redirectPath, user]);
+    if (!loading && Boolean(user) && !phoneNumber) {
+      if (typeof window !== "undefined" && shouldBypassPhoneMandateForLocalhost(window.location.hostname)) {
+        setShouldBypassLocalPhoneMandate(true);
+      }
+    }
+  }, [loading, user, phoneNumber]);
 
   useEffect(() => {
     if (!shouldBypassLocalPhoneMandate || !user) {

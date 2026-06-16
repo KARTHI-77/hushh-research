@@ -318,7 +318,7 @@ describe("PostAuthRouteService", () => {
     ).resolves.toBe(ROUTES.ONE_LOCATION);
   });
 
-  it("skips the phone mandate for localhost UAT sessions", async () => {
+  it("does not bypass the phone mandate for localhost UAT sessions", async () => {
     vi.stubEnv("NEXT_PUBLIC_APP_ENV", "uat");
     bootstrapStateMock.mockResolvedValue({
       hasVault: false,
@@ -334,24 +334,6 @@ describe("PostAuthRouteService", () => {
         phoneNumber: null,
         hostname: "localhost",
       })
-    ).resolves.toBe(ROUTES.KAI_HOME);
-  });
-  it("skips the phone mandate for localhost hostname variants in UAT", async () => {
-    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "uat");
-    bootstrapStateMock.mockResolvedValue({
-      hasVault: false,
-      preOnboardingCompleted: true,
-      preOnboardingCompletedAt: 1,
-      preOnboardingSkipped: false,
-    });
-    loadPendingOnboardingMock.mockResolvedValue(null);
-
-    await expect(
-      PostAuthRouteService.resolveAfterLogin({
-        userId: "user_123",
-        phoneNumber: null,
-        hostname: "127.0.0.1",
-      })
-    ).resolves.toBe(ROUTES.KAI_HOME);
+    ).resolves.toBe(buildPhoneMandateRoute(ROUTES.KAI_HOME));
   });
 });

@@ -4,17 +4,6 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("/register-phone safe-area shell contract", () => {
-  it("auto-continues local sessions even when a phone number is already linked", () => {
-    const source = readFileSync(
-      join(process.cwd(), "app/register-phone/page.tsx"),
-      "utf8",
-    );
-
-    expect(source).toContain("shouldBypassPhoneMandateForLocalhost(window.location.hostname)");
-    expect(source).toContain('HushhLoader label="Continuing local session..."');
-    expect(source).not.toContain("!phoneNumber &&");
-  });
-
   it("uses dynamic viewport height and native safe-area padding variables", () => {
     const source = readFileSync(
       join(process.cwd(), "app/register-phone/page.tsx"),

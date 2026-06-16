@@ -189,7 +189,7 @@ describe("PhoneMandateGuard", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("keeps localhost UAT users in the app without requiring phone verification", async () => {
+  it("does not bypass phone verification for localhost UAT users", async () => {
     vi.stubEnv("NEXT_PUBLIC_APP_ENV", "uat");
     checkVaultMock.mockResolvedValue(false);
 
@@ -200,9 +200,7 @@ describe("PhoneMandateGuard", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("profile content")).toBeTruthy();
+      expect(replace).toHaveBeenCalledWith("/register-phone?redirect=%2Fprofile");
     });
-    expect(replace).not.toHaveBeenCalled();
-    expect(checkVaultMock).not.toHaveBeenCalled();
   });
 });
