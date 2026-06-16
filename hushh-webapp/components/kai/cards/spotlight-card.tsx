@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { LineChart, ArrowRight } from "lucide-react";
 
@@ -35,13 +34,24 @@ const DECISION_STYLES: Record<SpotlightDecision, string> = {
   REDUCE: "bg-orange-500/10 text-orange-700 dark:text-orange-300",
 };
 
-export function SpotlightCard({ compact = false, ...props }: SpotlightCardProps) {
+export function SpotlightCard({
+  symbol,
+  companyName,
+  title,
+  price,
+  decision,
+  summary,
+  context,
+  contextHref,
+  fallbackHref,
+  compact = false,
+}: SpotlightCardProps) {
   const router = useRouter();
 
-  const primaryHref = props.contextHref || props.fallbackHref || null;
-  const isExternal = Boolean(props.contextHref);
+  const primaryHref = contextHref || fallbackHref || null;
+  const isExternal = Boolean(contextHref);
 
-  const decisionStyle = useMemo(() => DECISION_STYLES[props.decision], [props.decision]);
+  const decisionStyle = DECISION_STYLES[decision as SpotlightDecision];
 
   const handleNavigation = () => {
     if (!primaryHref) return;
@@ -63,29 +73,29 @@ export function SpotlightCard({ compact = false, ...props }: SpotlightCardProps)
         type="button"
         disabled={!primaryHref}
         onClick={handleNavigation}
-        aria-label={`View details for ${props.title}`}
+        aria-label={`View details for ${title}`}
         className="relative block h-full w-full text-left outline-none"
       >
         <MorphyCardContent className={cn("relative z-[1] p-5", compact ? "space-y-2" : "space-y-4")}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
-              <SymbolAvatar symbol={props.symbol} name={props.companyName} size={compact ? "sm" : "md"} />
+              <SymbolAvatar symbol={symbol} name={companyName} size={compact ? "sm" : "md"} />
               <div>
-                <h3 className="font-black leading-tight tracking-tight">{props.title}</h3>
-                <p className="text-xs text-muted-foreground">{props.price}</p>
+                <h3 className="font-black leading-tight tracking-tight">{title}</h3>
+                <p className="text-xs text-muted-foreground">{price}</p>
               </div>
             </div>
             <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase", decisionStyle)}>
-              {props.decision}
+              {decision}
             </span>
           </div>
 
-          <p className={cn("text-sm font-medium leading-relaxed", compact ? "line-clamp-2" : "")}>{props.summary}</p>
+          <p className={cn("text-sm font-medium leading-relaxed", compact ? "line-clamp-2" : "")}>{summary}</p>
 
           <div className="flex items-center justify-between border-t border-border/40 pt-3 text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
               <Icon icon={LineChart} size="sm" />
-              <span className="line-clamp-1">{props.context}</span>
+              <span className="line-clamp-1">{context}</span>
             </div>
             {primaryHref && <Icon icon={ArrowRight} size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity" />}
           </div>
