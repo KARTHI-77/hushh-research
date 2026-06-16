@@ -1473,7 +1473,6 @@ async def start_or_resume_upgrade(
 async def update_upgrade_run_status(
     run_id: _RunId,
     request: UpdateUpgradeRunRequest,
-    run_id: str = Path(..., min_length=1, max_length=128),
     token_data: dict = Depends(require_vault_owner_token),
 ):
     if token_data.get("user_id") != request.user_id:
@@ -1500,7 +1499,6 @@ async def update_upgrade_step(
     run_id: _RunId,
     domain: _Domain,
     request: UpdateUpgradeStepRequest,
-    run_id: str = Path(..., min_length=1, max_length=128),
     domain: str = Path(..., min_length=1, max_length=200),
     token_data: dict = Depends(require_vault_owner_token),
 ):
@@ -1529,7 +1527,6 @@ async def update_upgrade_step(
 async def complete_upgrade_run(
     run_id: _RunId,
     request: StartOrResumeUpgradeRequest,
-    run_id: str = Path(..., min_length=1, max_length=128),
     token_data: dict = Depends(require_vault_owner_token),
 ):
     if token_data.get("user_id") != request.user_id:
@@ -1554,7 +1551,6 @@ async def complete_upgrade_run(
 async def fail_upgrade_run(
     run_id: _RunId,
     request: UpdateUpgradeRunRequest,
-    run_id: str = Path(..., min_length=1, max_length=128),
     token_data: dict = Depends(require_vault_owner_token),
 ):
     if token_data.get("user_id") != request.user_id:
