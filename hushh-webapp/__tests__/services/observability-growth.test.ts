@@ -9,8 +9,12 @@ vi.mock("@capacitor/core", () => ({
 
 import {
   captureGrowthAttribution,
+  resolveGrowthEntrySurface,
+  resolveGrowthJourneyForPath,
+  resolveGrowthWorkspaceSource,
   trackGrowthFunnelStepCompleted,
   trackInvestorActivationCompleted,
+  trackRiaActivationCompleted,
 } from "@/lib/observability/growth";
 
 declare global {
@@ -77,5 +81,90 @@ describe("growth observability contract", () => {
     expect(activated.journey).toBe("investor");
     expect(activated.portfolio_source).toBe("statement");
     expect(activated.app_version).toBe("2.1.0");
+  });
+});
+
+
+describe("growth route resolution", () => {
+  it("resolves journeys from known paths", () => {
+    expect(resolveGrowthJourneyForPath("/kai")).toBe("investor");
+    expect(resolveGrowthJourneyForPath("/kai/import")).toBe("investor");
+
+    expect(resolveGrowthJourneyForPath("/ria")).toBe("ria");
+    expect(resolveGrowthJourneyForPath("/ria/clients")).toBe("ria");
+
+    expect(resolveGrowthJourneyForPath("/unknown")).toBeNull();
+  });
+
+  it("resolves entry surfaces from known paths", () => {
+    expect(resolveGrowthEntrySurface("/login")).toBe("login");
+
+    expect(resolveGrowthEntrySurface("/kai")).toBe("kai_home");
+    expect(resolveGrowthEntrySurface("/kai/import")).toBe("kai_import");
+    expect(resolveGrowthEntrySurface("/kai/onboarding")).toBe(
+      "kai_onboarding"
+    );
+
+    expect(resolveGrowthEntrySurface("/marketplace")).toBe(
+      "marketplace"
+    );
+
+    expect(resolveGrowthEntrySurface("/ria")).toBe("ria_home");
+    expect(resolveGrowthEntrySurface("/ria/onboarding")).toBe(
+      "ria_onboarding"
+    );
+
+    expect(resolveGrowthEntrySurface("/something-else")).toBe(
+      "unknown"
+    );
+  });
+
+  it("resolves workspace sources", () => {
+    expect(resolveGrowthWorkspaceSource("/ria")).toBe("ria_home");
+
+    expect(resolveGrowthWorkspaceSource("/ria/clients")).toBe(
+      "ria_home"
+    );
+
+    expect(resolveGrowthWorkspaceSource("/random")).toBe(
+      "unknown"
+    );
+  });
+});
+
+describe("ria activation tracking", () => {
+  beforeEach(() => {
+    window.dataLayer = [];
+    window.localStorage.clear();
+
+    vi.stubEnv("NEXT_PUBLIC_OBSERVABILITY_ENABLED", "true");
+    vi.stubEnv("NEXT_PUBLIC_OBSERVABILITY_SAMPLE_RATE", "1");
+    vi.stubEnv("NEXT_PUBLIC_CLIENT_VERSION", "2.1.0");
+  });
+
+  it("emits ria activation events", () => {
+    trackRiaActivationCompleted({
+      entrySurface: "ria_home",
+      authMethod: "google",
+      workspaceSource: "ria_client_workspace",
+      dedupeKey: "growth:ria:activation:test",
+      dedupeWindowMs: 5000,
+    });
+
+    expect(window.dataLayer).toHaveLength(1);
+
+    const event = window.dataLayer?.[0] as Record<
+      string,
+      unknown
+    >;
+
+    expect(event.event).toBe("ria_activation_completed");
+    expect(event.journey).toBe("ria");
+    expect(event.entry_surface).toBe("ria_home");
+    expect(event.auth_method).toBe("google");
+    expect(resolveGrowthWorkspaceSource("/ria/clients")).toBe(
+      "ria_home"
+    );
+    expect(event.app_version).toBe("2.1.0");
   });
 });
