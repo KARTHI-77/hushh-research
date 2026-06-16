@@ -185,4 +185,49 @@ describe("observability schema", () => {
     expect(result.sanitized.resource_class).toBe("pkm_projection");
     expect(result.sanitized.freshness).toBe("fresh");
   });
+
+  it("drops allowed keys when values contain email addresses", () => {
+  const result = validateAndSanitizeEvent("auth_failed", {
+    env: "uat",
+    platform: "web",
+    event_category: "system",
+    app_version: "2.1.0",
+    action: "kai@example.com",
+    result: "error",
+  } as any);
+
+  expect(result.ok).toBe(false);
+  expect(result.droppedKeys).toContain("action");
+  expect(result.sanitized).not.toHaveProperty("action");
+});
+
+it("drops allowed keys when values look like opaque secrets", () => {
+  const result = validateAndSanitizeEvent("auth_failed", {
+    env: "uat",
+    platform: "web",
+    event_category: "system",
+    app_version: "2.1.0",
+    action: "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456",
+    result: "error",
+  } as any);
+
+  expect(result.ok).toBe(false);
+  expect(result.droppedKeys).toContain("action");
+  expect(result.sanitized).not.toHaveProperty("action");
+});
+
+it("preserves short bounded metadata values", () => {
+  const result = validateAndSanitizeEvent("auth_failed", {
+    env: "uat",
+    platform: "web",
+    event_category: "system",
+    app_version: "2.1.0",
+    action: "google",
+    result: "error",
+    error_class: "auth_failed",
+  });
+
+  expect(result.ok).toBe(true);
+  expect(result.sanitized.action).toBe("google");
+  });
 });
