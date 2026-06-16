@@ -6,14 +6,14 @@
 import React, { useEffect, useMemo, type CSSProperties } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  BriefcaseBusiness,
+  ChartSpline,
   Compass,
   FileSpreadsheet,
-  LayoutDashboard,
-  LineChart,
-  Store,
-  User,
+  House,
+  Landmark,
+  UserRound,
   Users,
+  WalletCards,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -91,6 +91,7 @@ export const Navbar = () => {
     }
   }, [pathname]);
   const hideNavbar =
+    pathname?.startsWith(ROUTES.PHONE_MANDATE) ||
     pathname?.startsWith(ROUTES.LABS_PROFILE_APPEARANCE) ||
     pathname === ROUTES.DEVELOPERS;
 
@@ -101,7 +102,7 @@ export const Navbar = () => {
             {
               value: "home",
               label: "Home",
-              icon: BriefcaseBusiness,
+              icon: House,
               dataTourId: "nav-ria-home",
             },
             {
@@ -125,7 +126,7 @@ export const Navbar = () => {
             {
               value: "profile",
               label: "Profile",
-              icon: User,
+              icon: UserRound,
               badge: pendingConsents > 0 ? pendingConsents : undefined,
               dataTourId: "nav-profile",
             },
@@ -134,19 +135,19 @@ export const Navbar = () => {
             {
               value: "market",
               label: "Market",
-              icon: Store,
+              icon: Landmark,
               dataTourId: "nav-market",
             },
             {
               value: "dashboard",
               label: "Portfolio",
-              icon: LayoutDashboard,
+              icon: WalletCards,
               dataTourId: "nav-portfolio",
             },
             {
               value: "analysis",
               label: "Analysis",
-              icon: LineChart,
+              icon: ChartSpline,
               dataTourId: "nav-analysis",
             },
             {
@@ -158,7 +159,7 @@ export const Navbar = () => {
             {
               value: "profile",
               label: "Profile",
-              icon: User,
+              icon: UserRound,
               badge: pendingConsents > 0 ? pendingConsents : undefined,
               dataTourId: "nav-profile",
             },
@@ -256,7 +257,7 @@ export const Navbar = () => {
       style={
         {
           bottom:
-            "calc(max(var(--app-safe-area-bottom-effective), 0.75rem) + var(--app-bottom-chrome-lift, 0px))",
+            "calc(max(var(--app-safe-area-bottom-effective), 0.625rem) + var(--app-bottom-chrome-lift, 0px))",
           transform:
             "translate3d(0, calc(var(--bottom-chrome-progress, 0) * var(--bottom-chrome-hide-distance, var(--bottom-chrome-full-height))), 0)",
           "--bottom-chrome-progress": String(hideBottomChromeProgress),
@@ -265,26 +266,26 @@ export const Navbar = () => {
     >
       <div
         className={cn(
-          "relative w-full max-w-[480px]",
+          "relative flex w-full max-w-[560px] items-end gap-2",
           "pointer-events-none",
           hideBottomChrome && "pointer-events-none"
         )}
       >
-        <SegmentedPill
-          ref={pillRef}
-          size="compact"
-          layout="stacked"
-          hitArea="segment"
-          value={activeNav}
-          options={navOptions}
-          onValueChange={navigateTo}
-          ariaLabel="Main navigation"
-          className={cn(
-            "relative z-10 w-full chrome-bottom-foreground",
-            "!border-0 !bg-background/80 !backdrop-blur-[var(--blur-standard)]",
-            "dark:!bg-background/90"
-          )}
-        />
+        <div className="min-w-0 pointer-events-auto" style={{ width: "calc(100% - 66px)" }}>
+          <SegmentedPill
+            ref={pillRef}
+            size="compact"
+            layout="stacked"
+            hitArea="segment"
+            value={activeNav}
+            options={navOptions}
+            onValueChange={navigateTo}
+            ariaLabel="Main navigation"
+            className={cn(
+              "kai-bottom-nav-pill relative z-10 w-full chrome-bottom-foreground"
+            )}
+          />
+        </div>
       </div>
     </nav>
   );
