@@ -29,6 +29,7 @@ import { AppPageShell } from "@/components/app-ui/app-page-shell";
 import { KaiControlSurface } from "@/components/app-ui/kai-control-surface";
 import { SurfaceInset } from "@/components/app-ui/surfaces";
 import { ConnectPortfolioCta } from "@/components/kai/cards/connect-portfolio-cta";
+import { RiaPicksList } from "@/components/kai/cards/renaissance-market-list";
 import { PermissionGate } from "@/components/privacy/permission-gate/permission-gate";
 import {
   type MarketOverviewDetailPanel,
@@ -310,9 +311,8 @@ function toIndexStripItems(
   ]
     .map(({ label, match }) => {
       const row = overviewRows.find((candidate) => match(String(candidate.label || "").toLowerCase())) || null;
-      return hasUsableOverviewRow(row) ? toIndexOverviewMetric(row, label) : null;
-    })
-    .filter((row): row is MarketOverviewMetric => Boolean(row));
+      return hasUsableOverviewRow(row) ? toIndexOverviewMetric(row, label) : toIndexOverviewMetric(null, label);
+    });
 
   const providerRows = overviewRows
     .filter(hasUsableOverviewRow)
@@ -843,7 +843,7 @@ function OneMarketKaiSheet({
   return (
     <section
       className={cn(
-        "fixed inset-x-0 bottom-0 z-50 mx-auto flex h-[min(92vh,760px)] max-w-[720px] flex-col rounded-t-[28px] bg-white/95 shadow-[0_-18px_50px_-20px_rgba(0,0,0,0.40)] backdrop-blur-[20px] transition-transform duration-300",
+        "fixed inset-x-0 bottom-0 z-[430] mx-auto flex h-[min(92vh,760px)] max-w-[720px] flex-col rounded-t-[28px] bg-white/95 shadow-[0_-18px_50px_-20px_rgba(0,0,0,0.40)] backdrop-blur-[20px] transition-transform duration-300",
         open ? "translate-y-0" : "translate-y-[105%]"
       )}
       aria-label="Kai agent"
@@ -1742,6 +1742,7 @@ export function KaiMarketPreviewView() {
     error,
     activePickSource,
     loadInsights,
+    handlePickSourceChange,
   } = useKaiMarketHomeController();
   const [retainedPayload, setRetainedPayload] = useState<KaiHomeInsightsV2 | null>(payload);
   const usingLocalPreviewFallback = Boolean(localPreviewPayload && !payload);
@@ -1774,6 +1775,16 @@ export function KaiMarketPreviewView() {
         : Array.isArray(effectivePayload?.renaissance_list)
           ? effectivePayload.renaissance_list.filter((row) => Boolean(row?.symbol))
           : [],
+    [effectivePayload]
+  );
+  const riaPickRows = useMemo<KaiHomeRenaissanceItem[]>(
+    () =>
+      (Array.isArray(effectivePayload?.renaissance_list)
+        ? effectivePayload.renaissance_list
+        : Array.isArray(effectivePayload?.pick_rows)
+          ? effectivePayload.pick_rows
+          : []
+      ).filter((row) => Boolean(row?.symbol)),
     [effectivePayload]
   );
   const overviewMetrics = useMemo(
@@ -2157,6 +2168,16 @@ export function KaiMarketPreviewView() {
 
         {hasPayload ? (
           <>
+            <section className="mx-auto mt-9 w-full max-w-[1080px] px-[var(--one-gutter)]">
+              <RiaPicksList
+                rows={riaPickRows}
+                sources={pickSources}
+                activeSourceId={activePickSource}
+                onSourceChange={handlePickSourceChange}
+                controlMode="adaptive-surface"
+              />
+            </section>
+
             <section className="mx-auto mt-9 w-full max-w-[1080px] px-[var(--one-gutter)]">
               <OneMarketSectionHeader title="Most bought on One" icon={Blocks} tone="indigo" />
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

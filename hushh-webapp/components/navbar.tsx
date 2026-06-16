@@ -266,12 +266,12 @@ export const Navbar = () => {
     >
       <div
         className={cn(
-          "relative flex w-full max-w-[560px] items-end gap-2.5 sm:gap-3",
+          "relative flex w-full max-w-[560px] items-end gap-2",
           "pointer-events-none",
           hideBottomChrome && "pointer-events-none"
         )}
       >
-        <div className="min-w-0 pointer-events-auto" style={{ width: "calc(100% - 132px)" }}>
+        <div className="min-w-0 pointer-events-auto" style={{ width: "calc(100% - 66px)" }}>
           <SegmentedPill
             ref={pillRef}
             size="compact"
@@ -282,9 +282,7 @@ export const Navbar = () => {
             onValueChange={navigateTo}
             ariaLabel="Main navigation"
             className={cn(
-              "relative z-10 w-full chrome-bottom-foreground",
-              "!border-0 !bg-background/80 !backdrop-blur-[var(--blur-standard)]",
-              "dark:!bg-background/90"
+              "kai-bottom-nav-pill relative z-10 w-full chrome-bottom-foreground"
             )}
           />
         </div>

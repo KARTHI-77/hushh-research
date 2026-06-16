@@ -307,8 +307,9 @@ function AgentPopoverSurface({ customSize, setCustomSize }: AgentPopoverSurfaceP
   const isLegacyAgentRoute = pathname === ROUTES.AGENT;
   const canShowAgent = isAuthenticated && !isLegacyAgentRoute;
   const chromeState = getKaiChromeState(pathname);
+  const isKaiSurfaceRoute = Boolean(pathname?.startsWith("/kai"));
   const useEmbeddedAgentTrigger =
-    isRiaActionBarRoute(pathname) || !chromeState.hideCommandBar;
+    isKaiSurfaceRoute || isRiaActionBarRoute(pathname) || !chromeState.hideCommandBar;
   const isCollapsing = motionState === "closing";
   const surfaceVisible = expanded || motionState !== "idle";
   const isFullscreen = sizeMode === "fullscreen";
