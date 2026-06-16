@@ -1499,7 +1499,6 @@ async def update_upgrade_step(
     run_id: _RunId,
     domain: _Domain,
     request: UpdateUpgradeStepRequest,
-    domain: str = Path(..., min_length=1, max_length=200),
     token_data: dict = Depends(require_vault_owner_token),
 ):
     if token_data.get("user_id") != request.user_id:
