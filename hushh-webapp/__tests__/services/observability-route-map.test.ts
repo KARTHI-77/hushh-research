@@ -40,6 +40,28 @@ function collectAppPageRoutes(dir: string, root: string = dir): string[] {
 
 describe("observability route map", () => {
   it("maps canonical app routes to stable route IDs", () => {
+    expect(resolveRouteId("/")).toBe("landing");
+    expect(resolveRouteId("/developers")).toBe("developers");
+
+    expect(resolveRouteId("/login")).toBe("login");
+    expect(resolveRouteId("/logout")).toBe("logout");
+
+    expect(resolveRouteId("/profile")).toBe("profile");
+   
+    expect(resolveRouteId("/consents")).toBe("consents");
+
+    expect(resolveRouteId("/one/kyc")).toBe("one_kyc");
+
+    expect(resolveRouteId("/ria")).toBe("ria_home");
+    expect(resolveRouteId("/ria/onboarding")).toBe("ria_onboarding");
+    expect(resolveRouteId("/ria/requests")).toBe("ria_requests");
+    expect(resolveRouteId("/ria/settings")).toBe("ria_settings");
+
+    expect(resolveRouteId("/kai/onboarding")).toBe("kai_onboarding");
+    expect(resolveRouteId("/kai/import")).toBe("kai_import");
+    expect(resolveRouteId("/kai/investments")).toBe("kai_investments");
+    expect(resolveRouteId("/kai/analysis")).toBe("kai_analysis");
+    expect(resolveRouteId("/kai/optimize")).toBe("kai_optimize");
     expect(resolveRouteId("/kai")).toBe("kai_home");
     expect(resolveRouteId("/kai/dashboard")).toBe("kai_dashboard_legacy_redirect");
     expect(resolveRouteId("/kai/dashboard/analysis")).toBe("kai_dashboard_legacy_redirect");
