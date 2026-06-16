@@ -519,7 +519,7 @@ function AgentPopoverSurface({ customSize, setCustomSize }: AgentPopoverSurfaceP
   }
 
   if (!canShowAgent) {
-    return <AgentVoiceFloatingIndicator onClick={openAgent} />;
+    return null;
   }
 
   return (
