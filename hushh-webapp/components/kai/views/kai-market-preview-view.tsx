@@ -29,6 +29,7 @@ import { AppPageShell } from "@/components/app-ui/app-page-shell";
 import { KaiControlSurface } from "@/components/app-ui/kai-control-surface";
 import { SurfaceInset } from "@/components/app-ui/surfaces";
 import { ConnectPortfolioCta } from "@/components/kai/cards/connect-portfolio-cta";
+import { RiaPicksList } from "@/components/kai/cards/renaissance-market-list";
 import { PermissionGate } from "@/components/privacy/permission-gate/permission-gate";
 import {
   type MarketOverviewDetailPanel,
@@ -1741,6 +1742,7 @@ export function KaiMarketPreviewView() {
     error,
     activePickSource,
     loadInsights,
+    handlePickSourceChange,
   } = useKaiMarketHomeController();
   const [retainedPayload, setRetainedPayload] = useState<KaiHomeInsightsV2 | null>(payload);
   const usingLocalPreviewFallback = Boolean(localPreviewPayload && !payload);
@@ -1773,6 +1775,16 @@ export function KaiMarketPreviewView() {
         : Array.isArray(effectivePayload?.renaissance_list)
           ? effectivePayload.renaissance_list.filter((row) => Boolean(row?.symbol))
           : [],
+    [effectivePayload]
+  );
+  const riaPickRows = useMemo<KaiHomeRenaissanceItem[]>(
+    () =>
+      (Array.isArray(effectivePayload?.renaissance_list)
+        ? effectivePayload.renaissance_list
+        : Array.isArray(effectivePayload?.pick_rows)
+          ? effectivePayload.pick_rows
+          : []
+      ).filter((row) => Boolean(row?.symbol)),
     [effectivePayload]
   );
   const overviewMetrics = useMemo(
@@ -2156,6 +2168,16 @@ export function KaiMarketPreviewView() {
 
         {hasPayload ? (
           <>
+            <section className="mx-auto mt-9 w-full max-w-[1080px] px-[var(--one-gutter)]">
+              <RiaPicksList
+                rows={riaPickRows}
+                sources={pickSources}
+                activeSourceId={activePickSource}
+                onSourceChange={handlePickSourceChange}
+                controlMode="adaptive-surface"
+              />
+            </section>
+
             <section className="mx-auto mt-9 w-full max-w-[1080px] px-[var(--one-gutter)]">
               <OneMarketSectionHeader title="Most bought on One" icon={Blocks} tone="indigo" />
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
