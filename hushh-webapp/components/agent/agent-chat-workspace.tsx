@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -15,6 +16,8 @@ import {
   Bot,
   Check,
   Copy,
+  KeyRound,
+  LogIn,
   Menu,
   Mic,
   Minus,
@@ -83,6 +86,7 @@ import {
   type AgentChatToolEvent,
 } from "@/lib/services/agent-chat-client";
 import { useKaiSession } from "@/lib/stores/kai-session-store";
+import { ROUTES } from "@/lib/navigation/routes";
 import { cn } from "@/lib/utils";
 import { useVault } from "@/lib/vault/vault-context";
 import { deriveVoiceRouteScreen } from "@/lib/voice/route-screen-derivation";
@@ -161,6 +165,8 @@ const AGENT_STREAM_RENDER_FRAME_MS = 32;
 const VOICE_PKM_CONTEXT_DEADLINE_MS = 650;
 const VOICE_AGENT_FIRST_EVENT_TIMEOUT_MS = 25_000;
 const VOICE_AGENT_IDLE_TIMEOUT_MS = 45_000;
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 const EXPLICIT_PKM_SAVE_PATTERN =
   /\b(?:add|save|store|remember)\b[\s\S]{0,140}\b(?:pkm|personal knowledge|memory|memories)\b|\b(?:add|save|store|remember)\s+(?:this|that)\b/i;
@@ -203,6 +209,37 @@ function createGreetingMessage(): AgentMessage {
     timestamp: AGENT_GREETING_TIMESTAMP,
     status: "done",
   };
+}
+
+function getFocusableElements(container: HTMLElement | null): HTMLElement[] {
+  if (!container) return [];
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (element) =>
+      !element.hasAttribute("disabled") &&
+      element.getAttribute("aria-hidden") !== "true" &&
+      element.offsetParent !== null
+  );
+}
+
+function trapFocusWithin(event: ReactKeyboardEvent, container: HTMLElement | null): void {
+  if (event.key !== "Tab") return;
+  const focusable = getFocusableElements(container);
+  if (focusable.length === 0) {
+    event.preventDefault();
+    return;
+  }
+  const first = focusable[0]!;
+  const last = focusable[focusable.length - 1]!;
+  const active = document.activeElement;
+  if (event.shiftKey && active === first) {
+    event.preventDefault();
+    last.focus();
+    return;
+  }
+  if (!event.shiftKey && active === last) {
+    event.preventDefault();
+    first.focus();
+  }
 }
 
 function formatAgentDisplayName(displayName?: string | null, email?: string | null): string {
@@ -715,6 +752,10 @@ export function AgentChatWorkspace({
   const voiceTtsQueueRef = useRef<AgentTtsQueue | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const historyDrawerRef = useRef<HTMLDivElement | null>(null);
+  const historyDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
+  const voiceTranscriptDialogRef = useRef<HTMLDivElement | null>(null);
+  const voiceTranscriptReturnFocusRef = useRef<HTMLElement | null>(null);
   const historyLoadKeyRef = useRef<string | null>(null);
   const streamAbortControllerRef = useRef<AbortController | null>(null);
   const voiceSttAbortControllerRef = useRef<AbortController | null>(null);
@@ -937,14 +978,40 @@ export function AgentChatWorkspace({
 
   useEffect(() => {
     if (!isHistoryDrawerOpen) return;
+    historyDrawerReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsHistoryDrawerOpen(false);
       }
     };
+    window.requestAnimationFrame(() => {
+      getFocusableElements(historyDrawerRef.current)[0]?.focus();
+    });
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isHistoryDrawerOpen]);
+
+  useEffect(() => {
+    if (isHistoryDrawerOpen) return;
+    historyDrawerReturnFocusRef.current?.focus();
+    historyDrawerReturnFocusRef.current = null;
+  }, [isHistoryDrawerOpen]);
+
+  useEffect(() => {
+    if (!voiceTranscriptReview) return;
+    voiceTranscriptReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    window.requestAnimationFrame(() => {
+      const focusable = getFocusableElements(voiceTranscriptDialogRef.current);
+      const preferred = voiceTranscriptReview.transcript.trim() ? focusable.at(-1) : focusable[0];
+      preferred?.focus();
+    });
+    return () => {
+      voiceTranscriptReturnFocusRef.current?.focus();
+      voiceTranscriptReturnFocusRef.current = null;
+    };
+  }, [voiceTranscriptReview]);
 
   useEffect(() => {
     return () => {
@@ -2206,10 +2273,10 @@ export function AgentChatWorkspace({
     await runAgentTurn(input, { source: "typed" });
   };
 
-  function setAgentVoiceStatus(status: AgentVoiceStatus, message?: string | null) {
+  const setAgentVoiceStatus = useCallback((status: AgentVoiceStatus, message?: string | null) => {
     setVoiceState(status);
     setGlobalVoiceStatus(status, message ?? null);
-  }
+  }, [setGlobalVoiceStatus]);
 
   function resumeAgentVoiceCapture(expectedEpoch?: number | null) {
     if (expectedEpoch !== undefined && expectedEpoch !== null) {
@@ -2251,14 +2318,14 @@ export function AgentChatWorkspace({
     });
   };
 
-  const handleVoiceTranscriptRetry = () => {
+  const handleVoiceTranscriptRetry = useCallback(() => {
     setVoiceTranscriptReview(null);
     const client = voiceClientRef.current;
     if (!client?.isActive) return;
     client.setMuted(false);
     client.setCapturePaused(false);
     setAgentVoiceStatus("listening");
-  };
+  }, [setAgentVoiceStatus]);
 
   const handleToggleVoice = async () => {
     if (!agentVoiceEnabled) {
@@ -2468,6 +2535,21 @@ export function AgentChatWorkspace({
       : !isVaultUnlocked || !vaultOwnerToken || !tokenIsFresh
         ? "Unlock your vault to use Agent."
         : null;
+  const accessAction = authLoading
+    ? null
+    : !user?.uid
+      ? {
+          label: "Sign in",
+          icon: LogIn,
+          onClick: () => router.push(ROUTES.LOGIN),
+        }
+      : !isVaultUnlocked || !vaultOwnerToken || !tokenIsFresh
+        ? {
+            label: "Unlock vault",
+            icon: KeyRound,
+            onClick: () => router.push(ROUTES.PROFILE),
+          }
+        : null;
   const displayName = useMemo(
     () => formatAgentDisplayName(user?.displayName, user?.email),
     [user?.displayName, user?.email]
@@ -2521,17 +2603,46 @@ export function AgentChatWorkspace({
       onMinimize();
     }
   };
+  const openHistoryDrawer = useCallback(() => {
+    historyDrawerReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setIsHistoryDrawerOpen(true);
+  }, []);
   const handlePageMinimize = useCallback(() => {
     if (onMinimize) {
       onMinimize();
       return;
     }
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      router.back();
+    if (typeof window !== "undefined") {
+      const referrer = document.referrer ? new URL(document.referrer) : null;
+      const isSameOriginReferrer =
+        referrer?.origin === window.location.origin && referrer.pathname !== ROUTES.AGENT;
+      if (isSameOriginReferrer && window.history.length > 1) {
+        router.back();
+        return;
+      }
+    }
+    router.push(ROUTES.PROFILE);
+  }, [onMinimize, router]);
+  const handleHistoryDrawerKeyDown = useCallback((event: ReactKeyboardEvent) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      setIsHistoryDrawerOpen(false);
       return;
     }
-    router.push("/profile");
-  }, [onMinimize, router]);
+    trapFocusWithin(event, historyDrawerRef.current);
+  }, []);
+  const handleVoiceTranscriptDialogKeyDown = useCallback(
+    (event: ReactKeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        handleVoiceTranscriptRetry();
+        return;
+      }
+      trapFocusWithin(event, voiceTranscriptDialogRef.current);
+    },
+    [handleVoiceTranscriptRetry]
+  );
   const renderHistorySidebar = (
     sidebarClassName?: string,
     onClose?: () => void,
@@ -2583,14 +2694,17 @@ export function AgentChatWorkspace({
           onClick={() => setIsHistoryDrawerOpen(false)}
         />
         <div
+          ref={historyDrawerRef}
           className={cn(
-            "fixed bottom-0 left-0 top-[var(--app-safe-area-top-effective,0px)] z-[530] w-[min(88vw,320px)] transform transition-transform duration-200 ease-out lg:hidden",
+            "fixed bottom-0 left-0 top-[var(--top-shell-reserved-height,var(--app-safe-area-top-effective,0px))] z-[530] w-[min(88vw,320px)] transform transition-transform duration-200 ease-out lg:hidden",
             isHistoryDrawerOpen ? "translate-x-0" : "-translate-x-full"
           )}
           role="dialog"
           aria-modal="true"
           aria-hidden={!isHistoryDrawerOpen}
           aria-label="Agent chat history"
+          inert={!isHistoryDrawerOpen}
+          onKeyDown={handleHistoryDrawerKeyDown}
         >
           {renderHistorySidebar("h-full w-full shadow-2xl shadow-black/40", () =>
             setIsHistoryDrawerOpen(false)
@@ -2602,6 +2716,7 @@ export function AgentChatWorkspace({
             "relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#15171c]",
             isPopover && "rounded-lg border border-white/10 shadow-sm"
           )}
+          inert={isHistoryDrawerOpen}
         >
           <div
             className={cn(
@@ -2618,19 +2733,17 @@ export function AgentChatWorkspace({
             }}
           >
             <div className="flex min-w-0 items-center gap-3">
-              {!isPopover ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-lg text-zinc-300 hover:bg-white/[0.07] hover:text-zinc-50 focus-visible:ring-2 focus-visible:ring-primary/60 lg:hidden"
-                  onClick={() => setIsHistoryDrawerOpen(true)}
-                  aria-label="Open chat history"
-                  title="Open chat history"
-                >
-                  <Menu className="h-4 w-4" />
-                </Button>
-              ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-lg text-zinc-300 hover:bg-white/[0.07] hover:text-zinc-50 focus-visible:ring-2 focus-visible:ring-primary/60 lg:hidden"
+                onClick={openHistoryDrawer}
+                aria-label="Open chat history"
+                title="Open chat history"
+              >
+                <Menu className="h-4 w-4" />
+              </Button>
               <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-white/10 bg-white/[0.04] text-primary">
                 <Bot className="h-4 w-4" />
               </div>
@@ -2673,8 +2786,19 @@ export function AgentChatWorkspace({
           >
             <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-6">
               {accessMessage ? (
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-zinc-400">
-                  {accessMessage}
+                <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
+                  <span>{accessMessage}</span>
+                  {accessAction ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="w-full shrink-0 gap-2 rounded-lg sm:w-auto"
+                      onClick={accessAction.onClick}
+                    >
+                      <accessAction.icon className="h-4 w-4" aria-hidden="true" />
+                      {accessAction.label}
+                    </Button>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -2719,10 +2843,12 @@ export function AgentChatWorkspace({
           {voiceTranscriptReview ? (
             <div className="absolute inset-0 z-20 grid place-items-end bg-black/40 p-4 backdrop-blur-[2px] sm:place-items-center">
               <div
+                ref={voiceTranscriptDialogRef}
                 className="w-full max-w-sm rounded-xl border border-white/10 bg-[#15171c] p-4 shadow-xl"
                 role="dialog"
                 aria-modal="true"
                 aria-label="Confirm voice transcript"
+                onKeyDown={handleVoiceTranscriptDialogKeyDown}
               >
                 <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">
                   Confirm voice transcript
@@ -2784,6 +2910,7 @@ export function AgentChatWorkspace({
                 <div className="flex min-h-14 items-end gap-2 rounded-[1.5rem] border border-white/12 bg-[#0f1116] px-3 py-2 shadow-lg shadow-black/15 transition-colors focus-within:border-primary/55 focus-within:ring-2 focus-within:ring-primary/20">
                   <textarea
                     ref={composerTextareaRef}
+                    aria-label="Message Agent"
                     value={input}
                     onChange={(event) => setInput(event.target.value)}
                     onKeyDown={(event) => {
