@@ -10,7 +10,7 @@ import {
   useState,
   type MouseEvent,
 } from "react";
-import { Bot, MessageCircle, Mic, Search, X } from "lucide-react";
+import { Bot, Mic, Search, X } from "lucide-react";
 
 import {
   KaiCommandPalette,
@@ -1742,8 +1742,8 @@ const debouncedSearch = useDebouncedValue(finalTranscript, 500);
               </ShellActionSurface>
             </div>
           ) : (
-            <div className="relative flex h-[112px] w-full items-end justify-end">
-              <div className="ml-auto flex h-[112px] w-[58px] flex-col items-center justify-end gap-1.5">
+            <div className="relative flex h-[172px] w-full items-end justify-end">
+              <div className="ml-auto flex h-[172px] w-[58px] flex-col items-center justify-end gap-1.5">
                 <button
                   type="button"
                   className="pointer-events-auto grid h-[58px] w-[58px] place-items-center rounded-full transition-transform duration-200 ease-out hover:scale-[1.03] active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-50"
@@ -1752,9 +1752,37 @@ const debouncedSearch = useDebouncedValue(finalTranscript, 500);
                   onClick={() => agentPopover?.openAgent()}
                 >
                   <span className="kai-bottom-agent-action grid h-[40px] w-[40px] place-items-center rounded-[14px]">
-                    <MessageCircle className="h-[18px] w-[18px]" strokeWidth={2.15} />
+                    <Bot className="h-[18px] w-[18px]" strokeWidth={1.95} />
                   </span>
                 </button>
+                <ShellActionSurface
+                  variant="icon"
+                  wrapperClassName="pointer-events-auto"
+                  className="kai-bottom-search-action grid h-[58px] w-[58px] place-items-center text-muted-foreground"
+                  aria-label={
+                    ambientMode === "idle"
+                      ? "Start Kai voice"
+                      : "End Kai voice session"
+                  }
+                  aria-disabled={micDisabled}
+                  onClick={(event) => {
+                    if (ambientMode !== "idle") {
+                      cancelListening();
+                      return;
+                    }
+                    if (micDisabled) {
+                      toast.info(stableMicDisabledReason || "Voice is unavailable right now.");
+                      return;
+                    }
+                    handleMicTap(event);
+                  }}
+                >
+                  {ambientMode === "idle" ? (
+                    <Mic className="h-5 w-5" strokeWidth={2.05} />
+                  ) : (
+                    <X className="h-5 w-5" strokeWidth={2.05} />
+                  )}
+                </ShellActionSurface>
                 <ShellActionSurface
                   variant="icon"
                   wrapperClassName="pointer-events-auto"
