@@ -308,12 +308,27 @@ function locationActivity() {
   };
 }
 
+async function skipLocationEntryFlow() {
+  expect(
+    await screen.findByRole("heading", {
+      name: "Experience location sharing with One.",
+    }),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  expect(
+    await screen.findByRole("heading", { name: "Keep your map live" }),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+  expect(
+    await screen.findByRole("heading", { name: "One Location Agent" }),
+  ).toBeTruthy();
+}
+
 describe("OneLocationAgentPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     Element.prototype.scrollIntoView = vi.fn();
     window.localStorage.clear();
-    window.localStorage.setItem("one_location_onboarding_v1:user_a", "done");
     mockSearchParamsGet.mockReturnValue(null);
     mockUseRequireAuth.mockReturnValue({
       loading: false,
@@ -416,6 +431,7 @@ describe("OneLocationAgentPage", () => {
 
   it("renders the One-owned encrypted location control surface", async () => {
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     expect(
       await screen.findByRole("heading", { name: "One Location Agent" }),
@@ -460,6 +476,7 @@ describe("OneLocationAgentPage", () => {
     });
 
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     fireEvent.click(
@@ -484,6 +501,7 @@ describe("OneLocationAgentPage", () => {
     });
 
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockEnsureKey).toHaveBeenCalledWith("user_a"));
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
@@ -491,7 +509,6 @@ describe("OneLocationAgentPage", () => {
   });
 
   it("shows the location onboarding before requesting foreground permission", async () => {
-    window.localStorage.removeItem("one_location_onboarding_v1:user_a");
     mockGetState.mockResolvedValueOnce({
       ...locationState(),
       ownerGrants: [],
@@ -537,13 +554,40 @@ describe("OneLocationAgentPage", () => {
     expect(
       await screen.findByRole("heading", { name: "One Location Agent" }),
     ).toBeTruthy();
-    expect(window.localStorage.getItem("one_location_onboarding_v1:user_a")).toBe(
-      "done",
-    );
+    expect(window.localStorage.getItem("one_location_onboarding_v1:user_a")).toBeNull();
+  });
+
+  it("shows the location entry flow even when foreground permission is already granted", async () => {
+    mockGetState.mockResolvedValueOnce({
+      ...locationState(),
+      ownerGrants: [],
+    });
+
+    render(<OneLocationAgentPage />);
+
+    await waitFor(() => expect(mockGetState).toHaveBeenCalled());
+    expect(
+      await screen.findByRole("heading", {
+        name: "Experience location sharing with One.",
+      }),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      await screen.findByRole("heading", { name: "Keep your map live" }),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      await screen.findByRole("heading", { name: "One Location Agent" }),
+    ).toBeTruthy();
+    expect(mockCaptureCurrentPosition).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem("one_location_onboarding_v1:user_a")).toBeNull();
   });
 
   it("renders One Network recommendation metadata without phone-derived labels", async () => {
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
 
@@ -581,6 +625,7 @@ describe("OneLocationAgentPage", () => {
     ).toBeGreaterThan(0);
 
     resolveState(locationState());
+    await skipLocationEntryFlow();
     await waitFor(() =>
       expect(screen.getByText("Share Encrypted Update")).toBeTruthy(),
     );
@@ -588,6 +633,7 @@ describe("OneLocationAgentPage", () => {
 
   it("renders a public location link control", async () => {
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
 
@@ -599,6 +645,7 @@ describe("OneLocationAgentPage", () => {
 
   it("keeps location activity hidden in the compact mobile flow", async () => {
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     expect(screen.queryByRole("heading", { name: "Location activity" })).toBeNull();
@@ -660,6 +707,7 @@ describe("OneLocationAgentPage", () => {
     });
 
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     await waitFor(() => expect(mockViewEnvelope).toHaveBeenCalled());
@@ -700,6 +748,7 @@ describe("OneLocationAgentPage", () => {
     });
 
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     fireEvent.click(
@@ -738,6 +787,7 @@ describe("OneLocationAgentPage", () => {
     });
 
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     fireEvent.click(
@@ -804,6 +854,7 @@ describe("OneLocationAgentPage", () => {
       .mockResolvedValueOnce({});
 
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: /Review Share/i }));
@@ -881,6 +932,7 @@ describe("OneLocationAgentPage", () => {
     );
 
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     expect(await screen.findByText(/1 person selected/i)).toBeTruthy();
@@ -944,6 +996,7 @@ describe("OneLocationAgentPage", () => {
     });
 
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     fireEvent.click(
@@ -969,6 +1022,7 @@ describe("OneLocationAgentPage", () => {
     });
 
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: "request" }));
@@ -1011,6 +1065,7 @@ describe("OneLocationAgentPage", () => {
     });
 
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     expect(screen.getByText("My requests")).toBeTruthy();
@@ -1026,6 +1081,7 @@ describe("OneLocationAgentPage", () => {
     });
 
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: "request" }));
@@ -1079,6 +1135,7 @@ describe("OneLocationAgentPage", () => {
     });
 
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: /Sync Contacts/i }));
@@ -1105,6 +1162,7 @@ describe("OneLocationAgentPage", () => {
 
   it("creates an approval-first invite path for contacts who are not One users", async () => {
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: /Share to Contacts/i }));
@@ -1125,6 +1183,7 @@ describe("OneLocationAgentPage", () => {
 
   it("does not show owner-grant revoke actions in the compact mobile flow", async () => {
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     expect(
@@ -1146,6 +1205,7 @@ describe("OneLocationAgentPage", () => {
     });
 
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     const shareButton = screen.getByRole("button", {
@@ -1169,6 +1229,7 @@ describe("OneLocationAgentPage", () => {
     });
 
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     expect(await screen.findByText("Turn on phone Location")).toBeTruthy();
@@ -1190,6 +1251,7 @@ describe("OneLocationAgentPage", () => {
     });
 
     render(<OneLocationAgentPage />);
+    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     expect(screen.getByText("One Network is empty")).toBeTruthy();
