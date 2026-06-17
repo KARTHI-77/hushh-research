@@ -166,22 +166,17 @@ export function PortfolioImportView({
   ]);
 
   return (
-    <div className="mx-auto w-full space-y-3.5 pt-3 pb-6" style={APP_MEASURE_STYLES.reading}>
+    <div className="mx-auto w-full space-y-4 pt-3 pb-6" style={APP_MEASURE_STYLES.reading}>
       {/* Header */}
-      <div className="space-y-2.5 text-center">
+      <div className="space-y-2 text-left">
+        <p className={cn(kaiAppEyebrowClassName, "text-muted-foreground")}>
+          Getting started
+        </p>
         <h1 className={cn(kaiAppCompactTitleClassName, "text-foreground")}>
-          Your money
-          <br />
-          <span>Your options</span>
+          Portfolio
         </h1>
         <p className={cn(kaiAppBodyClassName, "text-muted-foreground")}>
           Let Kai analyze your holdings for precise advice
-        </p>
-      </div>
-
-      <div className="text-center">
-        <p className={cn(kaiAppEyebrowClassName, "text-muted-foreground")}>
-          Choose import method
         </p>
       </div>
 
