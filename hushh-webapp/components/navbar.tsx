@@ -6,16 +6,14 @@
 import React, { useEffect, useMemo, type CSSProperties } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  BriefcaseBusiness,
-  ChartNoAxesColumnIncreasing,
-  ChartNoAxesCombined,
+  ChartSpline,
+  ChartCandlestick,
   CircleUserRound,
   Compass,
   FileSpreadsheet,
   House,
-  Network,
-  UserRound,
   Users,
+  WalletCards,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -142,31 +140,31 @@ export const Navbar = () => {
             {
               value: "market",
               label: "Market",
-              icon: ChartNoAxesColumnIncreasing,
+              icon: ChartCandlestick,
               dataTourId: "nav-market",
             },
             {
               value: "dashboard",
               label: "Portfolio",
-              icon: BriefcaseBusiness,
+              icon: WalletCards,
               dataTourId: "nav-portfolio",
             },
             {
               value: "analysis",
               label: "Analysis",
-              icon: ChartNoAxesCombined,
+              icon: ChartSpline,
               dataTourId: "nav-analysis",
             },
             {
               value: "connect",
               label: "Connect",
-              icon: Network,
+              icon: Compass,
               dataTourId: "nav-connect",
             },
             {
               value: "profile",
               label: "Profile",
-              icon: UserRound,
+              icon: CircleUserRound,
               badge: pendingConsents > 0 ? pendingConsents : undefined,
               dataTourId: "nav-profile",
             },
