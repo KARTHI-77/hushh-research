@@ -24,7 +24,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  kaiAppDisplayTitleClassName,
+  kaiAppBodyClassName,
+  kaiAppCardTitleClassName,
   kaiAppSectionTitleClassName,
 } from "@/components/kai/shared/kai-typography";
 
@@ -196,7 +197,7 @@ export function KaiPreferencesWizard(props: {
       <div
         className={cn(
           isPageLayout
-            ? "mx-auto flex min-h-[calc(100dvh-var(--top-content-pad)-var(--app-screen-footer-pad))] w-full max-w-[38rem] flex-col justify-center"
+            ? "mx-auto flex min-h-[calc(100dvh-var(--top-content-pad)-var(--app-screen-footer-pad))] w-full max-w-[33rem] flex-col justify-center"
             : "w-full max-w-sm mx-auto flex min-h-[calc(100dvh-var(--app-screen-footer-pad))] flex-col",
           !isPageLayout && "min-h-0"
         )}
@@ -204,7 +205,7 @@ export function KaiPreferencesWizard(props: {
         <div
           className={cn(
             isPageLayout
-              ? "rounded-[30px] border border-black/[0.06] bg-white/[0.78] p-5 shadow-[0_24px_80px_-58px_rgba(0,0,0,0.52)] backdrop-blur-2xl sm:p-7 dark:border-white/10 dark:bg-white/[0.07]"
+              ? "rounded-[26px] border border-black/[0.06] bg-white/[0.82] p-5 shadow-[0_22px_64px_-52px_rgba(0,0,0,0.48)] backdrop-blur-2xl sm:p-6 dark:border-white/10 dark:bg-white/[0.07]"
               : "contents"
           )}
         >
@@ -251,15 +252,15 @@ export function KaiPreferencesWizard(props: {
           <div
             className={cn(
               isPageLayout
-                ? "mx-auto flex w-full max-w-[30rem] flex-col pt-7 sm:pt-8"
+                ? "mx-auto flex w-full max-w-[26rem] flex-col pt-6 sm:pt-7"
                 : "flex flex-1 flex-col pt-5"
             )}
           >
-            <div className={cn(isPageLayout ? "space-y-4 text-center" : "space-y-3")}>
+            <div className={cn(isPageLayout ? "space-y-3 text-left" : "space-y-3")}>
               <p
                 className={cn(
                   "text-muted-foreground leading-relaxed",
-                  isPageLayout ? "text-[14.5px] sm:text-[15.5px]" : "text-xs"
+                  isPageLayout ? kaiAppBodyClassName : "text-xs"
                 )}
               >
                 No right or wrong answers. We’ll tune Kai to your investing style.
@@ -271,7 +272,7 @@ export function KaiPreferencesWizard(props: {
                 className={cn(
                   "tracking-normal text-balance text-foreground",
                   isPageLayout
-                    ? kaiAppDisplayTitleClassName
+                    ? "text-[28px] font-medium leading-[1.08] sm:text-[30px]"
                     : kaiAppSectionTitleClassName
                 )}
               >
@@ -425,7 +426,7 @@ function RadioCardItem(props: { value: string; label: string }) {
       value={props.value}
       className={cn(
         "group w-full rounded-[18px] border px-4 py-3.5 text-left transition-[background-color,border-color,box-shadow,transform] sm:px-5",
-        "min-h-[56px] focus:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)]/35",
+        "min-h-[54px] focus:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)]/35",
         "border-black/[0.08] bg-white/68 shadow-[0_10px_30px_-28px_rgba(0,0,0,0.5)] backdrop-blur-xl",
         "hover:-translate-y-0.5 hover:bg-white/86 hover:shadow-[0_16px_38px_-32px_rgba(0,0,0,0.55)]",
         "data-[state=checked]:border-primary/55 data-[state=checked]:bg-primary/[0.08] data-[state=checked]:shadow-[0_16px_38px_-32px_rgba(0,113,227,0.7)]",
@@ -433,7 +434,7 @@ function RadioCardItem(props: { value: string; label: string }) {
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[15px] font-medium leading-snug text-foreground">
+        <p className={cn(kaiAppCardTitleClassName, "text-foreground")}>
           {props.label}
         </p>
         <div
