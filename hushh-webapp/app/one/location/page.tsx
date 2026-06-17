@@ -128,7 +128,6 @@ const SHOW_LOCATION_ACTIVITY_SECTION = false;
 const SHOW_OWNER_GRANTS_SECTION = false;
 const SHOW_PUBLIC_RESPONSES_SECTION = false;
 const SHOW_REFERRAL_SECTION = false;
-const ONE_LOCATION_ONBOARDING_STORAGE_PREFIX = "one_location_onboarding_v1";
 
 type BusyState =
   | "load"
@@ -1134,34 +1133,6 @@ function OneLocationInitialSkeleton() {
   );
 }
 
-function oneLocationOnboardingStorageKey(userId: string): string {
-  return `${ONE_LOCATION_ONBOARDING_STORAGE_PREFIX}:${userId}`;
-}
-
-function readOneLocationOnboardingDismissed(userId: string): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    const value = window.localStorage.getItem(
-      oneLocationOnboardingStorageKey(userId),
-    );
-    return value === "done" || value === "skipped";
-  } catch {
-    return false;
-  }
-}
-
-function writeOneLocationOnboardingDismissed(
-  userId: string,
-  status: "done" | "skipped",
-) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(oneLocationOnboardingStorageKey(userId), status);
-  } catch {
-    // Non-blocking: private browsing or storage restrictions should not trap users.
-  }
-}
-
 function OneLocationIntroMapIllustration() {
   return (
     <div
@@ -1990,13 +1961,8 @@ function OneLocationAgentPageContent() {
       setLocationOnboardingGate("checking");
       return;
     }
-    if (permission?.state === "granted") {
-      writeOneLocationOnboardingDismissed(auth.userId, "done");
-      setLocationOnboardingGate("hidden");
-      return;
-    }
-    if (readOneLocationOnboardingDismissed(auth.userId)) {
-      setLocationOnboardingGate("hidden");
+
+    if (locationOnboardingGate === "hidden") {
       return;
     }
 
@@ -2009,7 +1975,6 @@ function OneLocationAgentPageContent() {
     auth.userId,
     loadError,
     locationOnboardingGate,
-    permission?.state,
     state,
   ]);
 
@@ -3149,38 +3114,41 @@ function OneLocationAgentPageContent() {
     }
   }, [ensureForegroundLocationReady]);
 
-  const dismissLocationOnboarding = useCallback(
-    (status: "done" | "skipped") => {
-      if (auth.userId) {
-        writeOneLocationOnboardingDismissed(auth.userId, status);
-      }
-      setLocationOnboardingGate("hidden");
-      setLocationOnboardingBusy(false);
-    },
-    [auth.userId],
-  );
+  const dismissLocationOnboarding = useCallback(() => {
+    setLocationOnboardingGate("hidden");
+    setLocationOnboardingBusy(false);
+  }, []);
 
   const handleContinueLocationOnboardingIntro = useCallback(() => {
     setLocationOnboardingStep("permission");
   }, []);
 
   const handleSkipLocationOnboarding = useCallback(() => {
-    dismissLocationOnboarding("skipped");
+    dismissLocationOnboarding();
   }, [dismissLocationOnboarding]);
 
   const handleLocationOnboardingPermission = useCallback(async () => {
     if (locationOnboardingBusy) return;
     setLocationOnboardingBusy(true);
     try {
+      if (permission?.state === "granted" && !isLocationServicesDisabled(permission)) {
+        const nextPermission = await refreshLocationPermission();
+        if (
+          nextPermission.state === "granted" &&
+          !isLocationServicesDisabled(nextPermission)
+        ) {
+          dismissLocationOnboarding();
+          return;
+        }
+      }
       const result = await ensureForegroundLocationReady({
         capturePoint: false,
         autoOpenSettings: false,
         requestNativePrompt: true,
       });
       const nextPermission = await refreshLocationPermission();
-      if (result.ready || nextPermission.state === "granted") {
-        dismissLocationOnboarding("done");
-      }
+      if (!result.ready && nextPermission.state !== "granted") return;
+      dismissLocationOnboarding();
     } finally {
       setLocationOnboardingBusy(false);
     }
@@ -3188,6 +3156,7 @@ function OneLocationAgentPageContent() {
     dismissLocationOnboarding,
     ensureForegroundLocationReady,
     locationOnboardingBusy,
+    permission,
     refreshLocationPermission,
   ]);
 
