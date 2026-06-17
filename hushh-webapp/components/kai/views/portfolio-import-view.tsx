@@ -30,7 +30,6 @@ import { SurfaceCard, SurfaceCardContent } from "@/components/app-ui/surfaces";
 import { Icon } from "@/lib/morphy-ux/ui";
 import { scrollAppToTop } from "@/lib/navigation/use-scroll-reset";
 import {
-  kaiAppBodyClassName,
   kaiAppCardBodyClassName,
   kaiAppCardTitleClassName,
   kaiAppCompactTitleClassName,
