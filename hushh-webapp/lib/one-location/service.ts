@@ -65,6 +65,10 @@ export class OneLocationService {
     return HushhLocation.getPermissionState();
   }
 
+  static async openLocationSettings() {
+    return HushhLocation.openLocationSettings();
+  }
+
   static async captureCurrentPosition(): Promise<PlainLocationPoint> {
     return HushhLocation.getCurrentPosition({
       enableHighAccuracy: true,
@@ -137,6 +141,7 @@ export class OneLocationService {
 
   static async resolvePublicInvite(publicToken: string): Promise<{
     invite: OneLocationPublicInvite;
+    publicLocation?: PlainLocationPoint | null;
   }> {
     return apiJsonWithRetry(
       `/api/one/location/public-invites/${encodeURIComponent(publicToken)}`,
