@@ -67,7 +67,7 @@ class ConversationHistoryResponse(BaseModel):
     """Response for conversation history endpoint."""
 
     conversation_id: str = Field(..., max_length=256)
-    messages: list[dict] = Field(default_factory=list)
+    messages: list[dict] = Field(default_factory=list, max_length=1000)
 
 
 @router.post("/chat", response_model=KaiChatResponseModel)
