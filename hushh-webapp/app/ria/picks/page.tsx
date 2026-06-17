@@ -2447,14 +2447,14 @@ export default function RiaPicksPage() {
 
               {source === "kai" && kaiLoading ? (
                 <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
                   Loading Kai list...
                 </div>
               ) : null}
 
               {source === "my" && picksResource.loading ? (
                 <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
                   Loading My list...
                 </div>
               ) : null}
@@ -2525,7 +2525,7 @@ export default function RiaPicksPage() {
             <div className="space-y-4">
               {source === "kai" && avoidLoading ? (
                 <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
                   Loading avoid list...
                 </div>
               ) : null}
@@ -2594,7 +2594,7 @@ export default function RiaPicksPage() {
             <div className="space-y-4">
               {source === "kai" && screeningLoading ? (
                 <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
                   Loading screening criteria...
                 </div>
               ) : null}
