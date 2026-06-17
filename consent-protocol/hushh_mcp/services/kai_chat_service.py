@@ -23,7 +23,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Optional
 
@@ -1229,7 +1229,7 @@ REASONING: [2-3 sentences]
             # Store decision as a non-sensitive summary in the PKM index
             saved = False
             try:
-                analyzed_at = datetime.now().isoformat()
+                analyzed_at = datetime.now(UTC).isoformat()
                 ticker_upper = str(ticker or "").upper()
                 await self.pkm_service.update_domain_summary(
                     user_id=user_id,
