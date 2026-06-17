@@ -40,7 +40,7 @@ import {
 const importCardTitleClassName =
   "!text-[22px] !font-medium !leading-[1.12] !tracking-normal text-foreground sm:!text-[24px]";
 const importDropzoneTitleClassName =
-  "!text-[16px] !font-medium !leading-[1.24] !tracking-normal sm:!text-[17px]";
+  "text-[16px] font-medium leading-[1.24] tracking-normal sm:text-[17px]";
 
 // =============================================================================
 // TYPES
