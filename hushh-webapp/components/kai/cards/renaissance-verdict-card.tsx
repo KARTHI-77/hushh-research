@@ -69,7 +69,7 @@ export function RenaissanceVerdictCard({ row }: { row: KaiHomeRenaissanceItem })
             <p className={cn("text-xl font-bold tracking-tight", config.textColor)}>{config.label}</p>
           </div>
         </div>
-        <Badge variant="outline" className={cn("text-[10px] font-black uppercase", config.badge)}>
+        <Badge variant="outline" className={cn("text-[10px] font-semibold uppercase", config.badge)}>
           {signalType}
         </Badge>
       </div>

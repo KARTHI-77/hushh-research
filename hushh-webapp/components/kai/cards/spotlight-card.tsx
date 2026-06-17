@@ -81,11 +81,11 @@ export function SpotlightCard({
             <div className="flex min-w-0 items-center gap-3">
               <SymbolAvatar symbol={symbol} name={companyName} size={compact ? "sm" : "md"} />
               <div>
-                <h3 className="font-black leading-tight tracking-tight">{title}</h3>
+                <h3 className="font-semibold leading-tight tracking-tight">{title}</h3>
                 <p className="text-xs text-muted-foreground">{price}</p>
               </div>
             </div>
-            <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase", decisionStyle)}>
+            <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase", decisionStyle)}>
               {decision}
             </span>
           </div>
