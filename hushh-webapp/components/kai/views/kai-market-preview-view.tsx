@@ -148,8 +148,8 @@ const oneMarketRootClassName = cn(
   marketSurfaceVariablesClassName,
   "relative isolate mx-auto flex min-h-screen w-full !max-w-none flex-col overflow-x-hidden !px-0 pb-0",
   "bg-[color:var(--one-bg)] font-sans text-[color:var(--one-fg)] antialiased",
-  "[--one-bg:#ffffff] [--one-card:#ffffff] [--one-surface:#f2f2f7]",
-  "dark:[--one-bg:#000000] dark:[--one-card:#1c1c1e] dark:[--one-surface:#1c1c1e]",
+  "[--one-bg:var(--background)] [--one-card:#ffffff] [--one-surface:#f2f2f7]",
+  "dark:[--one-bg:rgb(28,28,30)] dark:[--one-card:#1c1c1e] dark:[--one-surface:#1c1c1e]",
   "[--one-hairline:rgba(0,0,0,0.08)] [--one-line:rgba(0,0,0,0.06)]",
   "dark:[--one-hairline:rgba(255,255,255,0.14)] dark:[--one-line:rgba(255,255,255,0.10)]",
   "[--one-fg:#1d1d1f] [--one-fg2:rgba(0,0,0,0.55)] [--one-fg3:rgba(0,0,0,0.42)]",
@@ -2041,13 +2041,13 @@ export function KaiMarketPreviewView() {
           {`
             html:has([data-one-market-preview="true"]),
             body {
-              background: #ffffff !important;
+              background: var(--background) !important;
             }
 
             body:has([data-one-market-preview="true"]) main,
             body:has([data-one-market-preview="true"]) [data-top-content-anchor="true"],
             body:has([data-one-market-preview="true"]) [class*="overflow-y-auto"][class*="touch-pan-y"] {
-              background: #ffffff !important;
+              background: var(--background) !important;
             }
 
             html.dark:has([data-one-market-preview="true"]),
@@ -2055,7 +2055,7 @@ export function KaiMarketPreviewView() {
             html.dark:has([data-one-market-preview="true"]) body main,
             html.dark:has([data-one-market-preview="true"]) body [data-top-content-anchor="true"],
             html.dark:has([data-one-market-preview="true"]) body [class*="overflow-y-auto"][class*="touch-pan-y"] {
-              background: #000000 !important;
+              background: rgb(28, 28, 30) !important;
             }
 
             nextjs-portal,

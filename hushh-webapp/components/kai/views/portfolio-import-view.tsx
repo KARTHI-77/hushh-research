@@ -32,15 +32,17 @@ import { scrollAppToTop } from "@/lib/navigation/use-scroll-reset";
 import {
   kaiAppBodyClassName,
   kaiAppCardBodyClassName,
+  kaiAppCardTitleClassName,
   kaiAppCompactTitleClassName,
   kaiAppEyebrowClassName,
   kaiAppHelperClassName,
+  kaiAppSectionTitleClassName,
 } from "@/components/kai/shared/kai-typography";
 
 const importCardTitleClassName =
-  "!text-[22px] !font-medium !leading-[1.12] !tracking-normal text-foreground sm:!text-[24px]";
+  cn(kaiAppSectionTitleClassName, "text-foreground");
 const importDropzoneTitleClassName =
-  "!text-[16px] !font-medium !leading-[1.24] !tracking-normal sm:!text-[17px]";
+  cn(kaiAppCardTitleClassName, "text-foreground");
 
 // =============================================================================
 // TYPES
@@ -164,22 +166,17 @@ export function PortfolioImportView({
   ]);
 
   return (
-    <div className="mx-auto w-full space-y-3.5 pt-3 pb-6" style={APP_MEASURE_STYLES.reading}>
+    <div className="mx-auto w-full space-y-4 pt-3 pb-6" style={APP_MEASURE_STYLES.reading}>
       {/* Header */}
-      <div className="space-y-2.5 text-center">
+      <div className="space-y-2 text-left">
+        <p className={cn(kaiAppEyebrowClassName, "text-muted-foreground")}>
+          Getting started
+        </p>
         <h1 className={cn(kaiAppCompactTitleClassName, "text-foreground")}>
-          Your money
-          <br />
-          <span>Your options</span>
+          Portfolio
         </h1>
         <p className={cn(kaiAppBodyClassName, "text-muted-foreground")}>
           Let Kai analyze your holdings for precise advice
-        </p>
-      </div>
-
-      <div className="text-center">
-        <p className={cn(kaiAppEyebrowClassName, "text-muted-foreground")}>
-          Choose import method
         </p>
       </div>
 
