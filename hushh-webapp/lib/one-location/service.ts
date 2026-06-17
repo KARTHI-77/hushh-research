@@ -65,6 +65,10 @@ export class OneLocationService {
     return HushhLocation.getPermissionState();
   }
 
+  static async openLocationSettings() {
+    return HushhLocation.openLocationSettings();
+  }
+
   static async captureCurrentPosition(): Promise<PlainLocationPoint> {
     return HushhLocation.getCurrentPosition({
       enableHighAccuracy: true,
