@@ -6,14 +6,14 @@
 import React, { useEffect, useMemo, type CSSProperties } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  ChartSpline,
-  ChartCandlestick,
-  CircleUserRound,
+  BriefcaseBusiness,
   Compass,
   FileSpreadsheet,
-  House,
+  LayoutDashboard,
+  LineChart,
+  Store,
+  User,
   Users,
-  WalletCards,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -47,10 +47,7 @@ export const Navbar = () => {
   const pillRef = React.useRef<HTMLDivElement | null>(null);
   const chromeState = useMemo(() => getKaiChromeState(pathname), [pathname]);
   const useOnboardingChrome = chromeState.useOnboardingChrome;
-  const preserveBottomChrome = Boolean(
-    pathname?.startsWith("/ria") || pathname?.startsWith("/marketplace")
-  );
-  const allowScrollHide = isAuthenticated && !useOnboardingChrome && !preserveBottomChrome;
+  const allowScrollHide = false;
   const { hidden: hideBottomChrome, progress: hideBottomChromeProgress } = useKaiBottomChromeVisibility(allowScrollHide);
 
   const busyOperations = useKaiSession((s) => s.busyOperations);
@@ -107,7 +104,7 @@ export const Navbar = () => {
             {
               value: "home",
               label: "Home",
-              icon: House,
+              icon: BriefcaseBusiness,
               dataTourId: "nav-ria-home",
             },
             {
@@ -131,7 +128,7 @@ export const Navbar = () => {
             {
               value: "profile",
               label: "Profile",
-              icon: CircleUserRound,
+              icon: User,
               badge: pendingConsents > 0 ? pendingConsents : undefined,
               dataTourId: "nav-profile",
             },
@@ -140,19 +137,19 @@ export const Navbar = () => {
             {
               value: "market",
               label: "Market",
-              icon: ChartCandlestick,
+              icon: Store,
               dataTourId: "nav-market",
             },
             {
               value: "dashboard",
               label: "Portfolio",
-              icon: WalletCards,
+              icon: LayoutDashboard,
               dataTourId: "nav-portfolio",
             },
             {
               value: "analysis",
               label: "Analysis",
-              icon: ChartSpline,
+              icon: LineChart,
               dataTourId: "nav-analysis",
             },
             {
@@ -164,7 +161,7 @@ export const Navbar = () => {
             {
               value: "profile",
               label: "Profile",
-              icon: CircleUserRound,
+              icon: User,
               badge: pendingConsents > 0 ? pendingConsents : undefined,
               dataTourId: "nav-profile",
             },

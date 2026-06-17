@@ -725,7 +725,6 @@ function ProfilePageContent() {
   const [marketplaceOptIn, setMarketplaceOptIn] = useState(false);
   const [loadingMarketplaceOptIn, setLoadingMarketplaceOptIn] = useState(true);
   const [savingMarketplaceOptIn, setSavingMarketplaceOptIn] = useState(false);
-  const [locationContextEnabled, setLocationContextEnabled] = useState(false);
   const [riaOnboardingStatus, setRiaOnboardingStatus] =
     useState<RiaOnboardingStatus | null>(null);
   const [loadingRiaOnboardingStatus, setLoadingRiaOnboardingStatus] =
@@ -2032,15 +2031,6 @@ function ProfilePageContent() {
         voiceAliases: ["access", "sharing", "consent access"],
       },
       {
-        id: "profile_location_context",
-        label: "Location",
-        purpose:
-          "toggles nearby advisors and local market hours on this device.",
-        actionId: "profile.location_context",
-        role: "switch",
-        voiceAliases: ["location", "nearby advisors", "local market hours"],
-      },
-      {
         id: "profile_vault",
         label: vaultSettingsRow.title,
         purpose: vaultSettingsRow.voicePurpose,
@@ -2155,7 +2145,6 @@ function ProfilePageContent() {
           "Access & sharing",
           "Gmail receipts",
           "Email",
-          "Location",
           "Preferences",
           "Security",
           "Support & feedback",
@@ -2194,7 +2183,6 @@ function ProfilePageContent() {
                   "Open Access & sharing",
                   "Open Gmail receipts",
                   "Open Email",
-                  locationContextEnabled ? "Turn off Location" : "Turn on Location",
                   "Open Support",
                 ];
 
@@ -2253,11 +2241,6 @@ function ProfilePageContent() {
             id: "email",
             title: "Email",
             purpose: "Requests and approval drafts.",
-          },
-          {
-            id: "location",
-            title: "Location",
-            purpose: "Nearby advisors and local market hours.",
           },
           {
             id: "support",
@@ -2332,7 +2315,6 @@ function ProfilePageContent() {
         google_email: gmail.status?.google_email || null,
         pkm_agent_lab_available: canShowPkmAgentLab,
         marketplace_opt_in: marketplaceOptIn,
-        location_context_enabled: locationContextEnabled,
         ria_regulatory_profile_visible: shouldShowRiaRegulatoryRow,
         ria_license_number: currentRiaLicenseNumber || null,
         ria_regulator: currentRiaRegulator,
@@ -2356,7 +2338,6 @@ function ProfilePageContent() {
     gmailStatusSummary.title,
     gmail.status?.google_email,
     lastVoiceControlId,
-    locationContextEnabled,
     marketplaceOptIn,
     passphraseDialogOpen,
     pendingConsents,
@@ -4266,30 +4247,6 @@ function ProfilePageContent() {
                   }
                   router.push(ROUTES.ONE_KYC);
                 }}
-              />
-              <SettingsRow
-                icon={MapPin}
-                title="Location"
-                description={
-                  locationContextEnabled
-                    ? "While using the app - every read is receipted."
-                    : "Nearby advisors and local market hours. Off by default."
-                }
-                trailing={
-                  <Switch
-                    checked={locationContextEnabled}
-                    aria-label="Toggle location"
-                    onPointerDown={(event) => {
-                      event.stopPropagation();
-                    }}
-                    onClick={(event) => event.stopPropagation()}
-                    onCheckedChange={setLocationContextEnabled}
-                  />
-                }
-                voiceControlId="profile_location_context"
-                voiceActionId="profile.location_context"
-                voiceLabel="Location"
-                voicePurpose="Nearby advisors and local market hours."
               />
             </SettingsGroup>
 
