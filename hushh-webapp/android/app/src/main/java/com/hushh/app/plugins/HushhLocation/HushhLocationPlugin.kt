@@ -68,12 +68,26 @@ class HushhLocationPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun requestLocationPermission(call: PluginCall) {
+        if (getPermissionState("location") == PermissionState.GRANTED) {
+            call.resolve(permissionPayload())
+            return
+        }
+        requestPermissionForAlias("location", call, "locationPermissionStateCallback")
+    }
+
+    @PluginMethod
     fun getCurrentPosition(call: PluginCall) {
         if (getPermissionState("location") != PermissionState.GRANTED) {
             requestPermissionForAlias("location", call, "locationPermissionCallback")
             return
         }
         captureCurrentPosition(call)
+    }
+
+    @PermissionCallback
+    private fun locationPermissionStateCallback(call: PluginCall) {
+        call.resolve(permissionPayload())
     }
 
     @PermissionCallback

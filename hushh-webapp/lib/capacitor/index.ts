@@ -773,6 +773,7 @@ export type HushhLocationPermissionState = {
 
 export interface HushhLocationPlugin {
   getPermissionState(): Promise<HushhLocationPermissionState>;
+  requestLocationPermission(): Promise<HushhLocationPermissionState>;
   openLocationSettings(): Promise<{
     opened: boolean;
     sourcePlatform: "web" | "ios" | "android" | "native";
