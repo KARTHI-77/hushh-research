@@ -22,9 +22,9 @@ import { shouldBypassPhoneMandateForLocalhost } from "@/lib/services/phone-manda
 const FLOW_SHELL_STYLE = {
   "--page-top-local-offset": "0px",
   "--phone-mandate-safe-pt":
-    "calc(var(--app-safe-area-top-effective, env(safe-area-inset-top, 0px)) + 3rem)",
+    "calc(var(--app-safe-area-top-effective, env(safe-area-inset-top, 0px)) + 1.25rem)",
   "--phone-mandate-safe-pb":
-    "calc(var(--app-safe-area-bottom-effective, env(safe-area-inset-bottom, 0px)) + 2.5rem)",
+    "calc(var(--app-safe-area-bottom-effective, env(safe-area-inset-bottom, 0px)) + 1.25rem)",
 } as CSSProperties;
 
 function requiresVaultUnlockForRedirect(path?: string | null): boolean {
@@ -121,7 +121,7 @@ function PhoneMandatePageContent() {
     <FullscreenFlowShell
       as="main"
       width="narrow"
-      className="min-h-[100dvh] px-6 pb-[var(--phone-mandate-safe-pb)] pt-[var(--phone-mandate-safe-pt)]"
+      className="h-[100dvh] min-h-[100svh] justify-center overflow-hidden px-6 pb-[var(--phone-mandate-safe-pb)] pt-[var(--phone-mandate-safe-pt)]"
       style={FLOW_SHELL_STYLE}
     >
       <NativeRouteMarker
@@ -162,7 +162,7 @@ function PhoneMandatePageContent() {
           onCompleted={continueToNextRoute}
           onContinueExisting={continueToNextRoute}
           confirmLabel="Verify and continue"
-          className="mt-8 min-h-[24rem] gap-5"
+          className="mt-8 gap-5"
         />
 
         <div id="recaptcha-container" className="mt-6 min-h-0" />
