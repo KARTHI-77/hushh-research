@@ -1047,7 +1047,7 @@ async def get_consent_center_list(
     mode: str = Query(default="consents", max_length=50),
     q: str | None = Query(default=None, max_length=200),
     top: int | None = Query(default=None, ge=1, le=10),
-    page: int = Query(default=1, ge=1),
+    page: int = Query(default=1, ge=1, le=1_000),
     limit: int = Query(default=20, ge=1, le=100),
     firebase_uid: str = Depends(require_firebase_auth),
 ):
@@ -1107,7 +1107,7 @@ async def create_generic_consent_request(
 async def get_handshake_history(
     counterpart_id: str = Query(..., min_length=1, max_length=128),
     actor: str = Query(default="investor", max_length=50),
-    page: int = Query(default=1, ge=1),
+    page: int = Query(default=1, ge=1, le=1_000),
     limit: int = Query(default=50, ge=1, le=200),
     firebase_uid: str = Depends(require_firebase_auth),
 ):
