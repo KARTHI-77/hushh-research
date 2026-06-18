@@ -612,18 +612,6 @@ function oneLocationErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
-function oneLocationRequestErrorMessage(error: unknown, fallback: string): string {
-  const message = oneLocationErrorMessage(error, fallback);
-  const normalized = message.toLowerCase();
-  if (
-    normalized.includes("verified recipient") &&
-    normalized.includes("location key material")
-  ) {
-    return "Your One Location key is still setting up. Refresh this page once, then send the request again.";
-  }
-  return message;
-}
-
 function isLocationPointStale(point: PlainLocationPoint): boolean {
   const capturedAt = new Date(point.capturedAt).getTime();
   if (!Number.isFinite(capturedAt)) return false;
@@ -2633,13 +2621,22 @@ function OneLocationAgentPageContent() {
       await AccountIdentityService.syncCurrentUser(activeUser).catch((error) => {
         console.warn("[OneLocation] Failed to sync account identity before request:", error);
       });
-      const key = await ensureLocationRecipientKey(activeUserId);
-      await OneLocationService.registerRecipientKey({
-        vaultOwnerToken: activeVaultOwnerToken,
-        keyId: key.keyId,
-        publicKeyJwk: key.publicKeyJwk,
-        algorithm: key.algorithm,
-      });
+      await (async () => {
+        try {
+          const key = await ensureLocationRecipientKey(activeUserId);
+          await OneLocationService.registerRecipientKey({
+            vaultOwnerToken: activeVaultOwnerToken,
+            keyId: key.keyId,
+            publicKeyJwk: key.publicKeyJwk,
+            algorithm: key.algorithm,
+          });
+        } catch (error) {
+          console.warn(
+            "[OneLocation] Continuing request after key sync failed:",
+            error,
+          );
+        }
+      })();
       for (const owner of selectedRequestOwners) {
         await OneLocationService.requestAccess({
           vaultOwnerToken: activeVaultOwnerToken,
@@ -2676,7 +2673,7 @@ function OneLocationAgentPageContent() {
         failure_count: failureCount,
         has_note: Boolean(requestMessage.trim()),
       });
-      toast.error(oneLocationRequestErrorMessage(error, "Could not send request."));
+      toast.error(oneLocationErrorMessage(error, "Could not send request."));
       if (isTransientOneApiError(error)) {
         await refresh().catch(() => null);
       }
