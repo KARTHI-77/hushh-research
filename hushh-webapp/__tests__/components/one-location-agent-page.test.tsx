@@ -990,7 +990,7 @@ describe("OneLocationAgentPage", () => {
       expect.objectContaining({
         route_id: "one_location",
         action: "share",
-        selection_surface: "quick_circle",
+        selection_surface: "section_list",
         selected_count: 2,
       }),
       expect.any(Object),
