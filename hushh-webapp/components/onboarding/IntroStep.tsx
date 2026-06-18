@@ -115,13 +115,13 @@ export function IntroStep({
           </p>
         </section>
 
-        <div className="flex min-h-0 flex-1 items-center py-7">
+        <div className="flex-none pt-9 pb-5">
           <div className="relative w-full">
-            <div className="relative z-10 mx-auto flex w-full max-w-[340px] flex-col gap-4">
+            <div className="relative z-10 mx-auto flex w-full max-w-[340px] flex-col gap-3">
               {INTRO_FEATURES.map((feature) => (
                 <div
                   key={feature.title}
-                  className="grid min-h-[68px] grid-cols-[48px_minmax(0,1fr)] items-center gap-4 rounded-[22px]"
+                  className="grid h-[70px] grid-cols-[48px_minmax(0,1fr)] items-center gap-4 rounded-[22px]"
                 >
                   <span
                     className={`grid h-12 w-12 place-items-center rounded-full border border-black/[0.04] dark:border-white/10 ${feature.tileClassName}`}
