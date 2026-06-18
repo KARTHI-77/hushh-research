@@ -595,8 +595,8 @@ async def approve_consent(
     try:
         _consent_scope = resolve_scope_to_enum(requested_scope)
     except Exception as e:
-        logger.error("consent.scope_resolution_failed: %s", e)
-        raise HTTPException(status_code=400, detail=f"Invalid scope: {requested_scope}")
+        logger.error("consent.scope_resolution_failed scope=%r: %s", requested_scope, e)
+        raise HTTPException(status_code=400, detail="Invalid consent scope")
 
     # Optional metadata on pending request (used for expiry hints)
     metadata = pending_request.get("metadata", {})
@@ -1300,7 +1300,7 @@ async def revoke_consent(
 
         if not token_to_revoke:
             raise HTTPException(
-                status_code=404, detail=f"No active consent found for scope: {scope}"
+                status_code=404, detail="No active consent found for the requested scope"
             )
 
         # CRITICAL: Add the actual token to in-memory revocation set
@@ -1535,7 +1535,7 @@ async def upload_refreshed_export(
         logger.warning("consent.export_refresh.token_invalid reason=%s", reason)
         raise HTTPException(
             status_code=401,
-            detail="Invalid or expired consent token.",
+            detail="Invalid or expired consent token",
             headers={"WWW-Authenticate": "Bearer"},
         )
     if str(token_obj.user_id) != request.userId:
