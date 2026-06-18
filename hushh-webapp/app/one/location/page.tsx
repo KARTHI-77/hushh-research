@@ -43,7 +43,6 @@ import {
   AppPageShell,
 } from "@/components/app-ui/app-page-shell";
 import { NativeTestBeacon } from "@/components/app-ui/native-test-beacon";
-import { SettingsGroup } from "@/components/app-ui/settings-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -788,19 +787,6 @@ function ActionButton({
   );
 }
 
-function SkeletonRow({ wide = false }: { wide?: boolean }) {
-  return (
-    <div className="flex min-h-20 items-center gap-3 px-[var(--settings-row-px)] py-[var(--settings-row-py)]">
-      <Skeleton className="h-9 w-9 shrink-0 rounded-2xl" />
-      <div className="min-w-0 flex-1 space-y-2">
-        <Skeleton className={wide ? "h-4 w-2/3" : "h-4 w-40"} />
-        <Skeleton className="h-3 w-full max-w-md" />
-      </div>
-      <Skeleton className="hidden h-8 w-20 rounded-full sm:block" />
-    </div>
-  );
-}
-
 type ShareMode = "share" | "request";
 
 const onePanelClassName =
@@ -1103,38 +1089,115 @@ function readinessCopy(permission: HushhLocationPermissionState | null): {
 
 function OneLocationInitialSkeleton() {
   return (
-    <div className="space-y-6">
-      <div className="space-y-6">
-        <SettingsGroup eyebrow="Device" title="Readiness">
-          <SkeletonRow />
-          <SkeletonRow />
-          <SkeletonRow />
-        </SettingsGroup>
-        <SettingsGroup eyebrow="Share" title="Share with trusted person">
-          <div className="space-y-4 px-[var(--settings-row-px)] py-[var(--settings-row-py)]">
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px]">
-              <Skeleton className="h-11 rounded-xl" />
-              <Skeleton className="h-11 rounded-xl" />
+    <div
+      aria-label="Loading One Location"
+      className="mx-auto w-full max-w-[540px] space-y-5"
+      role="status"
+    >
+      <section className="space-y-2 px-1">
+        {sectionLabel("Device readiness")}
+        <div className="rounded-[20px] border border-[#34c759]/20 bg-[#34c759]/10 p-4 shadow-sm dark:border-[#34c759]/25 dark:bg-[#34c759]/12">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+            <Skeleton className="h-6 w-44 max-w-[70%] rounded-lg" />
+          </div>
+        </div>
+        <div className={cn(onePanelClassName, "p-3.5")}>
+          <Skeleton className="h-11 w-full rounded-full" />
+        </div>
+      </section>
+
+      <section className="space-y-4 px-1">
+        <div className="flex h-9 w-full rounded-[9px] bg-[#efeff0] p-[3px] dark:bg-white/10">
+          <Skeleton className="h-full flex-1 rounded-[7px]" />
+          <Skeleton className="h-full flex-1 rounded-[7px] opacity-60" />
+        </div>
+
+        <div className="space-y-2">
+          {sectionLabel("One Network")}
+          <div className="flex gap-4 overflow-hidden px-1 pb-2 pt-1">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div
+                key={index}
+                className="flex w-[68px] shrink-0 flex-col items-center gap-2"
+              >
+                <Skeleton className="h-[52px] w-[52px] rounded-full" />
+                <Skeleton className="h-3 w-12 rounded-full" />
+                <Skeleton className="h-3 w-16 rounded-md" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <Skeleton className="h-10 w-full rounded-[14px]" />
+
+        <div className={onePanelClassName}>
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div
+              key={index}
+              className="relative flex items-center gap-3 p-3.5 after:absolute after:bottom-0 after:left-[62px] after:right-0 after:border-b after:border-black/[0.05] last:after:hidden dark:after:border-white/[0.08]"
+            >
+              <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-4 w-40 max-w-full rounded-lg" />
+                <Skeleton className="h-3 w-56 max-w-full rounded-lg" />
+              </div>
+              <Skeleton className="h-8 w-20 shrink-0 rounded-full" />
             </div>
-            <Skeleton className="h-10 w-56 rounded-xl" />
+          ))}
+        </div>
+
+        <Skeleton className="h-9 w-full rounded-full" />
+
+        <div className={cn(onePanelClassName, "space-y-3 p-3.5")}>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px]">
+            <Skeleton className="h-11 rounded-[14px]" />
+            <Skeleton className="h-11 rounded-[14px]" />
           </div>
-        </SettingsGroup>
-        <SettingsGroup eyebrow="Request" title="Ask someone to share">
-          <div className="space-y-4 px-[var(--settings-row-px)] py-[var(--settings-row-py)]">
-            <Skeleton className="h-11 rounded-xl" />
-            <Skeleton className="h-24 rounded-xl" />
-            <Skeleton className="h-10 w-40 rounded-xl" />
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="h-8 w-32 rounded-full" />
+            <Skeleton className="h-8 w-24 rounded-full" />
           </div>
-        </SettingsGroup>
-      </div>
-      <div className="space-y-6">
-        <SettingsGroup eyebrow="Approvals" title="Pending requests">
-          <SkeletonRow />
-        </SettingsGroup>
-        <SettingsGroup eyebrow="Location" title="Shared with me">
-          <SkeletonRow wide />
-        </SettingsGroup>
-      </div>
+          <Skeleton className="h-12 w-full rounded-[16px]" />
+        </div>
+      </section>
+
+      <section className="space-y-2 px-1">
+        {sectionLabel("Approvals")}
+        <div className={cn(onePanelClassName, "flex items-center gap-3 p-3.5")}>
+          <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-40 rounded-lg" />
+            <Skeleton className="h-3 w-56 max-w-full rounded-lg" />
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-2 px-1">
+        {sectionLabel("Create public link")}
+        <div className={cn(onePanelClassName, "space-y-3 p-3.5")}>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px]">
+            <Skeleton className="h-10 rounded-[12px]" />
+            <Skeleton className="h-10 rounded-[12px]" />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="h-10 w-full rounded-full sm:w-44" />
+            <Skeleton className="h-10 w-full rounded-full sm:w-24" />
+            <Skeleton className="h-10 w-full rounded-full sm:w-24" />
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-2 px-1">
+        {sectionLabel("Shared with me")}
+        <div className={cn(onePanelClassName, "flex items-center gap-3 p-3.5")}>
+          <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-40 rounded-lg" />
+            <Skeleton className="h-3 w-64 max-w-full rounded-lg" />
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -1267,9 +1330,12 @@ function OneLocationOnboardingFlow({
   const isPermissionStep = step === "permission";
 
   return (
-    <main className="min-h-dvh w-full bg-white text-[#1d1d1f] dark:bg-[#050506] dark:text-white">
+    <main
+      className="fixed inset-0 z-[540] h-dvh min-h-[100svh] w-full overflow-hidden bg-white text-[#1d1d1f] dark:bg-[#050506] dark:text-white"
+      data-no-route-swipe
+    >
       <NativeTestBeacon {...nativeTest} />
-      <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col overflow-hidden bg-white dark:bg-[#050506]">
+      <div className="mx-auto flex h-full min-h-0 w-full max-w-[430px] flex-col overflow-hidden bg-white dark:bg-[#050506]">
         <div className="h-[calc(env(safe-area-inset-top,0px)+24px)] shrink-0" />
         <section className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-[clamp(24px,7vw,34px)] py-3 [-webkit-overflow-scrolling:touch]">
           <div
@@ -1959,11 +2025,15 @@ function OneLocationAgentPageContent() {
   }, [auth.loading, refresh]);
 
   useEffect(() => {
-    if (!auth.userId || auth.loading || loadError) {
+    if (auth.loading) {
+      setLocationOnboardingGate("checking");
+      return;
+    }
+    if (!auth.userId || loadError) {
       setLocationOnboardingGate("hidden");
       return;
     }
-    if (!state) {
+    if (!vaultOwnerToken) {
       setLocationOnboardingGate("checking");
       return;
     }
@@ -1981,7 +2051,7 @@ function OneLocationAgentPageContent() {
     auth.userId,
     loadError,
     locationOnboardingGate,
-    state,
+    vaultOwnerToken,
   ]);
 
   useEffect(() => {
@@ -3207,9 +3277,8 @@ function OneLocationAgentPageContent() {
 
   const showLocationOnboarding =
     locationOnboardingGate === "show" &&
-    !showInitialSkeleton &&
     !loadError &&
-    Boolean(auth.userId && state);
+    Boolean(auth.userId && vaultOwnerToken);
 
   if (showLocationOnboarding) {
     return (
@@ -3229,7 +3298,7 @@ function OneLocationAgentPageContent() {
       width="standard"
       nativeTest={nativeTestConfig}
     >
-      <AppPageHeaderRegion className="mx-auto w-full max-w-[860px] min-w-0 overflow-hidden">
+      <AppPageHeaderRegion className="mx-auto w-full max-w-[540px] min-w-0 overflow-hidden">
         <div className="flex flex-col gap-4 px-1 pt-3 sm:flex-row sm:items-end sm:justify-between">
           <header className="max-w-[560px] min-w-0 space-y-2">
             <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#007aff] dark:text-[#76b7ff]">
@@ -3263,7 +3332,7 @@ function OneLocationAgentPageContent() {
         </div>
       </AppPageHeaderRegion>
 
-      <AppPageContentRegion className="mx-auto w-full max-w-[860px] min-w-0 space-y-6 overflow-x-hidden pb-10 sm:pb-8">
+      <AppPageContentRegion className="mx-auto w-full max-w-[540px] min-w-0 space-y-6 overflow-x-hidden pb-10 sm:pb-8">
         {loadError ? (
           <div className="rounded-[20px] border border-[#ff3b30]/30 bg-[#ff3b30]/10 p-4 text-sm text-[#ff3b30] dark:text-[#ff9f9a]">
             {loadError}
