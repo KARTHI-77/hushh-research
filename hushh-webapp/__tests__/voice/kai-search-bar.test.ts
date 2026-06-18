@@ -24,7 +24,31 @@ vi.mock("lucide-react", () => ({
 }));
 
 vi.mock("@/components/kai/kai-command-palette", () => ({
-  KaiCommandPalette: () => null,
+  KaiCommandPalette: ({
+    open,
+    onVoiceClick,
+    voiceActive,
+    voiceDisabled,
+    voiceHidden,
+  }: {
+    open: boolean;
+    onVoiceClick?: (event: unknown) => void;
+    voiceActive?: boolean;
+    voiceDisabled?: boolean;
+    voiceHidden?: boolean;
+  }) =>
+    open && !voiceHidden
+      ? createElement(
+          "button",
+          {
+            type: "button",
+            "aria-label": voiceActive ? "End Kai voice" : "Start Kai voice",
+            "aria-disabled": voiceDisabled,
+            onClick: onVoiceClick,
+          },
+          "voice",
+        )
+      : null,
 }));
 
 vi.mock("@/components/kai/voice/voice-ambient-search-surface", () => ({
@@ -68,6 +92,12 @@ vi.mock("@/components/kai/voice/voice-ambient-search-surface", () => ({
 
 vi.mock("@/components/kai/voice/voice-debug-drawer", () => ({
   VoiceDebugDrawer: () => null,
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
 }));
 
 vi.mock("@/components/app-ui/shell-action-surface", () => ({
@@ -441,8 +471,10 @@ describe("kai-search-bar helpers", () => {
     expect(screen.getByRole("button", { name: "Start RIA voice" }).getAttribute("aria-disabled")).toBe(
       "true",
     );
-    expect(screen.queryByRole("button", { name: "Open Agent" })).toBeNull();
-    expect(mockOpenAgent).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Agent" }));
+
+    expect(mockOpenAgent).toHaveBeenCalledTimes(1);
   });
 
   it("keeps Kai voice inside the compact search surface", () => {
