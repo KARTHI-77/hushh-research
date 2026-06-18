@@ -557,49 +557,48 @@ export function AuthStep({
             : "relative mx-auto flex h-full min-h-0 w-full max-w-[27rem] flex-col justify-center px-6 pb-[calc(58px+var(--app-screen-footer-pad))] pt-[calc(32px+var(--app-safe-area-top-effective,0px))]"
         }
       >
-        <div className="w-full shrink-0">
-          <header className="flex-none text-center">
-            <Image
-              src="/one-quiet-emoji.png"
-              alt="One"
-              width={48}
-              height={48}
-              priority
-              className="mx-auto h-12 w-12 object-contain drop-shadow-[0_14px_28px_rgba(0,0,0,0.08)]"
-            />
-            <div
-              role="heading"
-              aria-level={1}
-              aria-label="Sign in to One"
-              className={`mt-2.5 ${kaiAppHeroTitleClassName} text-[#1d1d1f] dark:text-[#f5f5f7]`}
-            >
-              Sign in to One.
-            </div>
-            <p className={`mx-auto mt-3 max-w-[20rem] ${kaiAppHeroBodyClassName} text-[rgba(0,0,0,0.56)] dark:text-[rgba(245,245,247,0.60)]`}>
-              Continue to your personal financial advisor.
-            </p>
-          </header>
-
-          <section
-            className={
-              compact
-                ? "flex-none pt-10"
-                : "flex-none pt-11"
-            }
+        <header className="flex-none text-center">
+          <Image
+            src="/one-quiet-emoji.png"
+            alt="One"
+            width={44}
+            height={44}
+            priority
+            className="mx-auto h-11 w-11 object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.08)]"
+          />
+          <div
+            role="heading"
+            aria-level={1}
+            aria-label="Sign in to One"
+            className={`mt-2.5 ${kaiAppHeroTitleClassName} text-[#1d1d1f] dark:text-[#f5f5f7]`}
           >
-            <div className="mx-auto w-full max-w-[21.5rem] space-y-3">
-              {authOptions.map((option) => (
-                <AuthProviderButton
-                  key={option.id}
-                  label={option.label}
-                  icon={option.icon}
-                  onClick={option.onClick}
-                />
-              ))}
+            Sign in to One.
+          </div>
+          <p className={`mx-auto mt-3 max-w-[20rem] ${kaiAppHeroBodyClassName} text-[rgba(0,0,0,0.56)] dark:text-[rgba(245,245,247,0.60)]`}>
+            Continue to your personal financial advisor.
+          </p>
+        </header>
 
-              <p className="mx-auto max-w-[18.75rem] pt-2 text-center text-[13px] leading-[1.45] text-[#86868b] dark:text-[#8e8e93]">
-                A verified phone number is required before you continue.
-              </p>
+        <section
+          className={
+            compact
+              ? "flex-none pt-11"
+              : "flex-none pt-12"
+          }
+        >
+          <div className="mx-auto w-full max-w-[21.5rem] space-y-3">
+            {authOptions.map((option) => (
+              <AuthProviderButton
+                key={option.id}
+                label={option.label}
+                icon={option.icon}
+                onClick={option.onClick}
+              />
+            ))}
+
+            <p className="mx-auto max-w-[18.75rem] pt-2 text-center text-[13px] leading-[1.45] text-[#86868b] dark:text-[#8e8e93]">
+              A verified phone number is required before you continue.
+            </p>
 
               {(reviewModeConfig.enabled ||
                 nativeReviewerVisible ||
@@ -613,7 +612,6 @@ export function AuthStep({
               )}
             </div>
           </section>
-        </div>
 
         <footer className="absolute inset-x-6 bottom-[calc(20px+var(--app-screen-footer-pad))] flex-none">
           <p className="mx-auto max-w-[19.5rem] text-center text-[11px] leading-[1.45] text-[#86868b] dark:text-[#8e8e93]">
