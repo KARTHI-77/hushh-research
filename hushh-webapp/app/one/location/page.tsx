@@ -3459,6 +3459,7 @@ function OneLocationAgentPageContent() {
                     </div>
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       <ActionButton
+                        type="button"
                         busy={busy}
                         busyKey="contactSync"
                         onClick={() => void handleSyncContactSignal()}
@@ -3472,6 +3473,7 @@ function OneLocationAgentPageContent() {
                         Sync Contacts
                       </ActionButton>
                       <ActionButton
+                        type="button"
                         busy={busy}
                         busyKey="contactInvite"
                         onClick={() => void handleShareContactInvite()}
