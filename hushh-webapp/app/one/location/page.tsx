@@ -1113,22 +1113,6 @@ function OneLocationInitialSkeleton() {
           <Skeleton className="h-full flex-1 rounded-[7px] opacity-60" />
         </div>
 
-        <div className="space-y-2">
-          {sectionLabel("One Network")}
-          <div className="flex gap-4 overflow-hidden px-1 pb-2 pt-1">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <div
-                key={index}
-                className="flex w-[68px] shrink-0 flex-col items-center gap-2"
-              >
-                <Skeleton className="h-[52px] w-[52px] rounded-full" />
-                <Skeleton className="h-3 w-12 rounded-full" />
-                <Skeleton className="h-3 w-16 rounded-md" />
-              </div>
-            ))}
-          </div>
-        </div>
-
         <Skeleton className="h-10 w-full rounded-[14px]" />
 
         <div className={onePanelClassName}>
@@ -3446,78 +3430,8 @@ function OneLocationAgentPageContent() {
                   onChange={setActiveMode}
                 />
 
-                <div className="min-w-0 max-w-full space-y-2">
-                  {sectionLabel("One Network")}
-                  <div className="flex max-w-full gap-4 overflow-x-auto overscroll-x-contain px-1 pb-2 pt-1 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-black/20 dark:[&::-webkit-scrollbar-thumb]:bg-white/20">
-                    {rankedRecipients.length ? (
-                      rankedRecipients.map((recipient, index) => {
-                        const label = displayNameFromRecipient(recipient);
-                        const selected =
-                          activeMode === "share"
-                            ? selectedRecipientIds.includes(recipient.userId)
-                            : selectedRequestOwnerIds.includes(
-                                recipient.userId,
-                              );
-                        return (
-                          <button
-                            key={recipient.userId}
-                            type="button"
-                            aria-label={`Select ${recipientLabel(
-                              recipient,
-                            )} from One Network`}
-                            onClick={() => {
-                              if (activeMode === "share") {
-                                toggleShareRecipient(recipient.userId);
-                              } else {
-                                toggleRequestOwner(recipient.userId);
-                              }
-                            }}
-                            className="flex shrink-0 flex-col items-center gap-1.5"
-                          >
-                            <span className="relative">
-                              <AvatarBubble label={label} index={index} />
-                              <span
-                                className={cn(
-                                  "absolute bottom-0 right-0 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-[#2c2c2e]",
-                                  selected && "ring-2 ring-[#007aff]/30",
-                                )}
-                              >
-                                {selected ? (
-                                  <CheckCircle2 className="h-3 w-3 text-[#2e7d32] dark:text-emerald-300" />
-                                ) : recipient.canReceiveLocation ? (
-                                  <ShieldCheck className="h-3 w-3 text-[#8e8e93] dark:text-white/55" />
-                                ) : (
-                                  <AlertTriangle className="h-3 w-3 text-[#ff9500]" />
-                                )}
-                              </span>
-                            </span>
-                            <span className="max-w-[68px] truncate text-[12px] font-medium text-[#1c1c1e] dark:text-white">
-                              {label}
-                            </span>
-                            <span
-                              className={cn(
-                                "max-w-[88px] truncate rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase",
-                                recommendationToneClassName(
-                                  recipient.recommendationTier,
-                                ),
-                              )}
-                            >
-                              {recommendationTierLabel(
-                                recipient.recommendationTier,
-                              )}
-                            </span>
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <p className="text-[13px] text-[#8e8e93] dark:text-white/55">
-                        One Network recommendations will appear here.
-                      </p>
-                    )}
-                  </div>
-                </div>
-
                 <div className="flex min-w-0 max-w-full flex-col gap-3">
+                  {sectionLabel("One Network")}
                   <div className="relative">
                     <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8e8e93]" />
                     <input
@@ -3634,6 +3548,9 @@ function OneLocationAgentPageContent() {
                               ) : (
                                 <button
                                   type="button"
+                                  aria-label={`Select ${recipientLabel(
+                                    recipient,
+                                  )} from One Network`}
                                   onClick={() => {
                                     if (activeMode === "share") {
                                       toggleShareRecipient(
