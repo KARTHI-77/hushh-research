@@ -1006,7 +1006,9 @@ describe("OneLocationAgentPage", () => {
     );
 
     expect(
-      await screen.findByText(/need One Location setup before private sharing/i),
+      await screen.findByText(
+        /need to open One Location once before private sharing/i,
+      ),
     ).toBeTruthy();
     const shareButton = screen.getByRole("button", {
       name: /Review Share/i,
