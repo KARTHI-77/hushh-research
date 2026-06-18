@@ -1299,6 +1299,7 @@ function OneLocationPermissionGlyph() {
 function OneLocationOnboardingFlow({
   step,
   busy,
+  permission,
   nativeTest,
   onContinueIntro,
   onRequestPermission,
@@ -1306,12 +1307,38 @@ function OneLocationOnboardingFlow({
 }: {
   step: OneLocationOnboardingStep;
   busy: boolean;
+  permission: HushhLocationPermissionState | null;
   nativeTest: OneLocationNativeTestConfig;
   onContinueIntro: () => void;
   onRequestPermission: () => void;
   onSkip: () => void;
 }) {
   const isPermissionStep = step === "permission";
+  const isDeviceLocationOff =
+    isPermissionStep && isLocationServicesDisabled(permission);
+  const isPermissionBlocked =
+    isPermissionStep &&
+    (permission?.state === "denied" || permission?.state === "restricted");
+  const permissionTitle = isDeviceLocationOff
+    ? "Turn on phone Location"
+    : isPermissionBlocked
+      ? "Allow location in Settings"
+      : "Allow location access";
+  const permissionDescription = isDeviceLocationOff
+    ? "Your app permission is ready, but your phone Location switch is off. Turn it on, then return to continue."
+    : isPermissionBlocked
+      ? "Open Settings and allow location for One. Sharing still only happens after you confirm."
+      : "Choose While using the app. One only shares your location after you confirm a Circle share.";
+  const permissionBadge = isDeviceLocationOff
+    ? "Phone Location is off"
+    : "You can pause sharing anytime";
+  const primaryActionLabel = isPermissionStep
+    ? isDeviceLocationOff || isPermissionBlocked
+      ? isPermissionBlocked
+        ? "Open App Settings"
+        : "Open Location Settings"
+      : "Allow Location"
+    : "Continue";
 
   return (
     <main
@@ -1335,23 +1362,18 @@ function OneLocationOnboardingFlow({
               )}
             >
               {isPermissionStep
-                ? "Keep your map live"
+                ? permissionTitle
                 : "Experience location sharing with One."}
             </h1>
 
             {isPermissionStep ? (
               <>
                 <p className="mt-3 max-w-[330px] text-[15.5px] font-normal leading-[1.5] text-[#6e6e73] dark:text-white/62">
-                  Choose{" "}
-                  <strong className="font-semibold text-[#1d1d1f] dark:text-white">
-                    Allow Always
-                  </strong>{" "}
-                  so the map and alerts keep working. Only your Circle ever sees
-                  you.
+                  {permissionDescription}
                 </p>
                 <div className="mt-6 inline-flex max-w-full items-center gap-2.5 rounded-full bg-[#f5f5f7] px-4 py-2.5 text-[14px] text-[#6e6e73] dark:bg-white/[0.08] dark:text-white/62">
                   <Clock3 className="h-[18px] w-[18px] shrink-0 text-[#34c759]" aria-hidden="true" />
-                  <span className="min-w-0 truncate">You can pause sharing anytime</span>
+                  <span className="min-w-0 truncate">{permissionBadge}</span>
                 </div>
               </>
             ) : (
@@ -1371,7 +1393,7 @@ function OneLocationOnboardingFlow({
             {busy ? (
               <Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden="true" />
             ) : null}
-            Continue
+            {primaryActionLabel}
           </Button>
 
           {isPermissionStep ? (
@@ -3213,16 +3235,36 @@ function OneLocationAgentPageContent() {
     dismissLocationOnboarding();
   }, [dismissLocationOnboarding]);
 
+  const openLocationSettingsForOnboarding = useCallback(async () => {
+    await OneLocationService.openLocationSettings().catch(() => null);
+    toast.info("Turn on phone Location, then return to continue.");
+    window.setTimeout(() => void refreshLocationPermission(), 1200);
+  }, [refreshLocationPermission]);
+
+  const openAppSettingsForOnboarding = useCallback(async () => {
+    await OneLocationService.openAppSettings().catch(() => null);
+    toast.info("Allow Location for One in Settings, then return.");
+    window.setTimeout(() => void refreshLocationPermission(), 1200);
+  }, [refreshLocationPermission]);
+
   const handleLocationOnboardingPermission = useCallback(async () => {
     if (locationOnboardingBusy) return;
     setLocationOnboardingBusy(true);
     try {
+      if (
+        permission?.state === "denied" ||
+        permission?.state === "restricted"
+      ) {
+        await openAppSettingsForOnboarding();
+        return;
+      }
+
       if (permission?.state === "granted") {
         const refreshedPermission = await refreshLocationPermission();
         if (!isLocationServicesDisabled(refreshedPermission)) {
           dismissLocationOnboarding();
         } else {
-          toast.error("Turn on phone Location before sharing.");
+          await openLocationSettingsForOnboarding();
         }
         return;
       }
@@ -3231,13 +3273,22 @@ function OneLocationAgentPageContent() {
         await OneLocationService.requestLocationPermission();
       setPermission(requestedPermission);
 
+      if (
+        requestedPermission.locationServicesEnabled === false ||
+        (requestedPermission.state === "unavailable" &&
+          requestedPermission.precise !== false)
+      ) {
+        await openLocationSettingsForOnboarding();
+        return;
+      }
+
       if (requestedPermission.state !== "granted") {
-        toast.error("Allow location permission before sharing.");
+        await openAppSettingsForOnboarding();
         return;
       }
 
       if (isLocationServicesDisabled(requestedPermission)) {
-        toast.error("Turn on phone Location before sharing.");
+        await openLocationSettingsForOnboarding();
         return;
       }
 
@@ -3248,6 +3299,8 @@ function OneLocationAgentPageContent() {
   }, [
     dismissLocationOnboarding,
     locationOnboardingBusy,
+    openAppSettingsForOnboarding,
+    openLocationSettingsForOnboarding,
     permission,
     refreshLocationPermission,
   ]);
@@ -3275,6 +3328,7 @@ function OneLocationAgentPageContent() {
       <OneLocationOnboardingFlow
         step={locationOnboardingStep}
         busy={locationOnboardingBusy}
+        permission={permission}
         nativeTest={nativeTestConfig}
         onContinueIntro={handleContinueLocationOnboardingIntro}
         onRequestPermission={handleLocationOnboardingPermission}

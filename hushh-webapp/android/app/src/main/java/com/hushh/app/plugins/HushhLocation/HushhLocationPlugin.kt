@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -64,6 +65,24 @@ class HushhLocationPlugin : Plugin() {
             )
         } catch (error: Exception) {
             call.reject("Could not open location settings: ${error.message}")
+        }
+    }
+
+    @PluginMethod
+    fun openAppSettings(call: PluginCall) {
+        try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:${context.packageName}")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            call.resolve(
+                JSObject()
+                    .put("opened", true)
+                    .put("sourcePlatform", "android")
+            )
+        } catch (error: Exception) {
+            call.reject("Could not open app settings: ${error.message}")
         }
     }
 
