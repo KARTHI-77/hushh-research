@@ -642,13 +642,13 @@ export function VaultFlow({
         effect="fill"
         className="overflow-hidden rounded-[28px] border border-border/35 bg-background/95 shadow-[0_24px_70px_rgba(15,23,42,0.16)] backdrop-blur-xl dark:bg-background/92"
       >
-        <CardContent className="max-h-[calc(100svh-2rem)] space-y-4 overflow-y-auto px-5 py-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] [scrollbar-width:none] sm:max-h-[min(720px,calc(100svh-3rem))] sm:px-7 sm:py-7 [&::-webkit-scrollbar]:hidden">
+        <CardContent className="max-h-[min(680px,calc(100svh-2rem))] space-y-4 overflow-y-auto px-5 py-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] [scrollbar-width:none] sm:max-h-[min(680px,calc(100svh-3rem))] sm:px-7 sm:py-7 [&::-webkit-scrollbar]:hidden">
           {/* Intro / Education Step */}
           {step === "intro" && (
-            <div className="mx-auto max-w-[22rem] animate-in space-y-5 text-center fade-in slide-in-from-bottom-4 duration-500">
+            <div className="mx-auto max-w-[21rem] animate-in space-y-4 text-center fade-in slide-in-from-bottom-4 duration-500">
               <div className="flex justify-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-primary/10 ring-1 ring-primary/10">
-                  <Icon icon={Shield} size={30} className="text-primary" />
+                <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-primary/10 ring-1 ring-primary/10">
+                  <Icon icon={Shield} size={26} className="text-primary" />
                 </div>
               </div>
                
@@ -656,17 +656,17 @@ export function VaultFlow({
                 <div
                   role="heading"
                   aria-level={2}
-                  className="text-[28px] font-medium leading-[1.05] tracking-normal text-foreground sm:text-[30px]"
+                  className="text-[25px] font-medium leading-[1.08] tracking-normal text-foreground sm:text-[27px]"
                 >
                   Secure Your Digital Vault
                 </div>
-                <p className="mx-auto max-w-[18rem] text-balance text-[16px] leading-[1.5] text-muted-foreground">
+                <p className="mx-auto max-w-[18rem] text-balance text-[14.5px] leading-[1.45] text-muted-foreground sm:text-[15px]">
                   Hussh uses end-to-end encryption to protect your personal data.
                   Create your passphrase first, then optionally enable faster sign-in.
                 </p>
               </div>
 
-              <div className="space-y-3 rounded-[22px] border border-border/45 bg-muted/35 p-4 text-left text-[15px] leading-[1.45] shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
+              <div className="space-y-3 rounded-[20px] border border-border/45 bg-muted/35 p-4 text-left text-[14px] leading-[1.42] shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
                 <div className="flex gap-3">
                   <div className="mt-0.5 min-w-[1.25rem] text-primary">
                     <Icon icon={Check} size="sm" />
@@ -709,24 +709,24 @@ export function VaultFlow({
 
           {/* Create Passphrase */}
           {step === "create" && (
-            <div className="mx-auto max-w-[22rem] space-y-4">
+            <div className="mx-auto max-w-[21rem] space-y-4">
               <div className="text-center">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-[18px] bg-primary/10 ring-1 ring-primary/10">
-                  <Icon icon={Lock} size={24} className="text-primary" />
+                <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-[17px] bg-primary/10 ring-1 ring-primary/10">
+                  <Icon icon={Lock} size={22} className="text-primary" />
                 </div>
                 <div
                   role="heading"
                   aria-level={2}
-                  className="text-[27px] font-medium leading-[1.08] tracking-normal text-foreground sm:text-[29px]"
+                  className="text-[25px] font-medium leading-[1.08] tracking-normal text-foreground sm:text-[27px]"
                 >
                   Create Your Vault Passphrase
                 </div>
-                <p className="mx-auto mt-2 max-w-[18rem] text-[15px] leading-[1.45] text-muted-foreground">
+                <p className="mx-auto mt-2 max-w-[18rem] text-[14.5px] leading-[1.45] text-muted-foreground">
                   This passphrase protects your Vault. Keep it private.
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="passphrase" className="text-[15px] font-medium">Passphrase</Label>
+                <Label htmlFor="passphrase" className="text-[14px] font-medium">Passphrase</Label>
                 <Input
                   id="passphrase"
                   type="password"
@@ -734,18 +734,18 @@ export function VaultFlow({
                   value={passphrase}
                   onChange={(e) => setPassphrase(e.target.value)}
                   autoFocus
-                  className="h-12 rounded-[18px] px-4 text-[16px] shadow-sm"
+                  className="h-11 rounded-[17px] px-4 text-[15px] shadow-sm"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirm" className="text-[15px] font-medium">Confirm Passphrase</Label>
+                <Label htmlFor="confirm" className="text-[14px] font-medium">Confirm Passphrase</Label>
                 <Input
                   id="confirm"
                   type="password"
                   placeholder="Confirm your passphrase"
                   value={confirmPassphrase}
                   onChange={(e) => setConfirmPassphrase(e.target.value)}
-                  className="h-12 rounded-[18px] px-4 text-[16px] shadow-sm"
+                  className="h-11 rounded-[17px] px-4 text-[15px] shadow-sm"
                 />
                 {createPassphraseHelperText && (
                   <p className="text-xs font-medium text-destructive" role="status">
@@ -753,7 +753,7 @@ export function VaultFlow({
                   </p>
                 )}
               </div>
-              <div className="rounded-[20px] border border-border/45 bg-muted/30 p-4 text-[14px] leading-[1.45] text-muted-foreground">
+              <div className="rounded-[18px] border border-border/45 bg-muted/30 p-4 text-[13.5px] leading-[1.45] text-muted-foreground">
                 <p className="font-medium text-foreground">Passphrase requirements</p>
                 <ul className="mt-2 list-disc space-y-1 pl-4">
                   <li>Minimum 8 characters</li>
