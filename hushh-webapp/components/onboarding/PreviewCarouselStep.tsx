@@ -224,7 +224,7 @@ export function PreviewCarouselStep({ onContinue }: { onContinue: () => void }) 
             </p>
           </div>
 
-          <div className="min-h-0 flex-1 flex items-center">
+          <div className="flex min-h-0 flex-1 items-start pt-5">
             <Carousel
               opts={{ align: "center", containScroll: "trimSnaps" }}
               setApi={setApi}
@@ -239,10 +239,10 @@ export function PreviewCarouselStep({ onContinue }: { onContinue: () => void }) 
                     aria-current={idx === selectedIndex ? "step" : undefined}
                     className="basis-full pl-0 flex items-center justify-center"
                   >
-                    <div className="flex w-full min-h-[clamp(23rem,48vh,29rem)] items-center justify-center px-4 sm:px-6 md:px-8 py-3">
+                    <div className="flex w-full items-start justify-center px-4 py-2 sm:px-6 md:px-8">
                       <div
                         aria-hidden="true"
-                        className="h-[clamp(29rem,55vh,33rem)] w-full max-w-[22rem] sm:max-w-[23rem] md:max-w-[24rem] lg:max-w-[25rem]"
+                        className="h-[clamp(24rem,50vh,29rem)] w-full max-w-[22rem] sm:max-w-[23rem] md:max-w-[24rem] lg:max-w-[25rem]"
                       >
                         {slide.preview}
                       </div>
