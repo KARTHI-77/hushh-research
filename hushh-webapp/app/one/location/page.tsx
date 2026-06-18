@@ -291,8 +291,8 @@ function recipientRecommendationLine(recipient: OneLocationRecipient): string {
     recipient.recommendationSummary ||
     visibleRecommendationReasons(recipient)[0]?.label ||
     (recipient.canReceiveLocation
-      ? "Ready for encrypted location access"
-      : "Needs a recipient key")
+      ? "Ready for private location sharing"
+      : "Needs to open One Location once")
   );
 }
 
@@ -1096,7 +1096,7 @@ function readinessCopy(permission: HushhLocationPermissionState | null): {
     description:
       permission.precise === false
         ? "Sharing can continue, but accuracy may be approximate on this device."
-        : "Foreground location is ready for encrypted sharing.",
+        : "Foreground location is ready for private sharing.",
     tone: permission.precise === false ? "warning" : "ready",
   };
 }
@@ -2214,7 +2214,7 @@ function OneLocationAgentPageContent() {
     ) => {
       if (!vaultOwnerToken) throw new Error("Vault owner token required.");
       if (!recipient.publicKeyJwk || !recipient.keyId) {
-        throw new Error("Recipient key unavailable.");
+        throw new Error("They need to open One Location once before private sharing can start.");
       }
       const point =
         pointOverride ?? (await OneLocationService.captureCurrentPosition());
@@ -2326,7 +2326,7 @@ function OneLocationAgentPageContent() {
     async (grant: OneLocationGrant) => {
       const recipient = recipientForGrant(grant);
       if (!recipient) {
-        toast.error("Recipient key unavailable for this active share.");
+        toast.error("This share needs the recipient to open One Location once.");
         return;
       }
       setBusy("publish");
@@ -2383,7 +2383,7 @@ function OneLocationAgentPageContent() {
           toast.error(
             error instanceof Error
               ? error.message
-              : "Could not view encrypted location.",
+              : "Could not view this private location update.",
           );
         } else {
           console.warn(
@@ -2837,7 +2837,7 @@ function OneLocationAgentPageContent() {
         (recipient) => recipient.userId === request.requesterUserId,
       );
       if (!requester?.keyId || !requester.publicKeyJwk) {
-        toast.error("Requester key unavailable.");
+        toast.error("They need to open One Location once before approval can finish.");
         return;
       }
       setBusy("approve");
@@ -3702,15 +3702,15 @@ function OneLocationAgentPageContent() {
                           {peopleCountLabel(
                             setupNeededSelectedRecipients.length,
                           )}{" "}
-                          need One Location setup before private sharing can
-                          start.
+                          need to open One Location once before private sharing
+                          can start.
                         </div>
                       ) : null}
                       <p className="text-[12px] font-medium text-[#8e8e93] dark:text-white/55">
                         {selectedShareRecipients.length
                           ? `${peopleCountLabel(
                               selectedShareRecipients.length,
-                            )} selected for private encrypted sharing.`
+                            )} selected for private sharing.`
                           : "Select one or more One users for private sharing."}
                       </p>
                       {shareReviewOpen ? (
@@ -3727,7 +3727,7 @@ function OneLocationAgentPageContent() {
                               {peopleCountLabel(
                                 shareReadySelectedRecipients.length,
                               )}{" "}
-                              will receive separate encrypted location access
+                              will receive separate private location access
                               for{" "}
                               {
                                 DURATION_OPTIONS.find(
