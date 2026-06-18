@@ -608,7 +608,7 @@ describe("OneLocationAgentPage", () => {
     expect(screen.queryByText(/8012|4455|9911/)).toBeNull();
   });
 
-  it("shows a skeleton while the first location state refresh is loading", async () => {
+  it("shows the entry flow before the main-page skeleton while state refresh is loading", async () => {
     let resolveState: (value: ReturnType<typeof locationState>) => void = () =>
       undefined;
     mockGetState.mockReturnValueOnce(
@@ -621,11 +621,29 @@ describe("OneLocationAgentPage", () => {
 
     await waitFor(() => expect(mockRegisterKey).toHaveBeenCalled());
     expect(
+      await screen.findByRole("heading", {
+        name: "Experience location sharing with One.",
+      }),
+    ).toBeTruthy();
+    const onboardingShellClass = screen.getByRole("main").getAttribute("class") || "";
+    expect(onboardingShellClass).toContain("fixed");
+    expect(onboardingShellClass).toContain("inset-0");
+    expect(onboardingShellClass).toContain("z-[540]");
+    expect(
+      container.querySelectorAll('[data-slot="skeleton"]').length,
+    ).toBe(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      await screen.findByRole("heading", { name: "Keep your map live" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+    expect(await screen.findByLabelText("Loading One Location")).toBeTruthy();
+    expect(
       container.querySelectorAll('[data-slot="skeleton"]').length,
     ).toBeGreaterThan(0);
 
     resolveState(locationState());
-    await skipLocationEntryFlow();
     await waitFor(() =>
       expect(screen.getByText("Share Encrypted Update")).toBeTruthy(),
     );
