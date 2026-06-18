@@ -612,6 +612,18 @@ function oneLocationErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
+function oneLocationRequestErrorMessage(error: unknown, fallback: string): string {
+  const message = oneLocationErrorMessage(error, fallback);
+  const normalized = message.toLowerCase();
+  if (
+    normalized.includes("verified recipient") &&
+    normalized.includes("location key material")
+  ) {
+    return "Your One Location key is still setting up. Refresh this page once, then send the request again.";
+  }
+  return message;
+}
+
 function isLocationPointStale(point: PlainLocationPoint): boolean {
   const capturedAt = new Date(point.capturedAt).getTime();
   if (!Number.isFinite(capturedAt)) return false;
@@ -896,10 +908,16 @@ function SegmentedModeControl({
   onChange: (value: ShareMode) => void;
 }) {
   return (
-    <div className="flex h-9 w-full min-w-0 max-w-full items-center overflow-hidden rounded-[9px] bg-[#efeff0] p-[3px] dark:bg-white/10">
+    <div
+      aria-label="Choose location sharing mode"
+      className="flex h-9 w-full min-w-0 max-w-full items-center overflow-hidden rounded-[9px] bg-[#efeff0] p-[3px] dark:bg-white/10"
+      role="tablist"
+    >
       {(["share", "request"] as const).map((mode) => (
         <button
           key={mode}
+          aria-selected={value === mode}
+          role="tab"
           type="button"
           onClick={() => onChange(mode)}
           className={cn(
@@ -1097,7 +1115,7 @@ function readinessCopy(permission: HushhLocationPermissionState | null): {
 
 function OneLocationInitialSkeleton() {
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+    <div className="space-y-6">
       <div className="space-y-6">
         <SettingsGroup eyebrow="Device" title="Readiness">
           <SkeletonRow />
@@ -2602,12 +2620,29 @@ function OneLocationAgentPageContent() {
 
   const handleRequestAccess = useCallback(async () => {
     if (!vaultOwnerToken || !selectedRequestOwners.length) return;
+    if (!auth.user || !auth.userId) {
+      toast.error("Refresh your session before sending a location request.");
+      return;
+    }
+    const activeUser = auth.user;
+    const activeUserId = auth.userId;
+    const activeVaultOwnerToken = vaultOwnerToken;
     setBusy("request");
     let successCount = 0;
     try {
+      await AccountIdentityService.syncCurrentUser(activeUser).catch((error) => {
+        console.warn("[OneLocation] Failed to sync account identity before request:", error);
+      });
+      const key = await ensureLocationRecipientKey(activeUserId);
+      await OneLocationService.registerRecipientKey({
+        vaultOwnerToken: activeVaultOwnerToken,
+        keyId: key.keyId,
+        publicKeyJwk: key.publicKeyJwk,
+        algorithm: key.algorithm,
+      });
       for (const owner of selectedRequestOwners) {
         await OneLocationService.requestAccess({
-          vaultOwnerToken,
+          vaultOwnerToken: activeVaultOwnerToken,
           ownerUserId: owner.userId,
           message: requestMessage.trim() || undefined,
         });
@@ -2641,14 +2676,14 @@ function OneLocationAgentPageContent() {
         failure_count: failureCount,
         has_note: Boolean(requestMessage.trim()),
       });
-      toast.error(oneLocationErrorMessage(error, "Could not send request."));
+      toast.error(oneLocationRequestErrorMessage(error, "Could not send request."));
       if (isTransientOneApiError(error)) {
         await refresh().catch(() => null);
       }
     } finally {
       setBusy(null);
     }
-  }, [refresh, requestMessage, selectedRequestOwners, vaultOwnerToken]);
+  }, [auth.user, auth.userId, refresh, requestMessage, selectedRequestOwners, vaultOwnerToken]);
 
   const handleCreatePublicInvite = useCallback(async () => {
     if (!vaultOwnerToken) return;
@@ -3197,7 +3232,7 @@ function OneLocationAgentPageContent() {
       width="standard"
       nativeTest={nativeTestConfig}
     >
-      <AppPageHeaderRegion className="mx-auto w-full max-w-[1120px] min-w-0 overflow-hidden">
+      <AppPageHeaderRegion className="mx-auto w-full max-w-[860px] min-w-0 overflow-hidden">
         <div className="flex flex-col gap-4 px-1 pt-3 sm:flex-row sm:items-end sm:justify-between">
           <header className="max-w-[560px] min-w-0 space-y-2">
             <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#007aff] dark:text-[#76b7ff]">
@@ -3231,7 +3266,7 @@ function OneLocationAgentPageContent() {
         </div>
       </AppPageHeaderRegion>
 
-      <AppPageContentRegion className="mx-auto w-full max-w-[1120px] min-w-0 space-y-6 overflow-x-hidden pb-10 sm:pb-8">
+      <AppPageContentRegion className="mx-auto w-full max-w-[860px] min-w-0 space-y-6 overflow-x-hidden pb-10 sm:pb-8">
         {loadError ? (
           <div className="rounded-[20px] border border-[#ff3b30]/30 bg-[#ff3b30]/10 p-4 text-sm text-[#ff3b30] dark:text-[#ff9f9a]">
             {loadError}
@@ -3241,7 +3276,7 @@ function OneLocationAgentPageContent() {
         {showInitialSkeleton ? (
           <OneLocationInitialSkeleton />
         ) : (
-          <div className="grid min-w-0 max-w-full gap-6 xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)] xl:items-start">
+          <div className="flex min-w-0 max-w-full flex-col gap-6">
             <div className="min-w-0 max-w-full space-y-7">
               <section className="min-w-0 max-w-full space-y-2 px-1">
                 {sectionLabel("Device readiness")}
@@ -3416,7 +3451,7 @@ function OneLocationAgentPageContent() {
                   </div>
                 </div>
 
-                <div className="min-w-0 max-w-full space-y-3">
+                <div className="flex min-w-0 max-w-full flex-col gap-3">
                   <div className="relative">
                     <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8e8e93]" />
                     <input
@@ -3599,7 +3634,7 @@ function OneLocationAgentPageContent() {
                     </Button>
                   ) : null}
 
-                  <div>
+                  <div className="order-first min-w-0 max-w-full overflow-hidden rounded-[18px] border border-black/[0.04] bg-white/80 p-3.5 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.06]">
                     {activeMode === "share" ? (
                       <div className="space-y-3">
                       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px]">

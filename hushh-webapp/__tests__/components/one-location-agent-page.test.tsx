@@ -1025,7 +1025,7 @@ describe("OneLocationAgentPage", () => {
     await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
-    fireEvent.click(screen.getByRole("button", { name: "request" }));
+    fireEvent.click(screen.getByRole("tab", { name: "request" }));
     fireEvent.click(screen.getByRole("button", { name: /Send Request/i }));
 
     await waitFor(() => expect(mockRequestAccess).toHaveBeenCalledTimes(1));
@@ -1084,7 +1084,7 @@ describe("OneLocationAgentPage", () => {
     await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
-    fireEvent.click(screen.getByRole("button", { name: "request" }));
+    fireEvent.click(screen.getByRole("tab", { name: "request" }));
     fireEvent.click(
       screen.getByRole("button", {
         name: /Select Investor D from One Network/i,
