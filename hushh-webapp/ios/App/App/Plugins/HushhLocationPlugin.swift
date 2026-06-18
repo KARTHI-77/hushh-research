@@ -17,6 +17,7 @@ public class HushhLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManager
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "getPermissionState", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestLocationPermission", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openAppSettings", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openLocationSettings", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getCurrentPosition", returnType: CAPPluginReturnPromise)
     ]
@@ -48,7 +49,15 @@ public class HushhLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManager
         }
     }
 
+    @objc func openAppSettings(_ call: CAPPluginCall) {
+        openAppSettingsPage(call)
+    }
+
     @objc func openLocationSettings(_ call: CAPPluginCall) {
+        openAppSettingsPage(call)
+    }
+
+    private func openAppSettingsPage(_ call: CAPPluginCall) {
         guard let settingsUrl = URL(string: UIApplication.openSettingsURLString) else {
             call.reject("Location settings are unavailable on this device.")
             return

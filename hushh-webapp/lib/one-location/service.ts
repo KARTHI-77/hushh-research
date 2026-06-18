@@ -69,6 +69,10 @@ export class OneLocationService {
     return HushhLocation.requestLocationPermission();
   }
 
+  static async openAppSettings() {
+    return HushhLocation.openAppSettings();
+  }
+
   static async openLocationSettings() {
     return HushhLocation.openLocationSettings();
   }
