@@ -99,7 +99,7 @@ vi.mock("lucide-react", () => ({
 }));
 
 vi.mock("@/lib/navigation/routes", () => ({
-  ROUTES: { PROFILE: "/profile", PROFILE_RECEIPTS: "/profile/receipts" },
+  ROUTES: { PROFILE: "/profile", GMAIL: "/gmail", PROFILE_RECEIPTS: "/profile/receipts" },
 }));
 
 vi.mock("@/lib/vault/vault-context", () => ({
@@ -248,7 +248,7 @@ vi.mock("@/lib/profile/gmail-receipt-memory-pkm", () => ({
   hasMatchingReceiptMemoryProvenance: vi.fn().mockReturnValue(false),
 }));
 
-import ProfileReceiptsPage from "@/app/profile/receipts/page";
+import ProfileReceiptsPage from "@/components/gmail/gmail-receipts-page";
 import {
   clearCachedGmailReceipts,
   primeCachedGmailReceipts,

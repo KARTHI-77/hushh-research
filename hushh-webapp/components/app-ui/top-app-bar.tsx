@@ -25,6 +25,7 @@ import {
   Check,
   ChevronDown,
   Code2,
+  LayoutDashboard,
   type LucideIcon,
   Loader2,
   LogOut,
@@ -140,6 +141,10 @@ function getTopBarTitle(
     return { label: "Developers", icon: Code2, interactive: false as const };
   }
 
+  if (pathname === ROUTES.HOME || pathname === ROUTES.ONE_HOME) {
+    return { label: "One", icon: LayoutDashboard, interactive: false as const };
+  }
+
   const isRiaShellRoute =
     pathname === ROUTES.RIA_HOME || pathname.startsWith(`${ROUTES.RIA_HOME}/`);
   if (isRiaShellRoute) {
@@ -155,13 +160,18 @@ function getTopBarTitle(
   }
 
   if (isScrolled) {
-    if (pathname === ROUTES.KAI_HOME || pathname === ROUTES.MARKETPLACE) {
+    if (
+      pathname === ROUTES.KAI_HOME ||
+      pathname === ROUTES.LEGACY_KAI_HOME ||
+      pathname === ROUTES.MARKETPLACE
+    ) {
       return null;
     }
   }
 
   const isPersonaShellRoute =
     pathname.startsWith(ROUTES.KAI_HOME) ||
+    pathname.startsWith(ROUTES.LEGACY_KAI_HOME) ||
     pathname.startsWith(ROUTES.MARKETPLACE) ||
     pathname.startsWith(ROUTES.CONSENTS);
 
@@ -173,7 +183,22 @@ function getTopBarTitle(
 
 function isProfileTopBarRoute(pathname: string): boolean {
   const normalized = normalizeTopBarPathname(pathname);
-  return normalized === ROUTES.PROFILE || normalized.startsWith(`${ROUTES.PROFILE}/`);
+  return (
+    normalized === ROUTES.PROFILE || normalized.startsWith(`${ROUTES.PROFILE}/`)
+  );
+}
+
+function isPersonaSwitchTopBarRoute(pathname: string): boolean {
+  const normalized = normalizeTopBarPathname(pathname);
+  return (
+    isProfileTopBarRoute(normalized) ||
+    normalized === ROUTES.KAI_HOME ||
+    normalized.startsWith(`${ROUTES.KAI_HOME}/`) ||
+    normalized === ROUTES.LEGACY_KAI_HOME ||
+    normalized.startsWith(`${ROUTES.LEGACY_KAI_HOME}/`) ||
+    normalized === ROUTES.RIA_HOME ||
+    normalized.startsWith(`${ROUTES.RIA_HOME}/`)
+  );
 }
 
 function normalizeTopBarPathname(pathname: string): string {
@@ -276,7 +301,7 @@ export function TopAppBar({ className }: TopAppBarProps) {
     [pathname, isScrolled],
   );
   const canShowPersonaSwitcher = useMemo(
-    () => isProfileTopBarRoute(pathname),
+    () => isPersonaSwitchTopBarRoute(pathname),
     [pathname],
   );
   const showKaiTabs = topShellMetrics.hasTabs;
@@ -529,7 +554,10 @@ export function TopAppBar({ className }: TopAppBarProps) {
                               </span>
                             </div>
                             {switchingPersona === "ria" ? (
-                              <Loader2 className="ml-auto h-4 w-4 animate-spin text-current" aria-hidden="true" />
+                              <Loader2
+                                className="ml-auto h-4 w-4 animate-spin text-current"
+                                aria-hidden="true"
+                              />
                             ) : activePersona === "ria" ? (
                               <Check className="ml-auto h-4 w-4 text-current" />
                             ) : null}
@@ -603,7 +631,10 @@ export function TopAppBar({ className }: TopAppBarProps) {
                               }
                             >
                               {activeCount > 0 ? (
-                                <Loader2 className="h-5 w-5 animate-spin text-sky-500" aria-hidden="true" />
+                                <Loader2
+                                  className="h-5 w-5 animate-spin text-sky-500"
+                                  aria-hidden="true"
+                                />
                               ) : (
                                 <Bell className="h-5 w-5" />
                               )}

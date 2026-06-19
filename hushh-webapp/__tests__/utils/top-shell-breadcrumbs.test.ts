@@ -18,10 +18,10 @@ describe("top shell breadcrumbs", () => {
 
   it("preserves a safe internal from param for consent back navigation", () => {
     const params = new URLSearchParams();
-    params.set("from", "/kai/analysis?tab=history");
+    params.set("from", "/one/kai/analysis?tab=history");
 
     expect(resolveTopShellBreadcrumb("/consents", params)).toEqual({
-      backHref: "/kai/analysis?tab=history",
+      backHref: "/one/kai/analysis?tab=history",
       width: "profile",
       align: "center",
       items: [
@@ -101,15 +101,15 @@ describe("top shell breadcrumbs", () => {
     });
   });
 
-  it("routes receipts back to the Gmail profile panel", () => {
+  it("routes legacy receipts back to canonical Gmail", () => {
     expect(resolveTopShellBreadcrumb("/profile/receipts")).toEqual({
-      backHref: "/profile?panel=gmail",
+      backHref: "/one/gmail",
       width: "profile",
       align: "center",
       items: [
-        { label: "Profile", href: "/profile?panel=gmail" },
-        { label: "Gmail receipts", href: "/profile?panel=gmail" },
-        { label: "Receipts" },
+        { label: "One", href: "/one" },
+        { label: "Gmail", href: "/one/gmail" },
+        { label: "Legacy receipts" },
       ],
     });
   });
