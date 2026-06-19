@@ -27,6 +27,7 @@ const {
   mockTrackEvent,
   mockRouterPush,
   mockSearchParamsGet,
+  mockCopyToClipboard,
 } = vi.hoisted(() => ({
   mockUseRequireAuth: vi.fn(),
   mockUseVault: vi.fn(),
@@ -52,6 +53,7 @@ const {
   mockTrackEvent: vi.fn(),
   mockRouterPush: vi.fn(),
   mockSearchParamsGet: vi.fn(),
+  mockCopyToClipboard: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -112,6 +114,10 @@ vi.mock("@/lib/one-location/service", () => ({
 
 vi.mock("@/lib/one-location/contact-signals", () => ({
   syncOneLocationContactSignals: mockSyncOneLocationContactSignals,
+}));
+
+vi.mock("@/lib/utils/clipboard", () => ({
+  copyToClipboard: mockCopyToClipboard,
 }));
 
 vi.mock("@/lib/services/account-identity-service", () => ({
@@ -427,6 +433,7 @@ describe("OneLocationAgentPage", () => {
     });
     mockRevokeGrant.mockResolvedValue({});
     mockRequestAccess.mockResolvedValue({});
+    mockCopyToClipboard.mockResolvedValue(true);
     mockCreatePublicInvite.mockResolvedValue({
       publicUrl: "/one/location/request/invite_1",
     });
@@ -780,9 +787,14 @@ describe("OneLocationAgentPage", () => {
   });
 
   it("tracks public location link creation without analytics identity payloads", async () => {
+    const longPublicUrl =
+      "https://uat.kai.hushh.ai/one/location/request/aQluqHFAdgETh91oLTmG6o7v8A6TAB7PmZjrOJwPcIA";
     mockGetState.mockResolvedValue({
       ...locationState(),
       ownerGrants: [],
+    });
+    mockCreatePublicInvite.mockResolvedValueOnce({
+      publicUrl: longPublicUrl,
     });
 
     render(<OneLocationAgentPage />);
@@ -809,10 +821,15 @@ describe("OneLocationAgentPage", () => {
         route_id: "one_location",
         result: "success",
         duration_bucket: "1h",
-        copied_to_clipboard: false,
+        copied_to_clipboard: true,
         active_invite_count: 1,
       }),
     );
+    expect(screen.queryByText(longPublicUrl)).toBeNull();
+    const publicLinkPreview = await screen.findByText(
+      "https://uat.kai.hushh.ai/one/location/request/aQluqH...",
+    );
+    expect(publicLinkPreview.getAttribute("title")).toBe(longPublicUrl);
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
       /8012|9911|latitude|longitude|28\.6139|77\.209/u,
     );
@@ -878,6 +895,14 @@ describe("OneLocationAgentPage", () => {
         failure_count: 0,
       }),
     );
+    await waitFor(() =>
+      expect(
+        screen.getByText("Select one or more One users for private sharing."),
+      ).toBeTruthy(),
+    );
+    expect(
+      screen.queryByRole("region", { name: "Share safety review" }),
+    ).toBeNull();
   });
 
   it("retries transient foreground publish failures and tracks backoff metadata", async () => {
@@ -1066,13 +1091,16 @@ describe("OneLocationAgentPage", () => {
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("tab", { name: "request" }));
+    fireEvent.change(screen.getByPlaceholderText("Optional reason"), {
+      target: { value: "Need pickup coordination" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /Send Request/i }));
 
     await waitFor(() => expect(mockRequestAccess).toHaveBeenCalledTimes(1));
     expect(mockRequestAccess).toHaveBeenCalledWith({
       vaultOwnerToken: "vault-token",
       ownerUserId: "user_b",
-      message: undefined,
+      message: "Need pickup coordination",
     });
     expect(mockCaptureCurrentPosition).not.toHaveBeenCalled();
     expect(mockStoreEnvelope).not.toHaveBeenCalled();
@@ -1084,9 +1112,20 @@ describe("OneLocationAgentPage", () => {
         selected_count: 1,
         success_count: 1,
         failure_count: 0,
-        has_note: false,
+        has_note: true,
       }),
     );
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          "Select one or more One users before requesting location access.",
+        ),
+      ).toBeTruthy(),
+    );
+    expect(
+      (screen.getByPlaceholderText("Optional reason") as HTMLTextAreaElement)
+        .value,
+    ).toBe("");
   });
 
   it("renders my requests with safe labels instead of raw owner ids", async () => {
