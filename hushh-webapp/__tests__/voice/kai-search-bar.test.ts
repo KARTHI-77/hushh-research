@@ -8,50 +8,23 @@ import {
 } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 
-const { agentPopoverState, mockOpenAgent } = vi.hoisted(() => ({
-  agentPopoverState: {
-    expanded: false,
-    motionState: "idle" as "idle" | "opening" | "closing",
-  },
+const { mockOpenAgent } = vi.hoisted(() => ({
   mockOpenAgent: vi.fn(),
 }));
 
 vi.mock("lucide-react", () => ({
+  Bot: () => createElement("span", { "data-testid": "bot-icon" }),
   Bug: () => null,
-  Hand: () => createElement("span", { "data-testid": "hand-icon" }),
   MessageCircle: () =>
     createElement("span", { "data-testid": "message-circle-icon" }),
   Mic: () => createElement("span", { "data-testid": "mic-icon" }),
   Search: () => createElement("span", { "data-testid": "search-icon" }),
+  Sparkles: () => createElement("span", { "data-testid": "sparkles-icon" }),
   X: () => createElement("span", { "data-testid": "x-icon" }),
 }));
 
 vi.mock("@/components/kai/kai-command-palette", () => ({
-  KaiCommandPalette: ({
-    open,
-    onVoiceClick,
-    voiceActive,
-    voiceDisabled,
-    voiceHidden,
-  }: {
-    open: boolean;
-    onVoiceClick?: (event: unknown) => void;
-    voiceActive?: boolean;
-    voiceDisabled?: boolean;
-    voiceHidden?: boolean;
-  }) =>
-    open && !voiceHidden
-      ? createElement(
-          "button",
-          {
-            type: "button",
-            "aria-label": voiceActive ? "End Kai voice" : "Start Kai voice",
-            "aria-disabled": voiceDisabled,
-            onClick: onVoiceClick,
-          },
-          "voice",
-        )
-      : null,
+  KaiCommandPalette: () => null,
 }));
 
 vi.mock("@/components/kai/voice/voice-ambient-search-surface", () => ({
@@ -97,12 +70,6 @@ vi.mock("@/components/kai/voice/voice-debug-drawer", () => ({
   VoiceDebugDrawer: () => null,
 }));
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({
-    push: vi.fn(),
-  }),
-}));
-
 vi.mock("@/components/app-ui/shell-action-surface", () => ({
   ShellActionSurface: ({
     children,
@@ -132,8 +99,7 @@ vi.mock("@/components/app-ui/shell-action-surface", () => ({
 
 vi.mock("@/components/agent/agent-popover-provider", () => ({
   useOptionalAgentPopover: () => ({
-    expanded: agentPopoverState.expanded,
-    motionState: agentPopoverState.motionState,
+    available: true,
     openAgent: mockOpenAgent,
   }),
 }));
@@ -301,9 +267,9 @@ const {
 } = await import("@/components/kai/kai-search-bar");
 
 function openSearchAndStartVoice() {
-  act(() => {
-    window.dispatchEvent(new Event("kai-open"));
-  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Open Kai command search" }),
+  );
   fireEvent.click(screen.getByRole("button", { name: "Start Kai voice" }));
 }
 
@@ -326,8 +292,6 @@ describe("kai-search-bar helpers", () => {
       lastError: null,
     });
     sessionListener = null;
-    agentPopoverState.expanded = false;
-    agentPopoverState.motionState = "idle";
     mockOpenAgent.mockClear();
     mockVoiceSessionStore.appendDebugEvent.mockClear();
     mockVoiceSessionStore.setLastAssistantReply.mockClear();
@@ -469,6 +433,7 @@ describe("kai-search-bar helpers", () => {
         voiceAvailable: false,
         voiceVisibilityMode: "disabled",
         voiceUnavailableReason: "Unlock your vault to use voice",
+        showAgent: true,
       }),
     );
 
@@ -478,13 +443,30 @@ describe("kai-search-bar helpers", () => {
     expect(screen.getByRole("button", { name: "Start RIA voice" }).getAttribute("aria-disabled")).toBe(
       "true",
     );
-
-    fireEvent.click(screen.getByRole("button", { name: "Open Agent" }));
-
-    expect(mockOpenAgent).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Open Agent" })).toBeNull();
+    expect(mockOpenAgent).not.toHaveBeenCalled();
   });
 
-  it("keeps visible Kai chrome to the agent bar and global search event", () => {
+  it("hides Agent action until the shell marks Agent ready", () => {
+    vi.useRealTimers();
+
+    render(
+      createElement(KaiSearchBar, {
+        onSelectAction: vi.fn(),
+        onVoiceResponse: vi.fn(),
+        surfaceVariant: "ria",
+        userId: "user_1",
+        vaultOwnerToken: "vault_token",
+        voiceAvailable: false,
+        voiceVisibilityMode: "disabled",
+        showAgent: false,
+      }),
+    );
+
+    expect(screen.queryByRole("button", { name: "Open Agent" })).toBeNull();
+  });
+
+  it("keeps Kai voice inside the compact search surface", () => {
     vi.useRealTimers();
 
     render(
@@ -496,54 +478,17 @@ describe("kai-search-bar helpers", () => {
       }),
     );
 
-    expect(screen.getByRole("button", { name: "Open Agent" })).toBeTruthy();
-    expect(screen.getByText('"Hello One"')).toBeTruthy();
-    expect(screen.queryByTestId("kai-compact-search-surface")).toBeNull();
+    expect(screen.getByTestId("kai-compact-search-surface")).toBeTruthy();
     expect(
-      screen.queryByRole("button", { name: "Open Kai command search" }),
-    ).toBeNull();
+      screen.getByRole("button", { name: "Open Kai command search" }),
+    ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Start Kai voice" })).toBeNull();
 
-    act(() => {
-      window.dispatchEvent(new Event("kai-open"));
-    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open Kai command search" }),
+    );
 
     expect(screen.getByRole("button", { name: "Start Kai voice" })).toBeTruthy();
-  });
-
-  it("restores the embedded Hello One trigger after the agent popover settles", () => {
-    vi.useRealTimers();
-    agentPopoverState.motionState = "opening";
-
-    const props = {
-      onSelectAction: vi.fn(),
-      onVoiceResponse: vi.fn(),
-      userId: "user_1",
-      vaultOwnerToken: "vault_token",
-    };
-    const { rerender } = render(createElement(KaiSearchBar, props));
-    const openingTrigger = screen.getByRole("button", { name: "Open Agent" });
-    const openingWrapper = openingTrigger.closest(".fixed") as HTMLElement;
-    const openingBar = openingTrigger.parentElement?.parentElement as HTMLElement;
-
-    expect(screen.getByText('"Hello One"')).toBeTruthy();
-    expect(openingTrigger.className).toContain("pointer-events-none");
-    expect(openingWrapper.style.opacity).toBe("0");
-    expect(openingWrapper.style.bottom).toContain(
-      "max(var(--app-bottom-fixed-ui, 0px), 72px)",
-    );
-    expect(openingBar.style.width).toContain(
-      "max(var(--app-bottom-route-group-width, 0px), 14rem)",
-    );
-
-    agentPopoverState.motionState = "idle";
-    rerender(createElement(KaiSearchBar, props));
-
-    const idleTrigger = screen.getByRole("button", { name: "Open Agent" });
-    const idleWrapper = idleTrigger.closest(".fixed") as HTMLElement;
-
-    expect(idleTrigger.className).not.toContain("pointer-events-none");
-    expect(idleWrapper.style.opacity).toBe("1");
   });
 
   it("acquires on explicit mic tap and releases on cancel", async () => {
@@ -569,8 +514,9 @@ describe("kai-search-bar helpers", () => {
       );
     });
 
-    expect(acquireMock).toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "End Kai voice" })).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByTestId("kai-compact-search-surface")).toBeTruthy();
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "End Kai voice" }));
 
@@ -601,7 +547,11 @@ describe("kai-search-bar helpers", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Start Kai voice" })).toBeTruthy();
+      expect(
+        screen
+          .getByTestId("kai-compact-search-surface")
+          .getAttribute("data-mode"),
+      ).toBe("idle");
       expect(
         screen.queryByText("Connection failed. Tap retry to try again."),
       ).toBeNull();
@@ -635,7 +585,12 @@ describe("kai-search-bar helpers", () => {
     openSearchAndStartVoice();
 
     await waitFor(() => {
-      expect(screen.queryByText("Connection failed. Tap retry to try again.")).toBeNull();
+      const surface = screen.getByTestId("kai-compact-search-surface");
+      expect(surface).toBeTruthy();
+      expect(surface.getAttribute("data-mode")).toBe("connecting");
+      expect(screen.getByTestId("voice-ambient-preview").textContent).toContain(
+        "Waiting for microphone access",
+      );
     });
   });
 
@@ -669,7 +624,9 @@ describe("kai-search-bar helpers", () => {
 
     openSearchAndStartVoice();
 
-    expect(screen.getByRole("button", { name: "Start Kai voice" })).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByTestId("kai-compact-search-surface")).toBeTruthy();
+    });
 
     await act(async () => {
       sessionListener?.({
@@ -680,7 +637,9 @@ describe("kai-search-bar helpers", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "End Kai voice" })).toBeTruthy();
+      expect(screen.getByTestId("voice-ambient-preview").textContent).toContain(
+        "Opening realtime voice connection",
+      );
     });
   });
 
@@ -727,7 +686,9 @@ describe("kai-search-bar helpers", () => {
     await waitFor(() => {
       expect(setMutedMock).toHaveBeenCalledWith(false);
       expect(acquireMock).not.toHaveBeenCalled();
-      expect(screen.getByRole("button", { name: "End Kai voice" })).toBeTruthy();
+      expect(screen.getByTestId("voice-ambient-preview").textContent).toContain(
+        "Listening",
+      );
     });
   });
 
@@ -760,7 +721,11 @@ describe("kai-search-bar helpers", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Start Kai voice" })).toBeTruthy();
+      expect(
+        screen
+          .getByTestId("kai-compact-search-surface")
+          .getAttribute("data-mode"),
+      ).toBe("idle");
       expect(
         screen.queryByText("Connection failed. Tap retry to try again."),
       ).toBeNull();

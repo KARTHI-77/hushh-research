@@ -18,16 +18,9 @@ describe("Navbar bottom chrome contract", () => {
     expect(navbar).toContain("function resolveBottomNavMaxWidth");
     expect(navbar).toContain("const bottomNavWidth =");
     expect(navbar).toContain("style={{ width: bottomNavWidth }}");
-    expect(navbar).toContain("openKaiCommandBar()");
     expect(navbar).not.toContain('data-testid="bottom-agent-trigger"');
     expect(searchBar).toContain("kai-bottom-agent-action");
     expect(searchBar).toContain('aria-label="Open Agent"');
-    expect(searchBar).toContain("&quot;Hello One&quot;");
-    expect(searchBar).toContain('agentPopover.motionState !== "idle"');
-    expect(searchBar).toContain("max(var(--app-bottom-fixed-ui, 0px), 72px)");
-    expect(searchBar).toContain("max(var(--app-bottom-route-group-width, 0px), 14rem)");
-    expect(searchBar).not.toContain('data-testid="kai-compact-search-surface"');
-    expect(searchBar).not.toContain("Open Kai command search");
     expect(searchBar).toContain("agentPopover.openAgent()");
   });
 });
