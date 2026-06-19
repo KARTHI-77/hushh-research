@@ -108,6 +108,7 @@ import { CONSENT_STATE_CHANGED_EVENT } from "@/lib/consent/consent-events";
 import { toDurationBucket, trackEvent } from "@/lib/observability/client";
 import { useVault } from "@/lib/vault/vault-context";
 import { cn } from "@/lib/utils";
+import { copyToClipboard } from "@/lib/utils/clipboard";
 
 const DURATION_OPTIONS = [
   { value: "0.25", label: "15 min" },
@@ -508,6 +509,13 @@ function publicInviteUrlLabel(value: string): string {
   return new URL(value, origin).toString();
 }
 
+function publicInviteUrlPreview(value: string): string {
+  const url = value.trim();
+  if (!url) return "";
+  const maxLength = 52;
+  return url.length > maxLength ? `${url.slice(0, maxLength)}...` : url;
+}
+
 function statusVariant(
   status: string,
 ): "default" | "secondary" | "outline" | "destructive" {
@@ -804,7 +812,7 @@ function sectionLabel(title: string, count?: number) {
     <div
       role="heading"
       aria-level={2}
-      className="ml-1 flex min-w-0 max-w-full flex-wrap items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-[#8e8e93] dark:text-white/45"
+      className="ml-1 flex min-w-0 max-w-full flex-wrap items-center gap-1.5 text-[15px] font-semibold leading-tight tracking-normal text-[#3a3a3c] dark:text-white/75"
     >
       {title}
       {typeof count === "number" && count > 0 ? (
@@ -1020,8 +1028,7 @@ async function shareOneLocationLink(params: {
     return "web-share";
   }
 
-  if (typeof navigator !== "undefined" && navigator.clipboard) {
-    await navigator.clipboard.writeText(message);
+  if (await copyToClipboard(message)) {
     return "copied";
   }
 
@@ -1091,7 +1098,7 @@ function OneLocationInitialSkeleton() {
   return (
     <div
       aria-label="Loading One Location"
-      className="mx-auto w-full max-w-[540px] space-y-5"
+      className="mx-auto w-full max-w-[720px] space-y-5"
       role="status"
     >
       <section className="space-y-2 px-1">
@@ -1477,6 +1484,7 @@ function OneLocationAgentPageContent() {
   const focusClearRef = useRef<number | null>(null);
   const livePublishInFlightRef = useRef(false);
   const liveViewInFlightRef = useRef(false);
+  const suppressAutoRecipientSelectionRef = useRef(false);
 
   const recipients = useMemo(
     () => state?.recipients ?? [],
@@ -1860,18 +1868,24 @@ function OneLocationAgentPageContent() {
           contactMatchedUserIds,
         );
         const firstRecommendedRecipient = rankedNextRecipients[0];
+        const shouldAutoSelectFallback =
+          !suppressAutoRecipientSelectionRef.current;
         const nextRecipientIds = new Set(
           nextState.recipients.map((recipient) => recipient.userId),
         );
         setSelectedRecipientId((current) =>
           current && nextRecipientIds.has(current)
             ? current
-            : firstRecommendedRecipient?.userId || "",
+            : shouldAutoSelectFallback
+              ? firstRecommendedRecipient?.userId || ""
+              : "",
         );
         setSelectedRequestOwnerId((current) =>
           current && nextRecipientIds.has(current)
             ? current
-            : firstRecommendedRecipient?.userId || "",
+            : shouldAutoSelectFallback
+              ? firstRecommendedRecipient?.userId || ""
+              : "",
         );
         setSelectedRecipientIds((current) => {
           const validSelectedIds = current.filter((recipientId) =>
@@ -1879,7 +1893,7 @@ function OneLocationAgentPageContent() {
           );
           return validSelectedIds.length
             ? validSelectedIds
-            : firstRecommendedRecipient
+            : shouldAutoSelectFallback && firstRecommendedRecipient
               ? [firstRecommendedRecipient.userId]
               : [];
         });
@@ -1889,11 +1903,13 @@ function OneLocationAgentPageContent() {
           );
           return validSelectedIds.length
             ? validSelectedIds
-            : firstRecommendedRecipient
+            : shouldAutoSelectFallback && firstRecommendedRecipient
               ? [firstRecommendedRecipient.userId]
               : [];
         });
+        suppressAutoRecipientSelectionRef.current = false;
       } catch (error) {
+        suppressAutoRecipientSelectionRef.current = false;
         setLoadError(
           oneLocationErrorMessage(error, "Could not load location sharing."),
         );
@@ -2323,6 +2339,19 @@ function OneLocationAgentPageContent() {
     [publishEnvelope],
   );
 
+  const resetShareComposer = useCallback(() => {
+    suppressAutoRecipientSelectionRef.current = true;
+    setSelectedRecipientId("");
+    setSelectedRecipientIds([]);
+    setShareReviewOpen(false);
+  }, []);
+  const resetRequestComposer = useCallback(() => {
+    suppressAutoRecipientSelectionRef.current = true;
+    setSelectedRequestOwnerId("");
+    setSelectedRequestOwnerIds([]);
+    setRequestMessage("");
+  }, []);
+
   const handleShare = useCallback(async () => {
     if (
       !vaultOwnerToken ||
@@ -2366,7 +2395,7 @@ function OneLocationAgentPageContent() {
           shareReadySelectedRecipients.length,
         )}.`,
       );
-      setShareReviewOpen(false);
+      resetShareComposer();
       await refresh();
     } catch (error) {
       const failureCount =
@@ -2392,6 +2421,7 @@ function OneLocationAgentPageContent() {
     permission,
     publishEnvelopeWithRetry,
     refresh,
+    resetShareComposer,
     setupNeededSelectedRecipients.length,
     shareReviewOpen,
     shareReadySelectedRecipients,
@@ -2729,7 +2759,7 @@ function OneLocationAgentPageContent() {
         failure_count: 0,
         has_note: Boolean(requestMessage.trim()),
       });
-      setRequestMessage("");
+      resetRequestComposer();
       playOneLocationNotificationSound();
       toast.success(
         selectedRequestOwners.length === 1
@@ -2756,7 +2786,15 @@ function OneLocationAgentPageContent() {
     } finally {
       setBusy(null);
     }
-  }, [auth.user, auth.userId, refresh, requestMessage, selectedRequestOwners, vaultOwnerToken]);
+  }, [
+    auth.user,
+    auth.userId,
+    refresh,
+    requestMessage,
+    resetRequestComposer,
+    selectedRequestOwners,
+    vaultOwnerToken,
+  ]);
 
   const handleCreatePublicInvite = useCallback(async () => {
     if (!vaultOwnerToken) return;
@@ -2770,17 +2808,19 @@ function OneLocationAgentPageContent() {
       });
       const url = publicInviteUrlLabel(response.publicUrl);
       setPublicInviteUrl(url);
-      if (navigator.clipboard && url) {
-        await navigator.clipboard.writeText(url).catch(() => undefined);
-      }
+      const copiedToClipboard = url ? await copyToClipboard(url) : false;
       trackEvent("one_location_public_link_created", {
         route_id: "one_location",
         result: "success",
         duration_bucket: oneLocationDurationBucket(durationHours),
-        copied_to_clipboard: Boolean(navigator.clipboard && url),
+        copied_to_clipboard: copiedToClipboard,
         active_invite_count: activePublicInvites.length + 1,
       });
-      toast.success("Public location link created and copied.");
+      toast.success(
+        copiedToClipboard
+          ? "Public location link created and copied."
+          : "Public location link created.",
+      );
       await refresh();
     } catch (error) {
       trackEvent("one_location_public_link_created", {
@@ -2801,8 +2841,12 @@ function OneLocationAgentPageContent() {
   const handleCopyPublicInvite = useCallback(async () => {
     if (!publicInviteUrl) return;
     try {
-      await navigator.clipboard.writeText(publicInviteUrl);
-      toast.success("Public location link copied.");
+      const copiedToClipboard = await copyToClipboard(publicInviteUrl);
+      if (copiedToClipboard) {
+        toast.success("Public location link copied.");
+      } else {
+        toast.error("Could not copy the public location link.");
+      }
     } catch {
       toast.error("Could not copy the public location link.");
     }
@@ -3347,7 +3391,7 @@ function OneLocationAgentPageContent() {
       width="standard"
       nativeTest={nativeTestConfig}
     >
-      <AppPageHeaderRegion className="mx-auto w-full max-w-[540px] min-w-0 overflow-hidden">
+      <AppPageHeaderRegion className="mx-auto w-full max-w-[720px] min-w-0 overflow-hidden">
         <div className="flex flex-col gap-4 px-1 pt-3 sm:flex-row sm:items-end sm:justify-between">
           <header className="max-w-[560px] min-w-0 space-y-2">
             <span className="text-[10.5px] font-medium uppercase tracking-[0.16em] text-[#007aff] dark:text-[#76b7ff]">
@@ -3368,7 +3412,7 @@ function OneLocationAgentPageContent() {
               size="sm"
               onClick={() => void refresh()}
               disabled={busy === "load"}
-              className="h-9 w-full rounded-full border-black/[0.06] bg-white/80 px-3 text-[#1c1c1e] shadow-sm backdrop-blur-xl hover:bg-[#f2f2f7] sm:w-fit dark:border-white/[0.08] dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+              className="h-9 w-full rounded-full border-black/[0.06] bg-white/80 px-3 text-[#1c1c1e] shadow-sm backdrop-blur-xl hover:bg-[#f2f2f7] hover:text-[#1c1c1e] sm:w-fit dark:border-white/[0.08] dark:bg-white/10 dark:text-white dark:hover:bg-white/15 dark:hover:text-white"
             >
               {busy === "load" ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
@@ -3381,7 +3425,7 @@ function OneLocationAgentPageContent() {
         </div>
       </AppPageHeaderRegion>
 
-      <AppPageContentRegion className="mx-auto w-full max-w-[540px] min-w-0 space-y-6 overflow-x-hidden pb-10 sm:pb-8">
+      <AppPageContentRegion className="mx-auto w-full max-w-[720px] min-w-0 space-y-6 overflow-x-hidden pb-10 sm:pb-8">
         {loadError ? (
           <div className="rounded-[20px] border border-[#ff3b30]/30 bg-[#ff3b30]/10 p-4 text-sm text-[#ff3b30] dark:text-[#ff9f9a]">
             {loadError}
@@ -3397,7 +3441,7 @@ function OneLocationAgentPageContent() {
                 {sectionLabel("Device readiness")}
                 <div
                   className={cn(
-                    "flex min-w-0 max-w-full flex-col gap-3 overflow-hidden rounded-[20px] border p-3.5 shadow-sm sm:flex-row sm:items-center sm:justify-between",
+                    "flex min-w-0 max-w-full flex-col items-center gap-3 overflow-hidden rounded-[20px] border px-4 py-4 text-center shadow-sm sm:flex-row sm:justify-between sm:text-left",
                     locationReadiness.tone === "ready" &&
                       "border-[#34c759]/25 bg-[#34c759]/10 text-[#1c1c1e] dark:text-white",
                     locationReadiness.tone === "warning" &&
@@ -3408,7 +3452,7 @@ function OneLocationAgentPageContent() {
                       "border-black/[0.04] bg-white/70 text-[#1c1c1e] dark:border-white/[0.08] dark:bg-white/[0.06] dark:text-white",
                   )}
                 >
-                  <div className="flex min-w-0 items-start gap-3">
+                  <div className="flex min-w-0 flex-col items-center gap-3 sm:flex-row sm:items-center">
                     <span
                       className={cn(
                         "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
@@ -3430,10 +3474,13 @@ function OneLocationAgentPageContent() {
                         <AlertTriangle className="h-5 w-5" aria-hidden="true" />
                       )}
                     </span>
-                    <div className="min-w-0">
-                      <h3 className="break-words text-[16px] font-bold tracking-tight [overflow-wrap:anywhere]">
+                    <div className="min-w-0 space-y-1">
+                      <h3 className="break-words text-[16px] font-semibold tracking-tight [overflow-wrap:anywhere]">
                         {locationReadiness.title}
                       </h3>
+                      <p className="max-w-[34rem] break-words text-[12.5px] font-medium leading-5 text-[#5f6368] [overflow-wrap:anywhere] dark:text-white/55">
+                        {locationReadiness.description}
+                      </p>
                     </div>
                   </div>
                   {locationReadiness.actionLabel ? (
@@ -3446,7 +3493,7 @@ function OneLocationAgentPageContent() {
                           : () => void handleOpenLocationSettings()
                       }
                       variant="outline"
-                      className="h-10 w-full shrink-0 rounded-full border-black/[0.06] bg-white px-4 text-[13px] font-semibold text-[#1c1c1e] shadow-sm hover:bg-[#f2f2f7] sm:w-auto dark:border-white/[0.08] dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                      className="h-10 w-full shrink-0 rounded-full border-black/[0.06] bg-white px-4 text-[13px] font-semibold text-[#1c1c1e] shadow-sm hover:bg-[#f2f2f7] hover:text-[#1c1c1e] sm:w-auto dark:border-white/[0.08] dark:bg-white/10 dark:text-white dark:hover:bg-white/15 dark:hover:text-white"
                     >
                       {busy !== "locationSettings" ? (
                         <ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -3518,7 +3565,7 @@ function OneLocationAgentPageContent() {
                         onClick={() => void handleSyncContactSignal()}
                         disabled={!auth.user || busy === "contactInvite"}
                         variant="outline"
-                        className="h-10 w-full min-w-0 rounded-[12px] border-black/[0.06] bg-white text-[13px] font-semibold text-[#1c1c1e] shadow-sm hover:bg-[#f2f2f7] dark:border-white/[0.08] dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                        className="h-10 w-full min-w-0 rounded-[12px] border-black/[0.06] bg-white text-[13px] font-semibold text-[#1c1c1e] shadow-sm hover:bg-[#f2f2f7] hover:text-[#1c1c1e] dark:border-white/[0.08] dark:bg-white/10 dark:text-white dark:hover:bg-white/15 dark:hover:text-white"
                       >
                         {busy !== "contactSync" ? (
                           <ContactRound className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -3531,7 +3578,7 @@ function OneLocationAgentPageContent() {
                         onClick={() => void handleShareContactInvite()}
                         disabled={!vaultOwnerToken || busy === "contactSync"}
                         variant="outline"
-                        className="h-10 w-full min-w-0 rounded-[12px] border-black/[0.06] bg-white text-[13px] font-semibold text-[#007aff] shadow-sm hover:bg-[#f2f2f7] dark:border-white/[0.08] dark:bg-white/10 dark:text-[#76b7ff] dark:hover:bg-white/15"
+                        className="h-10 w-full min-w-0 rounded-[12px] border-black/[0.06] bg-white text-[13px] font-semibold text-[#007aff] shadow-sm hover:bg-[#f2f2f7] hover:text-[#1c1c1e] dark:border-white/[0.08] dark:bg-white/10 dark:text-[#76b7ff] dark:hover:bg-white/15 dark:hover:text-white"
                       >
                         {busy !== "contactInvite" ? (
                           <Send className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -3629,7 +3676,7 @@ function OneLocationAgentPageContent() {
                                       );
                                     }
                                   }}
-                                  className="mt-0.5 inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-[#f2f2f7] px-3 text-[12px] font-semibold text-[#007aff] transition-colors hover:bg-[#e5e5ea] dark:bg-white/10 dark:text-[#76b7ff] dark:hover:bg-white/15"
+                                  className="mt-0.5 inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-[#f2f2f7] px-3 text-[12px] font-semibold text-[#007aff] transition-colors hover:bg-[#e5e5ea] hover:text-[#1c1c1e] dark:bg-white/10 dark:text-[#76b7ff] dark:hover:bg-white/15 dark:hover:text-white"
                                 >
                                   <Plus className="h-3.5 w-3.5" />
                                   Select
@@ -3666,7 +3713,7 @@ function OneLocationAgentPageContent() {
                       onClick={() =>
                         setOneNetworkListExpanded((expanded) => !expanded)
                       }
-                      className="h-9 w-full rounded-full border-black/[0.06] bg-white text-[13px] font-semibold text-[#007aff] shadow-sm hover:bg-[#f2f2f7] dark:border-white/[0.08] dark:bg-white/10 dark:text-[#76b7ff] dark:hover:bg-white/15"
+                      className="h-9 w-full rounded-full border-black/[0.06] bg-white text-[13px] font-semibold text-[#007aff] shadow-sm hover:bg-[#f2f2f7] hover:text-[#1c1c1e] dark:border-white/[0.08] dark:bg-white/10 dark:text-[#76b7ff] dark:hover:bg-white/15 dark:hover:text-white"
                     >
                       {showExpandedOneNetworkList ? (
                         <ChevronUp className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -3735,7 +3782,7 @@ function OneLocationAgentPageContent() {
                               onClick={() =>
                                 removeShareRecipient(recipient.userId)
                               }
-                              className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full bg-[#eef5ff] px-3 text-[12px] font-semibold text-[#005bb5] transition-colors hover:bg-[#dfefff] dark:bg-[#0a84ff]/15 dark:text-[#a7d4ff] dark:hover:bg-[#0a84ff]/25"
+                              className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full bg-[#eef5ff] px-3 text-[12px] font-semibold text-[#005bb5] transition-colors hover:bg-[#dfefff] hover:text-[#1c1c1e] dark:bg-[#0a84ff]/15 dark:text-[#a7d4ff] dark:hover:bg-[#0a84ff]/25 dark:hover:text-white"
                             >
                               <span className="min-w-0 truncate">
                                 {recipientLabel(recipient)}
@@ -3847,7 +3894,7 @@ function OneLocationAgentPageContent() {
                               onClick={() =>
                                 removeRequestOwner(recipient.userId)
                               }
-                              className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full bg-[#eef5ff] px-3 text-[12px] font-semibold text-[#005bb5] transition-colors hover:bg-[#dfefff] dark:bg-[#0a84ff]/15 dark:text-[#a7d4ff] dark:hover:bg-[#0a84ff]/25"
+                              className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full bg-[#eef5ff] px-3 text-[12px] font-semibold text-[#005bb5] transition-colors hover:bg-[#dfefff] hover:text-[#1c1c1e] dark:bg-[#0a84ff]/15 dark:text-[#a7d4ff] dark:hover:bg-[#0a84ff]/25 dark:hover:text-white"
                             >
                               <span className="min-w-0 truncate">
                                 {recipientLabel(recipient)}
@@ -3958,7 +4005,7 @@ function OneLocationAgentPageContent() {
                                 size="icon"
                                 onClick={() => void handlePublish(grant)}
                                 disabled={busy === "publish"}
-                                className="h-8 w-8 rounded-full border-0 bg-[#f2f2f7] text-[#8e8e93] hover:bg-[#e5e5ea] dark:bg-white/10 dark:text-white/55 dark:hover:bg-white/15"
+                                className="h-8 w-8 rounded-full border-0 bg-[#f2f2f7] text-[#8e8e93] hover:bg-[#e5e5ea] hover:text-[#1c1c1e] dark:bg-white/10 dark:text-white/55 dark:hover:bg-white/15 dark:hover:text-white"
                               >
                                 {busy === "publish" ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -4023,7 +4070,7 @@ function OneLocationAgentPageContent() {
                               variant="outline"
                               onClick={() => void handleDeny(request.id)}
                               disabled={busy === "deny"}
-                              className="h-9 flex-1 rounded-[12px] border-0 bg-[#f2f2f7] font-semibold text-[#1c1c1e] hover:bg-[#e5e5ea] dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                              className="h-9 flex-1 rounded-[12px] border-0 bg-[#f2f2f7] font-semibold text-[#1c1c1e] hover:bg-[#e5e5ea] hover:text-[#1c1c1e] dark:bg-white/10 dark:text-white dark:hover:bg-white/15 dark:hover:text-white"
                             >
                               Deny
                             </Button>
@@ -4054,10 +4101,19 @@ function OneLocationAgentPageContent() {
                 <div className={cn(onePanelClassName, "space-y-4 p-3.5")}>
                   <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px]">
                     <div className={cn(oneInsetClassName, "min-w-0 px-3 py-2 text-sm")}>
-                      <span className={cn(oneSecondaryTextClassName, "break-all")}>
-                        {publicInviteUrl ||
-                          "Create a fresh public location link to copy or share."}
-                      </span>
+                      {publicInviteUrl ? (
+                        <span
+                          title={publicInviteUrl}
+                          aria-label={`Public location link ${publicInviteUrl}`}
+                          className="block truncate text-[13px] font-medium text-[#1c1c1e] dark:text-white"
+                        >
+                          {publicInviteUrlPreview(publicInviteUrl)}
+                        </span>
+                      ) : (
+                        <span className={cn(oneSecondaryTextClassName, "block text-[13px] leading-5")}>
+                          Create a fresh public location link to copy or share.
+                        </span>
+                      )}
                     </div>
                     <Select
                       value={durationHours}
@@ -4090,7 +4146,7 @@ function OneLocationAgentPageContent() {
                       variant="outline"
                       onClick={() => void handleSharePublicInvite()}
                       disabled={!publicInviteUrl}
-                      className="w-full min-w-0 rounded-full border-black/[0.06] bg-[#f2f2f7] sm:w-auto dark:border-white/[0.08] dark:bg-white/10"
+                      className="w-full min-w-0 rounded-full border-black/[0.06] bg-[#f2f2f7] text-[#1c1c1e] hover:bg-white hover:text-[#1c1c1e] sm:w-auto dark:border-white/[0.08] dark:bg-white/10 dark:text-white dark:hover:bg-white/15 dark:hover:text-white"
                     >
                       <Send className="mr-2 h-4 w-4" />
                       Share
@@ -4099,7 +4155,7 @@ function OneLocationAgentPageContent() {
                       variant="outline"
                       onClick={() => void handleCopyPublicInvite()}
                       disabled={!publicInviteUrl}
-                      className="w-full min-w-0 rounded-full border-black/[0.06] bg-[#f2f2f7] sm:w-auto dark:border-white/[0.08] dark:bg-white/10"
+                      className="w-full min-w-0 rounded-full border-black/[0.06] bg-[#f2f2f7] text-[#1c1c1e] hover:bg-white hover:text-[#1c1c1e] sm:w-auto dark:border-white/[0.08] dark:bg-white/10 dark:text-white dark:hover:bg-white/15 dark:hover:text-white"
                     >
                       <Copy className="mr-2 h-4 w-4" />
                       Copy
@@ -4123,7 +4179,7 @@ function OneLocationAgentPageContent() {
                             void handleRevokePublicInvite(latestActivePublicInvite)
                           }
                           disabled={busy === "publicRevoke"}
-                          className="w-full rounded-full sm:w-auto"
+                          className="w-full rounded-full border-black/[0.06] bg-white text-[#1c1c1e] hover:bg-[#f2f2f7] hover:text-[#1c1c1e] sm:w-auto dark:border-white/[0.08] dark:bg-white/10 dark:text-white dark:hover:bg-white/15 dark:hover:text-white"
                         >
                           Revoke
                         </Button>
@@ -4173,7 +4229,7 @@ function OneLocationAgentPageContent() {
                                 size="sm"
                                 onClick={() => void handleView(grant)}
                                 disabled={busy === "view"}
-                                className="w-full rounded-full border-black/[0.06] bg-[#f2f2f7] sm:w-auto dark:border-white/[0.08] dark:bg-white/10"
+                                className="w-full rounded-full border-black/[0.06] bg-[#f2f2f7] text-[#1c1c1e] hover:bg-white hover:text-[#1c1c1e] sm:w-auto dark:border-white/[0.08] dark:bg-white/10 dark:text-white dark:hover:bg-white/15 dark:hover:text-white"
                               >
                                 {busy === "view" ? (
                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -4300,7 +4356,7 @@ function OneLocationAgentPageContent() {
                               variant="outline"
                               onClick={() => void handleRefer(grant)}
                               disabled={!referralTargets[grant.id]}
-                              className="w-full min-w-0 rounded-full sm:w-auto"
+                              className="w-full min-w-0 rounded-full border-black/[0.06] bg-white text-[#1c1c1e] hover:bg-[#f2f2f7] hover:text-[#1c1c1e] sm:w-auto dark:border-white/[0.08] dark:bg-white/10 dark:text-white dark:hover:bg-white/15 dark:hover:text-white"
                             >
                               Refer
                             </ActionButton>
