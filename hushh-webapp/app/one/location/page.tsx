@@ -3658,7 +3658,7 @@ function OneLocationAgentPageContent() {
                                 ) : null}
                               </div>
                               {selected ? (
-                                <CheckCircle2 className="mt-1 h-[22px] w-[22px] shrink-0 text-[#007aff] dark:text-[#76b7ff]" />
+                                <CheckCircle2 aria-hidden="true" className="mt-1 h-[22px] w-[22px] shrink-0 text-[#007aff] dark:text-[#76b7ff]" />
                               ) : (
                                 <button
                                   type="button"
@@ -4389,7 +4389,7 @@ function OneLocationAgentPageContent() {
                         className="flex min-w-0 max-w-full flex-col gap-3 overflow-hidden p-3.5 sm:flex-row sm:items-center"
                       >
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f2f2f7] text-[#8e8e93] dark:bg-white/10 dark:text-white/55">
-                          <Clock3 className="h-[18px] w-[18px]" />
+                          <Clock3 aria-hidden="true" className="h-[18px] w-[18px]" />
                         </span>
                         <div className="min-w-0 flex-1">
                           <h3 className="break-words text-[16px] font-medium text-[#1c1c1e] [overflow-wrap:anywhere] dark:text-white">
