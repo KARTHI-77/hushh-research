@@ -4,6 +4,208 @@
   "source_gateway": "contracts/kai/kai-action-gateway.vnext.json",
   "actions": [
     {
+      "id": "route.marketplace_ria_profile",
+      "label": "Open Marketplace RIA Profile",
+      "meaning": "Navigates to a public marketplace RIA profile route.",
+      "speaker_persona": "one",
+      "delegate_agent_id": null,
+      "aliases": [
+        "open ria marketplace profile",
+        "show advisor profile",
+        "open this advisor"
+      ],
+      "scope": {
+        "routes": [
+          "/marketplace/ria",
+          "/marketplace/ria?riaId=[riaId]"
+        ],
+        "screens": [
+          "marketplace_ria_profile"
+        ],
+        "hidden_navigable": true,
+        "navigation_prerequisites": [
+          "RIA profile identifier should be known for a full profile view."
+        ]
+      },
+      "guard_ids": [
+        "marketplace_profile_public_metadata_only"
+      ],
+      "risk_level": "low",
+      "execution_policy": "allow_direct",
+      "execution_hint": {
+        "status": "wired",
+        "path": "route",
+        "target": "/marketplace/ria",
+        "params": {
+          "optional_ria_id": true
+        }
+      },
+      "map_references": [
+        "docs/reference/kai/kai-action-gateway-vnext.md",
+        "hushh-webapp/app/marketplace/ria/page-client.tsx",
+        "hushh-webapp/lib/navigation/routes.ts"
+      ]
+    },
+    {
+      "id": "marketplace.ria.request_advisory",
+      "label": "Request Advisory Access",
+      "meaning": "Creates an investor-to-RIA advisory consent request for the current marketplace profile.",
+      "speaker_persona": "nav",
+      "delegate_agent_id": null,
+      "aliases": [
+        "request advisory",
+        "ask this advisor for access",
+        "send advisory request"
+      ],
+      "scope": {
+        "routes": [
+          "/marketplace/ria"
+        ],
+        "screens": [
+          "marketplace_ria_profile"
+        ],
+        "hidden_navigable": false,
+        "navigation_prerequisites": [
+          "Signed-in investor persona must be active.",
+          "RIA profile must be loaded.",
+          "RIA profile must have a connectable verification status."
+        ]
+      },
+      "guard_ids": [
+        "auth_signed_in",
+        "active_persona_investor",
+        "marketplace_ria_profile_loaded",
+        "marketplace_ria_connectable",
+        "explicit_user_confirmation"
+      ],
+      "risk_level": "high",
+      "execution_policy": "manual_only",
+      "execution_hint": {
+        "status": "unwired",
+        "reason": "Creating an investor-to-RIA consent request must stay user-triggered on the marketplace profile.",
+        "intended_handler": "dispatchVoiceToolCall"
+      },
+      "map_references": [
+        "docs/reference/kai/kai-action-gateway-vnext.md",
+        "hushh-webapp/app/marketplace/ria/page-client.tsx"
+      ]
+    },
+    {
+      "id": "marketplace.ria.manage_profile",
+      "label": "Manage RIA Profile",
+      "meaning": "Navigates an active RIA persona from their public marketplace profile back to profile management.",
+      "speaker_persona": "one",
+      "delegate_agent_id": null,
+      "aliases": [
+        "manage my ria profile",
+        "edit advisor profile",
+        "open ria settings"
+      ],
+      "scope": {
+        "routes": [
+          "/marketplace/ria",
+          "/ria/settings"
+        ],
+        "screens": [
+          "marketplace_ria_profile"
+        ],
+        "hidden_navigable": false,
+        "navigation_prerequisites": [
+          "Active persona must be RIA."
+        ]
+      },
+      "guard_ids": [
+        "auth_signed_in",
+        "active_persona_ria",
+        "ria_persona_available"
+      ],
+      "risk_level": "low",
+      "execution_policy": "allow_direct",
+      "execution_hint": {
+        "status": "wired",
+        "path": "route",
+        "target": "/ria/settings"
+      },
+      "map_references": [
+        "docs/reference/kai/kai-action-gateway-vnext.md",
+        "hushh-webapp/app/marketplace/ria/page-client.tsx"
+      ]
+    },
+    {
+      "id": "route.marketplace_browse_from_ria_profile",
+      "label": "Continue Browsing Marketplace",
+      "meaning": "Returns from the marketplace RIA profile to the marketplace browsing surface.",
+      "speaker_persona": "one",
+      "delegate_agent_id": null,
+      "aliases": [
+        "continue browsing",
+        "back to marketplace",
+        "open marketplace"
+      ],
+      "scope": {
+        "routes": [
+          "/marketplace/ria",
+          "/marketplace"
+        ],
+        "screens": [
+          "marketplace_ria_profile"
+        ],
+        "hidden_navigable": false,
+        "navigation_prerequisites": []
+      },
+      "guard_ids": [],
+      "risk_level": "low",
+      "execution_policy": "allow_direct",
+      "execution_hint": {
+        "status": "wired",
+        "path": "route",
+        "target": "/marketplace"
+      },
+      "map_references": [
+        "docs/reference/kai/kai-action-gateway-vnext.md",
+        "hushh-webapp/app/marketplace/ria/page-client.tsx"
+      ]
+    },
+    {
+      "id": "marketplace.ria.open_public_disclosure",
+      "label": "Open Public Disclosure",
+      "meaning": "Opens the external public disclosure URL attached to the marketplace RIA profile.",
+      "speaker_persona": "one",
+      "delegate_agent_id": null,
+      "aliases": [
+        "open public disclosure",
+        "show advisor disclosure",
+        "open disclosure link"
+      ],
+      "scope": {
+        "routes": [
+          "/marketplace/ria"
+        ],
+        "screens": [
+          "marketplace_ria_profile"
+        ],
+        "hidden_navigable": false,
+        "navigation_prerequisites": [
+          "Profile must expose a public disclosures URL."
+        ]
+      },
+      "guard_ids": [
+        "marketplace_public_disclosure_url_present",
+        "manual_user_execution"
+      ],
+      "risk_level": "medium",
+      "execution_policy": "manual_only",
+      "execution_hint": {
+        "status": "unwired",
+        "reason": "External disclosure URLs are dynamic profile state and should be opened manually.",
+        "intended_handler": "router.push"
+      },
+      "map_references": [
+        "docs/reference/kai/kai-action-gateway-vnext.md",
+        "hushh-webapp/app/marketplace/ria/page-client.tsx"
+      ]
+    },
+    {
       "id": "route.profile_receipts",
       "label": "Open Receipts Page",
       "meaning": "Navigates directly to receipts page from any investor surface.",
@@ -436,208 +638,6 @@
         "docs/reference/kai/kai-action-gateway-vnext.md",
         "lib/voice/voice-json-validator.ts",
         "app/kai/analysis/page.tsx"
-      ]
-    },
-    {
-      "id": "route.marketplace_ria_profile",
-      "label": "Open Marketplace RIA Profile",
-      "meaning": "Navigates to a public marketplace RIA profile route.",
-      "speaker_persona": "one",
-      "delegate_agent_id": null,
-      "aliases": [
-        "open ria marketplace profile",
-        "show advisor profile",
-        "open this advisor"
-      ],
-      "scope": {
-        "routes": [
-          "/marketplace/ria",
-          "/marketplace/ria?riaId=[riaId]"
-        ],
-        "screens": [
-          "marketplace_ria_profile"
-        ],
-        "hidden_navigable": true,
-        "navigation_prerequisites": [
-          "RIA profile identifier should be known for a full profile view."
-        ]
-      },
-      "guard_ids": [
-        "marketplace_profile_public_metadata_only"
-      ],
-      "risk_level": "low",
-      "execution_policy": "allow_direct",
-      "execution_hint": {
-        "status": "wired",
-        "path": "route",
-        "target": "/marketplace/ria",
-        "params": {
-          "optional_ria_id": true
-        }
-      },
-      "map_references": [
-        "docs/reference/kai/kai-action-gateway-vnext.md",
-        "hushh-webapp/app/marketplace/ria/page-client.tsx",
-        "hushh-webapp/lib/navigation/routes.ts"
-      ]
-    },
-    {
-      "id": "marketplace.ria.request_advisory",
-      "label": "Request Advisory Access",
-      "meaning": "Creates an investor-to-RIA advisory consent request for the current marketplace profile.",
-      "speaker_persona": "nav",
-      "delegate_agent_id": null,
-      "aliases": [
-        "request advisory",
-        "ask this advisor for access",
-        "send advisory request"
-      ],
-      "scope": {
-        "routes": [
-          "/marketplace/ria"
-        ],
-        "screens": [
-          "marketplace_ria_profile"
-        ],
-        "hidden_navigable": false,
-        "navigation_prerequisites": [
-          "Signed-in investor persona must be active.",
-          "RIA profile must be loaded.",
-          "RIA profile must have a connectable verification status."
-        ]
-      },
-      "guard_ids": [
-        "auth_signed_in",
-        "active_persona_investor",
-        "marketplace_ria_profile_loaded",
-        "marketplace_ria_connectable",
-        "explicit_user_confirmation"
-      ],
-      "risk_level": "high",
-      "execution_policy": "manual_only",
-      "execution_hint": {
-        "status": "unwired",
-        "reason": "Creating an investor-to-RIA consent request must stay user-triggered on the marketplace profile.",
-        "intended_handler": "dispatchVoiceToolCall"
-      },
-      "map_references": [
-        "docs/reference/kai/kai-action-gateway-vnext.md",
-        "hushh-webapp/app/marketplace/ria/page-client.tsx"
-      ]
-    },
-    {
-      "id": "marketplace.ria.manage_profile",
-      "label": "Manage RIA Profile",
-      "meaning": "Navigates an active RIA persona from their public marketplace profile back to profile management.",
-      "speaker_persona": "one",
-      "delegate_agent_id": null,
-      "aliases": [
-        "manage my ria profile",
-        "edit advisor profile",
-        "open ria settings"
-      ],
-      "scope": {
-        "routes": [
-          "/marketplace/ria",
-          "/ria/settings"
-        ],
-        "screens": [
-          "marketplace_ria_profile"
-        ],
-        "hidden_navigable": false,
-        "navigation_prerequisites": [
-          "Active persona must be RIA."
-        ]
-      },
-      "guard_ids": [
-        "auth_signed_in",
-        "active_persona_ria",
-        "ria_persona_available"
-      ],
-      "risk_level": "low",
-      "execution_policy": "allow_direct",
-      "execution_hint": {
-        "status": "wired",
-        "path": "route",
-        "target": "/ria/settings"
-      },
-      "map_references": [
-        "docs/reference/kai/kai-action-gateway-vnext.md",
-        "hushh-webapp/app/marketplace/ria/page-client.tsx"
-      ]
-    },
-    {
-      "id": "route.marketplace_browse_from_ria_profile",
-      "label": "Continue Browsing Marketplace",
-      "meaning": "Returns from the marketplace RIA profile to the marketplace browsing surface.",
-      "speaker_persona": "one",
-      "delegate_agent_id": null,
-      "aliases": [
-        "continue browsing",
-        "back to marketplace",
-        "open marketplace"
-      ],
-      "scope": {
-        "routes": [
-          "/marketplace/ria",
-          "/marketplace"
-        ],
-        "screens": [
-          "marketplace_ria_profile"
-        ],
-        "hidden_navigable": false,
-        "navigation_prerequisites": []
-      },
-      "guard_ids": [],
-      "risk_level": "low",
-      "execution_policy": "allow_direct",
-      "execution_hint": {
-        "status": "wired",
-        "path": "route",
-        "target": "/marketplace"
-      },
-      "map_references": [
-        "docs/reference/kai/kai-action-gateway-vnext.md",
-        "hushh-webapp/app/marketplace/ria/page-client.tsx"
-      ]
-    },
-    {
-      "id": "marketplace.ria.open_public_disclosure",
-      "label": "Open Public Disclosure",
-      "meaning": "Opens the external public disclosure URL attached to the marketplace RIA profile.",
-      "speaker_persona": "one",
-      "delegate_agent_id": null,
-      "aliases": [
-        "open public disclosure",
-        "show advisor disclosure",
-        "open disclosure link"
-      ],
-      "scope": {
-        "routes": [
-          "/marketplace/ria"
-        ],
-        "screens": [
-          "marketplace_ria_profile"
-        ],
-        "hidden_navigable": false,
-        "navigation_prerequisites": [
-          "Profile must expose a public disclosures URL."
-        ]
-      },
-      "guard_ids": [
-        "marketplace_public_disclosure_url_present",
-        "manual_user_execution"
-      ],
-      "risk_level": "medium",
-      "execution_policy": "manual_only",
-      "execution_hint": {
-        "status": "unwired",
-        "reason": "External disclosure URLs are dynamic profile state and should be opened manually.",
-        "intended_handler": "router.push"
-      },
-      "map_references": [
-        "docs/reference/kai/kai-action-gateway-vnext.md",
-        "hushh-webapp/app/marketplace/ria/page-client.tsx"
       ]
     },
     {
