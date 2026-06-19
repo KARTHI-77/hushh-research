@@ -618,7 +618,7 @@ async def approve_consent(
     )
     expiry_hours = metadata.get("expiry_hours", 24)
     if isinstance(requested_duration_hours, int) and requested_duration_hours > 0:
-        expiry_hours = min(requested_duration_hours, 24 * 365)
+        expiry_hours = min(requested_duration_hours, 24 * 30)
 
     # MODULAR COMPLIANCE CHECK: Idempotency
     # Before issuing a NEW token, check if a valid token for this scope/agent already exists.
