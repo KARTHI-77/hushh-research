@@ -237,6 +237,51 @@ RIA relationship bundle note:
 | GET | `/api/pkm/scopes/{user_id}` | Get available PKM scope handles for the user |
 | POST | `/api/pkm/get-context` | Get user context for analysis |
 
+#### Connected Systems
+
+Connected Systems are vault-owner authenticated. The One user operates their
+own external CRM record through a schema-driven lifecycle: search for an
+existing Contact, create if missing, update allowed fields, and delete the
+bound external record when requested.
+The first shipped entry is Customer 0 Salesforce CRM over an external CRM MCP
+streamable HTTP transport. Customer 0 loads the Macy's CloudHub MCP endpoint
+from the backend connected-system registry row with a declared MCP tool catalog,
+not from `.env` endpoint config. The deterministic `registry://` simulator is
+kept for tests only. Production can swap that registry row to a MuleSoft
+VPC/private proxy without changing Profile or Agent flows.
+
+The canonical registry entry is:
+
+- `systemId`: `salesforce-fsc-customer0`
+- `displayName`: `Macy's`
+- `target`: `Macys`
+- `objectTypeDefault`: `Contact`
+- `transport`: `external_crm_streamable_mcp`
+
+Supported Contact fields for create/update v1 are `FirstName`, `LastName`,
+`Email`, `Phone`, `MobilePhone`, `Title`, `Department`, `MailingCity`,
+`MailingStreet`, and `LeadSource`. The schema route calls the live MCP
+`object-schema` tool and returns normalized `fields` descriptors derived from
+that response, filtered through the Hussh allowlist above. Unsupported fields
+are rejected before an MCP call. Create/update stay intent-backed internally
+for audit, but the One UI exposes a single user action. Successful search/create
+binds the current One user to the external CRM record id. Delete removes the
+Salesforce Contact through the MCP tool and marks the local binding deleted;
+binding rows store no raw email, phone, or CRM field values.
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/connected-systems` | List connected systems visible to the vault owner |
+| GET | `/api/connected-systems/{system_id}/schema?objectType=Contact` | Fetch current Salesforce Contact schema through the configured MCP transport and return normalized `fields` descriptors for dynamic UI rendering |
+| GET | `/api/connected-systems/{system_id}/record-binding?objectType=Contact` | Return the current One user binding for this external CRM record, or `unbound` |
+| POST | `/api/connected-systems/{system_id}/records/read` | Read a CRM Contact with `{ objectType, email, phone, searchFields?, returnFields? }` |
+| POST | `/api/connected-systems/{system_id}/records/search` | Search by email and phone; bind the One user when a Contact record id is returned |
+| POST | `/api/connected-systems/{system_id}/records/create-intents` | Create a pending CRM create intent; requires `{ objectType, email, phone, lastName }` plus optional `firstName` and `additionalFields` |
+| POST | `/api/connected-systems/{system_id}/records/update-intents` | Create a pending CRM update intent; requires `{ objectType, id, additionalFields }` plus optional readback locator |
+| POST | `/api/connected-systems/{system_id}/records/delete` | Delete the bound CRM Contact by `{ objectType, id? }`; id may be omitted when an active binding exists |
+| POST | `/api/connected-systems/{system_id}/intents/{intent_id}/approve` | Approve and execute a pending create/update intent, then attempt readback |
+| POST | `/api/connected-systems/{system_id}/intents/{intent_id}/reject` | Reject a pending intent without calling MCP |
+
 #### Kai Chat
 
 | Method | Path | Description |

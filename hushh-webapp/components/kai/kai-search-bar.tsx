@@ -1693,6 +1693,14 @@ export function KaiSearchBar({
             "pointer-events-none w-full",
             isRiaSurface ? "max-w-[360px] sm:max-w-[392px]" : "max-w-[548px]"
           )}
+          style={
+            isRiaSurface
+              ? undefined
+              : {
+                  width:
+                    "var(--app-bottom-route-group-width, min(calc(100vw - 2rem), 560px))",
+                }
+          }
         >
           {isRiaSurface ? (
             <div className="relative flex w-full items-end justify-end">
@@ -1777,7 +1785,7 @@ export function KaiSearchBar({
                     disabled={disabled}
                     onClick={() => setOpen(true)}
                     className={cn(
-                      "inline-flex h-11 min-w-0 items-center justify-center rounded-full px-3 text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-black/[0.045] hover:text-foreground disabled:pointer-events-none disabled:opacity-50 dark:hover:bg-white/10",
+                      "inline-flex h-12 min-w-0 items-center justify-center rounded-full px-3 text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-black/[0.045] hover:text-foreground disabled:pointer-events-none disabled:opacity-50 dark:hover:bg-white/10",
                       open && "bg-primary/10 text-primary"
                     )}
                   >
