@@ -10,10 +10,10 @@ import {
   ChartSpline,
   ChartCandlestick,
   CircleUserRound,
-  Compass,
   Database,
   FileSpreadsheet,
   FolderSearch,
+  Handshake,
   LayoutDashboard,
   Mail,
   MailCheck,
@@ -93,7 +93,7 @@ const BOTTOM_NAV_OPTION_META: Record<
   connect: {
     value: "connect",
     label: "Connect",
-    icon: Compass,
+    icon: Handshake,
     dataTourId: "nav-connect",
   },
   "ria-home": {
@@ -192,7 +192,7 @@ export const Navbar = () => {
   });
   const chromeState = useMemo(() => getKaiChromeState(pathname), [pathname]);
   const useOnboardingChrome = chromeState.useOnboardingChrome;
-  const allowScrollHide = false;
+  const allowScrollHide = isAuthenticated && !useOnboardingChrome;
   const { hidden: hideBottomChrome, progress: hideBottomChromeProgress } =
     useKaiBottomChromeVisibility(allowScrollHide);
 
@@ -408,9 +408,9 @@ export const Navbar = () => {
           aria-label="Search"
           className={cn(
             "pointer-events-auto relative z-20 inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center overflow-hidden rounded-full",
-            "border border-white/50 bg-background/80 text-foreground/70 shadow-[0_11px_34px_0_var(--theme-color-boxShadow)] backdrop-blur-[var(--blur-standard)]",
+            "kai-bottom-search-action border text-foreground/70",
             "transition-[color,transform,background-color] duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]",
-            "hover:bg-background/90 hover:text-primary active:scale-[0.985] chrome-bottom-foreground",
+            "hover:text-foreground active:scale-[0.985] chrome-bottom-foreground",
           )}
           onClick={() => {
             if (busyOperations["portfolio_save"]) {

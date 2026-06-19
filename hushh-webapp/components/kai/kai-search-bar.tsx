@@ -10,7 +10,7 @@ import {
   type MouseEvent,
 } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, Mic, Search, X } from "lucide-react";
+import { Hand, Mic, Search, X } from "lucide-react";
 
 import {
   KaiCommandPalette,
@@ -1638,8 +1638,15 @@ export function KaiSearchBar({
   const visibleCommandBarBottomOffset = `calc(${commandBarBottomOffset} - (${hideBottomChromeProgress} * var(--app-bottom-fixed-ui, 0px)))`;
   const dockChromeBottomOffset =
     "calc(max(var(--app-safe-area-bottom-effective), 0.625rem) + var(--app-bottom-chrome-lift, 0px))";
+  const agentBarBottomOffset = `calc(${dockChromeBottomOffset} + max(var(--app-bottom-fixed-ui, 0px), 72px) + 0.375rem)`;
+  const agentBarWidth =
+    "min(calc(100vw - 2rem), max(var(--app-bottom-route-group-width, 0px), 14rem))";
   const dockChromeTransform = `translate3d(0, calc(${hideBottomChromeProgress} * var(--bottom-chrome-hide-distance, var(--bottom-chrome-full-height))), 0)`;
   const isRiaSurface = surfaceVariant === "ria";
+  const agentPopoverVisible = Boolean(
+    agentPopover?.expanded ||
+      (agentPopover?.motionState && agentPopover.motionState !== "idle"),
+  );
   const riaVoiceActive = ambientMode !== "idle";
   const riaVoiceDisabled =
     !riaVoiceActive && (disabled || micDisabled || voiceVisibilityMode === "hidden");
@@ -1675,16 +1682,16 @@ export function KaiSearchBar({
     <>
       <div
         className={cn(
-          "fixed inset-x-0 z-[121] flex justify-center px-4 pointer-events-none",
+          "fixed inset-x-0 z-[121] flex justify-center px-4 pointer-events-none transition-opacity duration-200 ease-out",
         )}
         style={{
           bottom: isRiaSurface
             ? visibleCommandBarBottomOffset
-            : dockChromeBottomOffset,
+            : agentBarBottomOffset,
           transform: isRiaSurface
             ? `translate3d(0, ${6 * hideBottomChromeProgress}px, 0)`
             : dockChromeTransform,
-          opacity: 1,
+          opacity: !isRiaSurface && agentPopoverVisible ? 0 : 1,
         }}
       >
         <div
@@ -1697,8 +1704,7 @@ export function KaiSearchBar({
             isRiaSurface
               ? undefined
               : {
-                  width:
-                    "var(--app-bottom-route-group-width, min(calc(100vw - 2rem), 560px))",
+                  width: agentBarWidth,
                 }
           }
         >
@@ -1710,7 +1716,7 @@ export function KaiSearchBar({
                 onClick={handleAgentClick}
                 className="kai-bottom-agent-action pointer-events-auto absolute -top-[54px] right-1 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/30"
               >
-                <Bot className="h-[18px] w-[18px]" strokeWidth={1.9} />
+                <Hand className="h-[18px] w-[18px]" strokeWidth={1.9} />
               </button>
               <div
                 className="grid w-full grid-cols-2 gap-1.5 rounded-full border border-[color:var(--app-shell-surface-border)] bg-[color:var(--app-shell-surface-bg)] bg-[image:var(--app-shell-surface-fill)] p-1 shadow-[var(--app-shell-surface-shadow)] backdrop-blur-[var(--app-shell-surface-blur)]"
@@ -1751,49 +1757,19 @@ export function KaiSearchBar({
               </div>
             </div>
           ) : (
-            <div className="relative ml-auto flex h-[112px] w-[58px] items-end justify-end">
+            <div className="relative flex w-full items-end justify-center">
               <button
                 type="button"
                 aria-label="Open Agent"
                 onClick={handleAgentClick}
-                className="kai-bottom-agent-action pointer-events-auto absolute right-[7px] top-0 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/30"
-              >
-                <Bot className="h-[18px] w-[18px]" strokeWidth={1.9} />
-              </button>
-              <div
                 className={cn(
-                  "ml-auto flex w-[58px] items-end justify-end"
+                  "kai-bottom-agent-action pointer-events-auto inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-white/30 px-3 text-xs font-semibold",
+                  agentPopoverVisible && "pointer-events-none",
                 )}
               >
-                <div
-                  className={cn(
-                    "pointer-events-auto grid rounded-full kai-bottom-search-action p-[5px]",
-                    "w-[58px] grid-cols-1"
-                  )}
-                  data-testid="kai-compact-search-surface"
-                  data-mode={ambientMode}
-                >
-                  <span data-testid="voice-ambient-preview" className="sr-only">
-                    {transcriptPreview || processingStageText || ""}
-                  </span>
-                  <button
-                    type="button"
-                    data-tour-id="kai-command-bar"
-                    aria-label="Open Kai command search"
-                    aria-expanded={open}
-                    aria-haspopup="dialog"
-                    disabled={disabled}
-                    onClick={() => setOpen(true)}
-                    className={cn(
-                      "inline-flex h-12 min-w-0 items-center justify-center rounded-full px-3 text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-black/[0.045] hover:text-foreground disabled:pointer-events-none disabled:opacity-50 dark:hover:bg-white/10",
-                      open && "bg-primary/10 text-primary"
-                    )}
-                  >
-                    <Search className="h-5 w-5 shrink-0" strokeWidth={1.9} />
-                    <span className="sr-only">Search</span>
-                  </button>
-                </div>
-              </div>
+                <Hand className="h-4 w-4" strokeWidth={1.9} />
+                <span className="truncate">&quot;Hello One&quot;</span>
+              </button>
             </div>
           )}
           {voiceErrorMessage ? (

@@ -54,6 +54,30 @@ describe("top shell breadcrumbs", () => {
     );
   });
 
+  it("keeps Kai analysis query-state back navigation inside analysis", () => {
+    const activeParams = new URLSearchParams();
+    activeParams.set("focus", "active");
+    activeParams.set("ticker", "tsla");
+
+    expect(resolveTopShellBreadcrumb("/one/kai/analysis", activeParams)).toEqual({
+      backHref: "/one/kai/analysis",
+      width: "content",
+      align: "center",
+      items: [
+        { label: "Kai", href: "/one/kai" },
+        { label: "Analysis", href: "/one/kai/analysis" },
+        { label: "TSLA live" },
+      ],
+    });
+
+    const previewParams = new URLSearchParams();
+    previewParams.set("ticker", "nvda");
+
+    expect(resolveTopShellBreadcrumb("/one/kai/analysis", previewParams)?.backHref).toBe(
+      "/one/kai/analysis",
+    );
+  });
+
   it("treats the PKM agent lab as a profile privacy surface", () => {
     expect(resolveTopShellBreadcrumb("/profile/pkm-agent-lab")).toEqual({
       backHref: "/profile?panel=access",

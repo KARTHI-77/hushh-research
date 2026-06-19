@@ -39,6 +39,10 @@ import { AgentVoiceWaveInput } from "@/components/agent/agent-voice-wave-input";
 import { StreamingCursor } from "@/lib/morphy-ux/streaming-cursor";
 import { useAuth } from "@/hooks/use-auth";
 import {
+  resolveAgentWelcomeSuggestions,
+  type AgentWelcomeSuggestion,
+} from "@/lib/agent/agent-welcome-suggestions";
+import {
   executeAgentGatewayAction,
   type AgentActionRuntimeResult,
 } from "@/lib/agent/agent-action-runtime";
@@ -143,6 +147,7 @@ type AgentChatWorkspaceProps = {
   variant?: AgentChatWorkspaceVariant;
   className?: string;
   windowControls?: ReactNode;
+  freshOpenKey?: number;
   onMinimize?: () => void;
   onNavigationActionComplete?: (result: AgentActionRuntimeResult) => void;
 };
@@ -150,11 +155,6 @@ type AgentChatWorkspaceProps = {
 const AGENT_GREETING =
   "Hey, I'm Agent. Ask me about markets, your portfolio, Kai analysis, or consent workflows.";
 const AGENT_GREETING_TIMESTAMP = "Just now";
-const AGENT_WELCOME_PROMPTS = [
-  "Review my portfolio",
-  "Save a PKM memory",
-  "Explain consent flows",
-] as const;
 
 const EMPTY_PKM_CONTEXT: AgentPkmContext = {
   text: "",
@@ -275,10 +275,12 @@ async function copyTextToClipboard(text: string): Promise<void> {
 
 function AgentWelcomePanel({
   name,
+  suggestions,
   disabled,
   onPromptSelect,
 }: {
   name: string;
+  suggestions: AgentWelcomeSuggestion[];
   disabled: boolean;
   onPromptSelect: (prompt: string) => void;
 }) {
@@ -296,15 +298,18 @@ function AgentWelcomePanel({
           Ask Agent about your markets, portfolio, memories, or Hushh workflows.
         </p>
         <div className="mt-8 grid gap-3 sm:grid-cols-3">
-          {AGENT_WELCOME_PROMPTS.map((prompt) => (
+          {suggestions.map((suggestion) => (
             <button
-              key={prompt}
+              key={suggestion.id}
               type="button"
               disabled={disabled}
-              onClick={() => onPromptSelect(prompt)}
+              onClick={() => onPromptSelect(suggestion.prompt)}
               className="group min-h-24 rounded-xl border border-black/10 bg-white/80 p-4 text-left text-sm font-medium text-[#1d1d1f] shadow-sm shadow-black/[0.03] transition hover:border-primary/40 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.035] dark:text-zinc-200 dark:hover:bg-white/[0.06]"
             >
-              <span className="block leading-5">{prompt}</span>
+              <span className="block leading-5">{suggestion.label}</span>
+              <span className="mt-2 block line-clamp-2 text-[11px] font-normal leading-4 text-muted-foreground">
+                {suggestion.prompt}
+              </span>
               <span className="mt-4 block h-px w-10 bg-primary/50 transition group-hover:w-14" />
             </button>
           ))}
@@ -699,6 +704,7 @@ export function AgentChatWorkspace({
   variant = "page",
   className,
   windowControls,
+  freshOpenKey = 0,
   onMinimize,
   onNavigationActionComplete,
 }: AgentChatWorkspaceProps) {
@@ -2557,6 +2563,20 @@ export function AgentChatWorkspace({
   );
   const hasStartedConversation = messages.some((message) => message.id !== "agent-greeting");
   const visibleMessages = messages.filter((message) => message.id !== "agent-greeting");
+  const welcomeSuggestionSeed = useMemo(
+    () => Date.now() + Math.floor(Math.random() * 100_000),
+    [activePersona, conversationId, freshOpenKey, hasStartedConversation, pathname, user?.uid],
+  );
+  const welcomeSuggestions = useMemo(
+    () =>
+      resolveAgentWelcomeSuggestions({
+        userId: user?.uid,
+        pathname,
+        persona: activePersona,
+        randomSeed: welcomeSuggestionSeed,
+      }),
+    [activePersona, pathname, user?.uid, welcomeSuggestionSeed],
+  );
   const latestRetryableAssistantId =
     [...visibleMessages]
       .reverse()
@@ -2588,9 +2608,10 @@ export function AgentChatWorkspace({
     });
   };
   const handleWelcomePromptSelect = useCallback((prompt: string) => {
-    setInput(prompt);
-    window.setTimeout(() => composerTextareaRef.current?.focus(), 0);
-  }, []);
+    if (isChatLoading || isStreaming) return;
+    setInput("");
+    void runAgentTurn(prompt, { source: "typed" });
+  }, [isChatLoading, isStreaming, runAgentTurn]);
   const swipeStartYRef = useRef<number | null>(null);
   const handleHeaderPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!onMinimize || event.pointerType === "mouse") return;
@@ -2821,6 +2842,7 @@ export function AgentChatWorkspace({
               {!accessMessage && !hasStartedConversation ? (
                 <AgentWelcomePanel
                   name={displayName}
+                  suggestions={welcomeSuggestions}
                   disabled={!hasChatAccess || isChatLoading || isStreaming}
                   onPromptSelect={handleWelcomePromptSelect}
                 />
@@ -2910,7 +2932,7 @@ export function AgentChatWorkspace({
           >
             <div className="mx-auto w-full max-w-3xl">
               {voiceActive ? (
-                <div className="rounded-2xl border border-black/10 bg-[#f5f5f7] p-2 shadow-lg shadow-black/[0.06] dark:border-white/10 dark:bg-[#0f1116] dark:shadow-black/15">
+                <div className="rounded-xl bg-[#f5f5f7] p-1 shadow-sm shadow-black/[0.04] dark:bg-[#0f1116] dark:shadow-black/10">
                   <AgentVoiceWaveInput
                     status={voiceState}
                     level={voiceLevel}

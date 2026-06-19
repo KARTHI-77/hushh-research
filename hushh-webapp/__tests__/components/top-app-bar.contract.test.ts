@@ -51,6 +51,8 @@ describe("Top app bar responsive contract", () => {
   it("uses deterministic breadcrumb parents instead of browser history for top-bar back", () => {
     const source = read("components/app-ui/top-app-bar.tsx");
 
+    expect(source).toContain("function shouldReplaceTopShellBackNavigation");
+    expect(source).toContain("router.replace(topShellBreadcrumb.backHref);");
     expect(source).toContain("router.push(topShellBreadcrumb.backHref);");
     expect(source).not.toContain("router.back();");
   });
@@ -94,6 +96,8 @@ describe("Top app bar responsive contract", () => {
     const source = read("components/app-ui/top-app-bar.tsx");
 
     expect(source).toContain("topShellBreadcrumb.backHref");
+    expect(source).toContain("shouldReplaceTopShellBackNavigation");
+    expect(source).toContain("router.replace(topShellBreadcrumb.backHref);");
     expect(source).toContain("router.push(topShellBreadcrumb.backHref);");
     expect(source).not.toContain("history.back()");
   });

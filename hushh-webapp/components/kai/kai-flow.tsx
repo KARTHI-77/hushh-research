@@ -52,7 +52,10 @@ import {
   savePlaidOAuthResumeSession,
 } from "@/lib/kai/brokerage/plaid-oauth-session";
 import { resolvePlaidRedirectUri } from "@/lib/kai/brokerage/plaid-redirect-uri";
-import { PlaidPortfolioService } from "@/lib/kai/brokerage/plaid-portfolio-service";
+import {
+  PlaidPortfolioService,
+  requirePlaidLinkTokenReady,
+} from "@/lib/kai/brokerage/plaid-portfolio-service";
 import { useKaiFinancialResource } from "@/lib/kai/kai-financial-resource";
 import { useAuth } from "@/hooks/use-auth";
 import { VaultUnlockDialog } from "@/components/vault/vault-unlock-dialog";
@@ -2935,14 +2938,12 @@ export function KaiFlow({
         redirectUri,
       });
 
-      if (!linkToken.configured || !linkToken.link_token) {
-        throw new Error("Plaid is not configured for this environment.");
-      }
-      if (linkToken.resume_session_id) {
+      const readyLinkToken = requirePlaidLinkTokenReady(linkToken);
+      if (readyLinkToken.resume_session_id) {
         savePlaidOAuthResumeSession({
           version: 1,
           userId,
-          resumeSessionId: linkToken.resume_session_id,
+          resumeSessionId: readyLinkToken.resume_session_id,
           returnPath: ROUTES.KAI_DASHBOARD,
           startedAt: new Date().toISOString(),
         });
@@ -2958,14 +2959,14 @@ export function KaiFlow({
         };
 
         const handler = Plaid.create({
-          token: linkToken.link_token,
+          token: readyLinkToken.link_token,
           onSuccess: (publicToken: string, metadata: Record<string, unknown>) => {
             void PlaidPortfolioService.exchangePublicToken({
               userId,
               publicToken,
               vaultOwnerToken: effectiveVaultOwnerToken,
               metadata,
-              resumeSessionId: linkToken.resume_session_id || null,
+              resumeSessionId: readyLinkToken.resume_session_id || null,
             })
               .then((status) => {
                 clearPlaidOAuthResumeSession();

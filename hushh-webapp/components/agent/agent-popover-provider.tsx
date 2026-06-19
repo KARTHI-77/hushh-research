@@ -217,6 +217,7 @@ export function useOptionalAgentPopover() {
 export function AgentPopoverProvider({ children }: { children: ReactNode }) {
   const [expanded, setExpanded] = useState(false);
   const [hasOpened, setHasOpened] = useState(false);
+  const [agentFreshOpenKey, setAgentFreshOpenKey] = useState(0);
   const [motionState, setMotionState] =
     useState<AgentPopoverMotionState>("idle");
   const [sizeMode, setSizeModeState] = useState<AgentPopoverSizeMode>(
@@ -255,6 +256,7 @@ export function AgentPopoverProvider({ children }: { children: ReactNode }) {
 
     clearMotionHandles();
     setHasOpened(true);
+    setAgentFreshOpenKey((key) => key + 1);
     setMotionState("opening");
 
     animationFrameRef.current = window.requestAnimationFrame(() => {
@@ -327,6 +329,7 @@ export function AgentPopoverProvider({ children }: { children: ReactNode }) {
       {children}
       <AgentPopoverSurface
         customSize={customSize}
+        freshOpenKey={agentFreshOpenKey}
         setCustomSize={setCustomSize}
       />
     </AgentPopoverContext.Provider>
@@ -335,11 +338,13 @@ export function AgentPopoverProvider({ children }: { children: ReactNode }) {
 
 type AgentPopoverSurfaceProps = {
   customSize: AgentPopoverSize;
+  freshOpenKey: number;
   setCustomSize: Dispatch<SetStateAction<AgentPopoverSize>>;
 };
 
 function AgentPopoverSurface({
   customSize,
+  freshOpenKey,
   setCustomSize,
 }: AgentPopoverSurfaceProps) {
   const { isAuthenticated } = useAuth();
@@ -642,6 +647,7 @@ function AgentPopoverSurface({
             ) : null}
             <AgentChatWorkspace
               variant="popover"
+              freshOpenKey={freshOpenKey}
               windowControls={
                 <AgentPopoverWindowControls
                   sizeMode={sizeMode}
