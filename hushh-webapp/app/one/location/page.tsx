@@ -1565,6 +1565,7 @@ function OneLocationAgentPageContent() {
             </p>
           </div>
           <button
+            type="button"
             onClick={() => {
               toast.dismiss(toastKey);
               openLocationShareFromNotification(grant.id);
@@ -1655,6 +1656,7 @@ function OneLocationAgentPageContent() {
               router.push(routeHref, { scroll: false });
               focusOneLocationSection(section);
             }}
+            type="button"
             className="rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background transition-colors"
           >
             Open
