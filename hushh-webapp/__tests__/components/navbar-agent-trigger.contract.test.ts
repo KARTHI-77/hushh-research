@@ -15,7 +15,7 @@ describe("Navbar bottom chrome contract", () => {
     const searchBar = read("components/kai/kai-search-bar.tsx");
 
     expect(navbar).toContain("useOptionalAgentPopover");
-    expect(navbar).toContain('style={{ width: "calc(100% - 66px)" }}');
+    expect(navbar).toContain('style={{ width: "calc(100% - 62px)" }}');
     expect(navbar).not.toContain('data-testid="bottom-agent-trigger"');
     expect(searchBar).toContain("kai-bottom-agent-action");
     expect(searchBar).toContain('aria-label="Open Agent"');
