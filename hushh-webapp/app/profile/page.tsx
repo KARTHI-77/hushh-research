@@ -69,6 +69,7 @@ import {
   type ProfileStackEntry,
 } from "@/components/profile/profile-stack-navigator";
 import { ProfileKaiPreferencesPanel } from "@/components/profile/profile-kai-preferences-panel";
+import { ConnectedSystemsPanel } from "@/components/profile/connected-systems-panel";
 import { RuntimeSecretSettingsCard } from "@/components/profile/runtime-secret-settings-card";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -200,6 +201,7 @@ type ProfilePanel =
   | "account"
   | "my-data"
   | "access"
+  | "connected-systems"
   | "preferences"
   | "security"
   | "support"
@@ -372,6 +374,7 @@ function normalizeProfilePanel(value: string | null): ProfilePanel | null {
     value === "account" ||
     value === "my-data" ||
     value === "access" ||
+    value === "connected-systems" ||
     value === "preferences" ||
     value === "security" ||
     value === "support" ||
@@ -589,6 +592,7 @@ function resolveProfileRouteState(
     const tab = searchParams.get("tab");
     if (tab === "my-data") panel = "my-data";
     else if (tab === "access" || tab === "privacy") panel = "access";
+    else if (tab === "connected-systems" || tab === "systems") panel = "connected-systems";
     else if (tab === "account") panel = "account";
     else if (tab === "preferences") panel = "preferences";
     else if (tab === "security") panel = "security";
@@ -604,7 +608,12 @@ function profileRouteRequiresUnlockedVault(
   panel: ProfilePanel | null,
   detail: ProfileDetail | null,
 ): boolean {
-  if (panel === "my-data" || panel === "access" || panel === "gmail") {
+  if (
+    panel === "my-data" ||
+    panel === "access" ||
+    panel === "connected-systems" ||
+    panel === "gmail"
+  ) {
     return true;
   }
   if (panel === "security") {
@@ -1531,7 +1540,10 @@ function ProfilePageContent() {
   }
 
   function openVaultBackedPanel(
-    panel: Extract<ProfilePanel, "my-data" | "access" | "gmail" | "security">,
+    panel: Extract<
+      ProfilePanel,
+      "my-data" | "access" | "connected-systems" | "gmail" | "security"
+    >,
   ) {
     if (vaultAccess.needsVaultCreation) {
       setShowVaultCreation(true);
@@ -2040,7 +2052,6 @@ function ProfilePageContent() {
           "vault",
           "create your vault",
           "unlock vault",
-          "manage vault",
           "vault security",
         ],
       },
@@ -2128,13 +2139,15 @@ function ProfilePageContent() {
               ? "Personal Data"
               : activePanel === "access"
                 ? "Access & sharing"
-                : activePanel === "preferences"
-                  ? "Preferences"
-                  : activePanel === "security"
-                    ? "Security"
-                    : activePanel === "gmail"
-                      ? "Gmail receipts"
-                      : "Support & feedback",
+                : activePanel === "connected-systems"
+                  ? "Connected Systems"
+                  : activePanel === "preferences"
+                    ? "Preferences"
+                    : activePanel === "security"
+                      ? "Security"
+                      : activePanel === "gmail"
+                        ? "Gmail receipts"
+                        : "Support & feedback",
           ...(activeDetail ? [activeDetail] : []),
         ]
       : [
@@ -2163,6 +2176,13 @@ function ProfilePageContent() {
           ]
         : activePanel === "support"
           ? ["Report a bug", "Get support", "Reach developer"]
+          : activePanel === "connected-systems"
+            ? [
+                "Load Salesforce CRM schema",
+                "Read Salesforce CRM record",
+                "Propose Salesforce CRM create",
+                "Propose Salesforce CRM update",
+              ]
           : activePanel === "account"
             ? [phoneNumber ? "Change phone number" : "Add phone number"]
             : activePanel === "security"
@@ -2181,6 +2201,7 @@ function ProfilePageContent() {
                     : []),
                   "Open Personal Data",
                   "Open Access & sharing",
+                  "Open Connected Systems",
                   "Open Gmail receipts",
                   "Open Email",
                   "Open Support",
@@ -2196,16 +2217,18 @@ function ProfilePageContent() {
               ? "Personal Data"
               : activePanel === "access"
                 ? "Access & sharing"
-                : activePanel === "preferences"
-                  ? "Preferences"
-                  : activePanel === "security"
-                    ? "Security"
-                    : activePanel === "gmail"
-                      ? "Gmail receipts"
-                      : "Support & feedback"
+                : activePanel === "connected-systems"
+                  ? "Connected Systems"
+                  : activePanel === "preferences"
+                    ? "Preferences"
+                    : activePanel === "security"
+                      ? "Security"
+                      : activePanel === "gmail"
+                        ? "Gmail receipts"
+                        : "Support & feedback"
           : "Profile",
         purpose:
-          "This surface manages account identity, profile data, access, preferences, Gmail receipts, support, and vault security.",
+          "This surface manages account identity, profile data, access, connected systems, preferences, Gmail receipts, support, and vault security.",
         sections: [
           {
             id: "account",
@@ -2221,6 +2244,11 @@ function ProfilePageContent() {
             id: "access",
             title: "Access & sharing",
             purpose: "Consent-backed access and sharing.",
+          },
+          {
+            id: "connected-systems",
+            title: "Connected Systems",
+            purpose: "Salesforce CRM and MuleSoft-backed systems.",
           },
           {
             id: "preferences",
@@ -3234,6 +3262,14 @@ function ProfilePageContent() {
             updateProfileView({ panel: "account", detail: "phone" }, "push")
           }
         />
+        <SettingsRow
+          icon={Trash2}
+          title={deleteButtonLabel}
+          description={deleteRowDescription}
+          tone="destructive"
+          chevron
+          onClick={() => void handleDeleteClick()}
+        />
       </SettingsGroup>
     </div>
   );
@@ -3411,6 +3447,18 @@ function ProfilePageContent() {
         />
       </SettingsGroup>
     </div>
+  );
+
+  const connectedSystemsContent = (
+    <ConnectedSystemsPanel
+      vaultOwnerToken={vaultOwnerToken}
+      onRequestUnlock={() => requestVaultUnlock("profile_data")}
+      profile={{
+        displayName: user?.displayName,
+        email: user?.email,
+        phone: phoneNumber,
+      }}
+    />
   );
 
   const vaultMethodsContent = (
@@ -3679,7 +3727,7 @@ function ProfilePageContent() {
         title="Open receipts"
         description="Review synced receipts, merchants, and extracted totals."
         chevron
-        onClick={() => router.push(ROUTES.PROFILE_RECEIPTS)}
+        onClick={() => router.push(ROUTES.GMAIL)}
       />
 
       {gmailPresentation.isConnected ? (
@@ -3959,6 +4007,13 @@ function ProfilePageContent() {
         ),
       });
     }
+  } else if (!routeBlockedByVault && activePanel === "connected-systems") {
+    profileStackEntries.push({
+      key: "panel:connected-systems",
+      title: "Connected Systems",
+      description: "Salesforce CRM and future MuleSoft-backed systems.",
+      content: connectedSystemsContent,
+    });
   } else if (!routeBlockedByVault && activePanel === "preferences") {
     profileStackEntries.push({
       key: "panel:preferences",
@@ -4332,17 +4387,6 @@ function ProfilePageContent() {
                 tone="destructive"
                 chevron
                 onClick={() => void handleSignOut()}
-              />
-            </SettingsGroup>
-
-            <SettingsGroup>
-              <SettingsRow
-                icon={Trash2}
-                title="Delete account"
-                description="Permanently delete your account and all data."
-                tone="destructive"
-                chevron
-                onClick={() => void handleDeleteClick()}
               />
             </SettingsGroup>
           </div>

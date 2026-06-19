@@ -74,6 +74,7 @@ import {
   requestInternalAppNavigation,
 } from "@/lib/utils/browser-navigation";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/lib/navigation/routes";
 import { useVault } from "@/lib/vault/vault-context";
 import {
   usePublishVoiceSurfaceMetadata,
@@ -692,7 +693,7 @@ function OneMarketNewsCards({ rows }: { rows: KaiHomeNewsItem[] }) {
         {
           symbol: "KAI",
           title: "Defensives lead as indices slip. What it means for your portfolio",
-          url: "/kai/analysis",
+          url: ROUTES.KAI_ANALYSIS,
           published_at: new Date().toISOString(),
           source_name: "Kai Wrap",
           provider: "local",
@@ -2145,16 +2146,35 @@ export function KaiMarketPreviewView() {
           </div>
         ) : null}
 
-        {displayError ? (
+        {displayError && !hasPayload ? (
           <div className="mx-auto mt-9 w-full max-w-[1080px] px-[var(--one-gutter)]">
             <div className="space-y-3 rounded-[18px] bg-[color:var(--one-card)] p-4 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_28px_-16px_rgba(0,0,0,0.16)]">
               <div className="flex items-center gap-2 text-[color:var(--one-down)]">
                 <AlertTriangle className="h-4 w-4" />
                 <p className="text-[14px] font-semibold">
-                  {hasPayload ? "Failed to refresh market home" : "Failed to load market home"}
+                  Failed to load market home
                 </p>
               </div>
               <p className="text-[12px] leading-relaxed text-[color:var(--one-fg2)]">{displayError}</p>
+              <Button
+                variant="none"
+                effect="fade"
+                size="sm"
+                onClick={() => void loadInsights({ manual: true })}
+              >
+                Retry
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {displayError && hasPayload ? (
+          <div className="mx-auto mt-5 w-full max-w-[1080px] px-[var(--one-gutter)]">
+            <div className="flex items-center justify-between gap-3 rounded-[18px] bg-[color:var(--one-card)] p-3 text-left text-[12px] text-[color:var(--one-fg2)] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_28px_-16px_rgba(0,0,0,0.16)]">
+              <span className="flex min-w-0 items-center gap-2">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-[color:var(--one-down)]" />
+                <span className="truncate">Showing saved data. Couldn&apos;t refresh just now.</span>
+              </span>
               <Button
                 variant="none"
                 effect="fade"
@@ -2189,7 +2209,7 @@ export function KaiMarketPreviewView() {
             </section>
 
             <section className="mx-auto mt-9 w-full max-w-[1080px] px-[var(--one-gutter)]">
-              <OneMarketSectionHeader title="Top movers" icon={ChartColumnIncreasing} tone="orange" actionLabel="See all" actionHref="/kai/analysis?view=movers" />
+              <OneMarketSectionHeader title="Top movers" icon={ChartColumnIncreasing} tone="orange" actionLabel="See all" actionHref={`${ROUTES.KAI_ANALYSIS}?view=movers`} />
               <div className="mb-3.5 grid grid-cols-3 rounded-xl bg-[color:var(--one-surface)] p-[3px]">
                 {[
                   { id: "gain" as const, label: "Gainers" },
@@ -2218,7 +2238,7 @@ export function KaiMarketPreviewView() {
             </section>
 
             <section className="mx-auto mt-9 w-full max-w-[1080px] px-[var(--one-gutter)]">
-              <OneMarketSectionHeader title="Market news" icon={Newspaper} tone="teal" actionLabel="More" actionHref="/kai/analysis" />
+              <OneMarketSectionHeader title="Market news" icon={Newspaper} tone="teal" actionLabel="More" actionHref={ROUTES.KAI_ANALYSIS} />
               <OneMarketNewsCards rows={marketNewsRows} />
             </section>
 

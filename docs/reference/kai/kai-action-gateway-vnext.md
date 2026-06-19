@@ -57,7 +57,7 @@ Current generated coverage includes 20 source contracts and 79 actions. Source c
 - [page.voice-action-contract.json](../../../hushh-webapp/app/one/kyc/page.voice-action-contract.json)
 - [page.voice-action-contract.json](../../../hushh-webapp/app/profile/page.voice-action-contract.json)
 - [page-client.voice-action-contract.json](../../../hushh-webapp/app/profile/pkm-agent-lab/page-client.voice-action-contract.json)
-- [page.voice-action-contract.json](../../../hushh-webapp/app/profile/receipts/page.voice-action-contract.json)
+- [page.voice-action-contract.json](../../../hushh-webapp/app/gmail/page.voice-action-contract.json)
 - [page.voice-action-contract.json](../../../hushh-webapp/app/ria/clients/page.voice-action-contract.json)
 - [page.voice-action-contract.json](../../../hushh-webapp/app/ria/onboarding/page.voice-action-contract.json)
 - [page.voice-action-contract.json](../../../hushh-webapp/app/ria/page.voice-action-contract.json)

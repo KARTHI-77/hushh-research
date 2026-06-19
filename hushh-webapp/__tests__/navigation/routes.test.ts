@@ -37,6 +37,8 @@ describe("navigation routes", () => {
     expect(isPublicRoute("/login")).toBe(true);
 
     expect(isPublicRoute("/ria")).toBe(false);
+    expect(isPublicRoute("/one")).toBe(false);
+    expect(isPublicRoute("/one/kai")).toBe(false);
     expect(isPublicRoute("/kai")).toBe(false);
   });
 
@@ -45,13 +47,15 @@ describe("navigation routes", () => {
     expect(isRiaRoute("/ria/clients")).toBe(true);
     expect(isRiaRoute("/ria/clients/client-123")).toBe(true);
 
-    expect(isRiaRoute("/kai")).toBe(false);
+    expect(isRiaRoute("/one/kai")).toBe(false);
   });
 
   it("preserves kai onboarding route detection for nested onboarding paths", () => {
+    expect(isKaiOnboardingRoute("/one/kai/onboarding")).toBe(true);
+    expect(isKaiOnboardingRoute("/one/kai/onboarding/complete")).toBe(true);
     expect(isKaiOnboardingRoute("/kai/onboarding")).toBe(true);
     expect(isKaiOnboardingRoute("/kai/onboarding/complete")).toBe(true);
 
-    expect(isKaiOnboardingRoute("/kai")).toBe(false);
+    expect(isKaiOnboardingRoute("/one/kai")).toBe(false);
   });
 });

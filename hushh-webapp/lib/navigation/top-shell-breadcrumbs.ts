@@ -33,6 +33,7 @@ function profilePanelLabel(panel: string | null): string | null {
   if (panel === "account") return "Account";
   if (panel === "my-data") return "My Data";
   if (panel === "access") return "Access & sharing";
+  if (panel === "connected-systems") return "Connected Systems";
   if (panel === "preferences") return "Preferences";
   if (panel === "security") return "Security";
   if (panel === "support") return "Support & feedback";
@@ -122,6 +123,29 @@ export function resolveTopShellBreadcrumb(
         ],
       };
     }
+
+    return {
+      backHref: ROUTES.KAI_HOME,
+      width: "content",
+      align: "center",
+      items: [
+        { label: "One", href: ROUTES.ONE_HOME },
+        { label: "Kai", href: ROUTES.KAI_HOME },
+        { label: "Analysis" },
+      ],
+    };
+  }
+
+  if (pathname === ROUTES.KAI_HOME) {
+    return {
+      backHref: ROUTES.ONE_HOME,
+      width: "content",
+      align: "center",
+      items: [
+        { label: "One", href: ROUTES.ONE_HOME },
+        { label: "Kai" },
+      ],
+    };
   }
 
   if (pathname === ROUTES.RIA_CLIENTS) {
@@ -224,6 +248,55 @@ export function resolveTopShellBreadcrumb(
     };
   }
 
+  if (pathname === ROUTES.GMAIL) {
+    return {
+      backHref: ROUTES.ONE_HOME,
+      width: "profile",
+      align: "center",
+      items: [
+        { label: "One", href: ROUTES.ONE_HOME },
+        { label: "Gmail" },
+      ],
+    };
+  }
+
+  if (pathname === ROUTES.PKM) {
+    return {
+      backHref: ROUTES.ONE_HOME,
+      width: "profile",
+      align: "center",
+      items: [
+        { label: "One", href: ROUTES.ONE_HOME },
+        { label: "PKM" },
+      ],
+    };
+  }
+
+  if (pathname === ROUTES.CONNECTED_SYSTEMS) {
+    return {
+      backHref: ROUTES.ONE_HOME,
+      width: "profile",
+      align: "center",
+      items: [
+        { label: "One", href: ROUTES.ONE_HOME },
+        { label: "Connected Systems" },
+      ],
+    };
+  }
+
+  if (pathname.startsWith(`${ROUTES.CONNECTED_SYSTEMS}/`)) {
+    return {
+      backHref: ROUTES.CONNECTED_SYSTEMS,
+      width: "profile",
+      align: "center",
+      items: [
+        { label: "One", href: ROUTES.ONE_HOME },
+        { label: "Connected Systems", href: ROUTES.CONNECTED_SYSTEMS },
+        { label: "System detail" },
+      ],
+    };
+  }
+
   if (
     pathname === ROUTES.MARKETPLACE_CONNECTIONS ||
     pathname.startsWith(`${ROUTES.MARKETPLACE_CONNECTIONS}/`)
@@ -287,15 +360,14 @@ export function resolveTopShellBreadcrumb(
   }
 
   if (pathname === ROUTES.PROFILE_RECEIPTS) {
-    const gmailHref = profilePanelHref("gmail");
     return {
-      backHref: gmailHref,
+      backHref: ROUTES.GMAIL,
       width: "profile",
       align: "center",
       items: [
-        { label: "Profile", href: gmailHref },
-        { label: "Gmail receipts", href: gmailHref },
-        { label: "Receipts" },
+        { label: "One", href: ROUTES.ONE_HOME },
+        { label: "Gmail", href: ROUTES.GMAIL },
+        { label: "Legacy receipts" },
       ],
     };
   }

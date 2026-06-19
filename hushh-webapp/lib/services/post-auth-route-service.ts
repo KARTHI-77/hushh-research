@@ -7,12 +7,13 @@ import { buildPhoneMandateRoute, ROUTES } from "@/lib/navigation/routes";
 import { shouldRequirePhoneMandate } from "@/lib/services/phone-mandate-service";
 
 const PRE_VAULT_ROUTE = ROUTES.KAI_ONBOARDING;
-const NO_VAULT_DEFAULT_ROUTE = ROUTES.KAI_HOME;
+const DEFAULT_HOME_ROUTE = ROUTES.ONE_HOME;
+const NO_VAULT_DEFAULT_ROUTE = ROUTES.ONE_HOME;
 
 function normalizeRedirectPath(path: string | null | undefined): string {
-  if (!path || !path.trim()) return ROUTES.KAI_HOME;
+  if (!path || !path.trim()) return DEFAULT_HOME_ROUTE;
   if (path === ROUTES.PHONE_MANDATE || path.startsWith(`${ROUTES.PHONE_MANDATE}?`)) {
-    return ROUTES.KAI_HOME;
+    return DEFAULT_HOME_ROUTE;
   }
   return path;
 }
@@ -30,7 +31,10 @@ export class PostAuthRouteService {
     const remoteState = await PreVaultUserStateService.bootstrapState(params.userId);
     const canOverrideWithPersona =
       !params.redirectPath ||
+      fallbackRoute === ROUTES.HOME ||
+      fallbackRoute === ROUTES.ONE_HOME ||
       fallbackRoute === ROUTES.KAI_HOME ||
+      fallbackRoute === ROUTES.LEGACY_KAI_HOME ||
       fallbackRoute === ROUTES.KAI_ONBOARDING;
 
     if (params.idToken && canOverrideWithPersona) {
@@ -55,7 +59,7 @@ export class PostAuthRouteService {
         return PRE_VAULT_ROUTE;
       }
       if (fallbackRoute === ROUTES.KAI_ONBOARDING && onboardingResolved) {
-        return ROUTES.KAI_HOME;
+        return DEFAULT_HOME_ROUTE;
       }
       return fallbackRoute;
     }
