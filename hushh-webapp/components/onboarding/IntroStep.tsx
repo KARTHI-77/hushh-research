@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import type { CSSProperties, ComponentType, SVGProps } from "react";
+import { OneLockup } from "@/components/app-ui/gold-period";
 import { Button } from "@/lib/morphy-ux/button";
 import {
   kaiAppHeroBodyClassName,
@@ -94,32 +95,33 @@ export function IntroStep({
 }) {
   return (
     <main className="min-h-[100dvh] w-full bg-[#ffffff] text-[#1d1d1f] transition-colors duration-300 dark:bg-[#000000] dark:text-[#f5f5f7]">
-      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[440px] flex-col px-6 pt-[calc(42px+var(--app-safe-area-top-effective,0px))]">
-        <section className="relative flex flex-none flex-col items-center text-center">
-          <Image
-            src="/one-quiet-emoji.png"
-            alt=""
-            width={762}
-            height={766}
-            priority
-            unoptimized
-            aria-hidden="true"
-            draggable={false}
-            className="relative h-11 w-11 select-none object-contain"
-          />
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[440px] flex-col px-6 pt-[calc(34px+var(--app-safe-area-top-effective,0px))] pb-[calc(18px+var(--app-safe-area-bottom-effective,0px))]">
+        <div className="flex min-h-0 flex-1 flex-col justify-center py-6">
+          <section className="relative flex flex-none flex-col items-center text-center">
+            <Image
+              src="/one-quiet-emoji.png"
+              alt=""
+              width={762}
+              height={766}
+              priority
+              unoptimized
+              aria-hidden="true"
+              draggable={false}
+              className="relative h-11 w-11 select-none object-contain"
+            />
 
-          <div
-            role="heading"
-            aria-level={1}
-            aria-label="Meet One, Your Personal Financial Advisor"
-            className={`relative mt-2.5 ${kaiAppHeroTitleClassName} text-[#1d1d1f] dark:text-[#f5f5f7]`}
-          >
-            Meet One.
-          </div>
-          <p className={`relative mt-3 ${kaiAppHeroBodyClassName} text-[rgba(0,0,0,0.56)] dark:text-[rgba(245,245,247,0.60)]`}>
-            Your personal financial advisor.
-          </p>
-        </section>
+            <div
+              role="heading"
+              aria-level={1}
+              aria-label="Meet One, Your Personal Financial Advisor"
+              className={`relative mt-2.5 ${kaiAppHeroTitleClassName} text-[#1d1d1f] dark:text-[#f5f5f7]`}
+            >
+              Meet <OneLockup />
+            </div>
+            <p className={`relative mt-3 ${kaiAppHeroBodyClassName} text-[rgba(0,0,0,0.56)] dark:text-[rgba(245,245,247,0.60)]`}>
+              Your personal financial advisor.
+            </p>
+          </section>
 
         <div className="flex-none pt-9 pb-5">
           <div className="relative w-full">
@@ -148,12 +150,12 @@ export function IntroStep({
                     </p>
                   </div>
                 </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
-        </div>
 
-        <footer className="flex-none pb-[calc(18px+var(--app-safe-area-bottom-effective,0px))]">
+        <footer className="flex-none pt-3">
           <div className="space-y-4">
             <p className="mx-auto max-w-[34ch] text-center text-[13.5px] leading-5 tracking-normal text-[#86868b] dark:text-[rgba(245,245,247,0.44)]">
               One is consent-first. Your knowledge and information are your
@@ -179,6 +181,7 @@ export function IntroStep({
             ) : null}
           </div>
         </footer>
+      </div>
       </div>
     </main>
   );
