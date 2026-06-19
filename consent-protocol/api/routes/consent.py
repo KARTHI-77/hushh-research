@@ -738,20 +738,13 @@ async def approve_consent(
             else "superset",
         }
 
-    # CRITICAL FIX: Pass original scope STRING to issue_token, not enum
-    # This ensures token contains 'attr.financial.*' not 'pkm.read'
-    # The enum was validated above, but the token must preserve the exact scope
-    token = issue_token(
-        user_id=userId,
-        # Keep token agent_id aligned with consent_audit agent_id so DB revocation
-        # checks are deterministic across instances.
-        agent_id=pending_request["developer"],
-        scope=requested_scope,  # ✅ Pass string, not enum
-        expires_in_ms=expiry_hours * 60 * 60 * 1000,
-    )
+    # SECURITY: Validate the export payload BEFORE issuing a token.  If we
+    # issued the token first and a validation or storage step then raised an
+    # HTTP exception, a cryptographically valid token would already exist but
+    # would have no DB audit record and no way to revoke it.  All validation
+    # must complete successfully before any token string is materialised.
 
-    # Store encrypted export linked to token
-    # Persist to database for cross-instance consistency
+    # Build the wrapped key bundle (validation-only, no side effects yet)
     wrapped_key_bundle = None
     if connector_public_key:
         wrapped_key_bundle = _build_verified_wrapped_key_bundle(
@@ -782,6 +775,18 @@ async def approve_consent(
             encrypted_iv=encryptedIv,
             encrypted_tag=encryptedTag,
         )
+
+    # All validation passed - now safe to issue the token.  Scope is passed as
+    # the original string (not the enum) so that 'attr.financial.*' is preserved
+    # verbatim in the signed payload rather than being collapsed to 'pkm.read'.
+    token = issue_token(
+        user_id=userId,
+        # Keep agent_id aligned with consent_audit so DB revocation checks are
+        # deterministic across Cloud Run instances.
+        agent_id=pending_request["developer"],
+        scope=requested_scope,
+        expires_in_ms=expiry_hours * 60 * 60 * 1000,
+    )
 
     if encryptedData and wrapped_key_bundle:
         payload_data, payload_iv, payload_tag = encrypted_export_payload or (
