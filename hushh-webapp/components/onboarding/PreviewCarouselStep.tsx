@@ -219,7 +219,7 @@ export function PreviewCarouselStep({ onContinue }: { onContinue: () => void }) 
               <br />
               <span>{slides[displayIndex]?.accent}</span>
             </h2>
-            <p className="mx-auto max-w-[20rem] text-[15px] text-[rgba(0,0,0,0.56)] leading-[1.45] sm:text-[16px] dark:text-[rgba(245,245,247,0.60)]">
+            <p className="type-callout mx-auto max-w-[20rem] text-[rgba(0,0,0,0.56)] dark:text-[rgba(245,245,247,0.60)]">
               {slides[displayIndex]?.subtitle}
             </p>
           </div>

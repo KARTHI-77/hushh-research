@@ -612,7 +612,7 @@ function OneMarketStockCard({ row }: { row: OneMarketDisplayRow }) {
   return (
     <button
       type="button"
-      onClick={() => openOneMarketHref(`/kai/analysis?symbol=${encodeURIComponent(row.symbol)}`)}
+      onClick={() => openOneMarketHref(`${ROUTES.KAI_ANALYSIS}?symbol=${encodeURIComponent(row.symbol)}`)}
       className="min-h-[124px] rounded-[18px] bg-[color:var(--one-card)] px-4 py-[15px] text-left shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_28px_-14px_rgba(0,0,0,0.16)] transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-[0_1px_2px_rgba(0,0,0,0.04),0_20px_34px_-18px_rgba(0,0,0,0.22)] active:scale-[0.985]"
     >
       <BrandLogo symbol={row.symbol} className="h-8 w-8 rounded-[9px]" />
@@ -649,7 +649,7 @@ function OneMarketMoverRow({
   return (
     <button
       type="button"
-      onClick={() => openOneMarketHref(`/kai/analysis?symbol=${encodeURIComponent(row.symbol)}`)}
+      onClick={() => openOneMarketHref(`${ROUTES.KAI_ANALYSIS}?symbol=${encodeURIComponent(row.symbol)}`)}
       className="flex w-full items-center gap-3 border-b border-[color:var(--one-line)] py-3.5 text-left last:border-b-0 active:bg-[color:var(--one-surface)]"
     >
       <BrandLogo symbol={row.symbol} className="h-9 w-9" />

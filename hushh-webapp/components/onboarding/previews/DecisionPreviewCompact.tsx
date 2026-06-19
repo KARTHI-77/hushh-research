@@ -34,7 +34,7 @@ export function DecisionPreviewCompact() {
                 <p className="truncate text-[1.125rem] font-semibold leading-tight tracking-normal text-[#1d1d1f] sm:text-[1.25rem] dark:text-[#f5f5f7]">
                   Tesla
                 </p>
-                <p className="mt-0.5 font-mono text-[11.5px] tracking-[0.08em] text-muted-foreground">
+                <p className="type-caption mt-0.5 text-muted-foreground">
                   TSLA · NASDAQ
                 </p>
               </span>
@@ -43,7 +43,7 @@ export function DecisionPreviewCompact() {
               <p className="text-[1rem] font-semibold leading-tight tabular-nums text-[#1d1d1f] sm:text-[1.125rem] dark:text-[#f5f5f7]">
                 $248.50
               </p>
-              <span className="mt-1 inline-flex rounded-full bg-[#34c759]/10 px-[9px] py-1 text-[12px] font-semibold text-[#1f9d55] dark:bg-[#30d158]/16 dark:text-[#30d158]">
+              <span className="type-footnote type-numeric mt-1 inline-flex rounded-full bg-[#34c759]/10 px-[9px] py-1 text-[#1f9d55] dark:bg-[#30d158]/16 dark:text-[#30d158]">
                 ▲ 5.2%
               </span>
             </span>
@@ -51,18 +51,18 @@ export function DecisionPreviewCompact() {
 
           <div className="flex min-h-0 flex-1 flex-col justify-center py-3 sm:py-5">
             <div className="space-y-1">
-              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <p className="type-caption text-muted-foreground">
                 Recommendation
               </p>
               <div className="flex items-end justify-between gap-3">
                 <p className="text-[clamp(2.15rem,8vw,3rem)] font-semibold leading-none tracking-normal text-[#1d1d1f] dark:text-[#f5f5f7]">
                   Buy
                 </p>
-                <span className="mb-1 rounded-full bg-[#34c759]/10 px-3 py-1.5 text-[12px] font-semibold text-[#1f9d55] dark:bg-[#30d158]/16 dark:text-[#30d158]">
+                <span className="type-footnote mb-1 rounded-full bg-[#34c759]/10 px-3 py-1.5 text-[#1f9d55] dark:bg-[#30d158]/16 dark:text-[#30d158]">
                   High conviction
                 </span>
               </div>
-              <p className="text-[13px] font-medium text-muted-foreground">
+              <p className="type-footnote text-muted-foreground">
                 Horizon 12+ months
               </p>
             </div>
@@ -86,7 +86,7 @@ export function DecisionPreviewCompact() {
               <ActionPill label="Sell" />
             </div>
 
-            <p className="mt-3 text-center text-[12.5px] text-muted-foreground">
+            <p className="type-footnote mt-3 text-center text-muted-foreground">
               Clear signal, no noise.
             </p>
           </div>
