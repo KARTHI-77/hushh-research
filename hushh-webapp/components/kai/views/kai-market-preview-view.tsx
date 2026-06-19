@@ -6,6 +6,7 @@ import {
   Activity,
   AlertTriangle,
   Bell,
+  Blocks,
   Bot,
   ChartColumnIncreasing,
   ChevronRight,
@@ -73,6 +74,7 @@ import {
   requestInternalAppNavigation,
 } from "@/lib/utils/browser-navigation";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/lib/navigation/routes";
 import { useVault } from "@/lib/vault/vault-context";
 import {
   usePublishVoiceSurfaceMetadata,
@@ -605,6 +607,37 @@ function OneMarketIndexStrip({
   );
 }
 
+function OneMarketStockCard({ row }: { row: OneMarketDisplayRow }) {
+  const tone = oneMarketTone(row.changePct);
+  return (
+    <button
+      type="button"
+      onClick={() => openOneMarketHref(`${ROUTES.KAI_ANALYSIS}?symbol=${encodeURIComponent(row.symbol)}`)}
+      className="min-h-[124px] rounded-[18px] bg-[color:var(--one-card)] px-4 py-[15px] text-left shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_28px_-14px_rgba(0,0,0,0.16)] transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-[0_1px_2px_rgba(0,0,0,0.04),0_20px_34px_-18px_rgba(0,0,0,0.22)] active:scale-[0.985]"
+    >
+      <BrandLogo symbol={row.symbol} className="h-8 w-8 rounded-[9px]" />
+      <div className="mt-[9px] truncate text-[13px] font-semibold text-[color:var(--one-fg)]">
+        {row.companyName}
+      </div>
+      <div className="mt-[7px] flex items-baseline gap-[7px]">
+        <span className="text-[14px] font-semibold tabular-nums text-[color:var(--one-fg)]">
+          {formatOneMarketPrice(row.price)}
+        </span>
+        <span
+          className={cn(
+            "text-[12px] font-semibold tabular-nums",
+            tone === "up" && "text-[color:var(--one-up)]",
+            tone === "down" && "text-[color:var(--one-down)]",
+            tone === "neutral" && "text-[color:var(--one-fg3)]"
+          )}
+        >
+          {formatOneMarketPercent(row.changePct)}
+        </span>
+      </div>
+    </button>
+  );
+}
+
 function OneMarketMoverRow({
   row,
   tab,
@@ -616,7 +649,7 @@ function OneMarketMoverRow({
   return (
     <button
       type="button"
-      onClick={() => openOneMarketHref(`/kai/analysis?symbol=${encodeURIComponent(row.symbol)}`)}
+      onClick={() => openOneMarketHref(`${ROUTES.KAI_ANALYSIS}?symbol=${encodeURIComponent(row.symbol)}`)}
       className="flex w-full items-center gap-3 border-b border-[color:var(--one-line)] py-3.5 text-left last:border-b-0 active:bg-[color:var(--one-surface)]"
     >
       <BrandLogo symbol={row.symbol} className="h-9 w-9" />
@@ -660,7 +693,7 @@ function OneMarketNewsCards({ rows }: { rows: KaiHomeNewsItem[] }) {
         {
           symbol: "KAI",
           title: "Defensives lead as indices slip. What it means for your portfolio",
-          url: "/kai/analysis",
+          url: ROUTES.KAI_ANALYSIS,
           published_at: new Date().toISOString(),
           source_name: "Kai Wrap",
           provider: "local",
@@ -2113,16 +2146,35 @@ export function KaiMarketPreviewView() {
           </div>
         ) : null}
 
-        {displayError ? (
+        {displayError && !hasPayload ? (
           <div className="mx-auto mt-9 w-full max-w-[1080px] px-[var(--one-gutter)]">
             <div className="space-y-3 rounded-[18px] bg-[color:var(--one-card)] p-4 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_28px_-16px_rgba(0,0,0,0.16)]">
               <div className="flex items-center gap-2 text-[color:var(--one-down)]">
                 <AlertTriangle className="h-4 w-4" />
                 <p className="text-[14px] font-semibold">
-                  {hasPayload ? "Failed to refresh market home" : "Failed to load market home"}
+                  Failed to load market home
                 </p>
               </div>
               <p className="text-[12px] leading-relaxed text-[color:var(--one-fg2)]">{displayError}</p>
+              <Button
+                variant="none"
+                effect="fade"
+                size="sm"
+                onClick={() => void loadInsights({ manual: true })}
+              >
+                Retry
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {displayError && hasPayload ? (
+          <div className="mx-auto mt-5 w-full max-w-[1080px] px-[var(--one-gutter)]">
+            <div className="flex items-center justify-between gap-3 rounded-[18px] bg-[color:var(--one-card)] p-3 text-left text-[12px] text-[color:var(--one-fg2)] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_28px_-16px_rgba(0,0,0,0.16)]">
+              <span className="flex min-w-0 items-center gap-2">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-[color:var(--one-down)]" />
+                <span className="truncate">Showing saved data. Couldn&apos;t refresh just now.</span>
+              </span>
               <Button
                 variant="none"
                 effect="fade"
@@ -2148,7 +2200,16 @@ export function KaiMarketPreviewView() {
             </section>
 
             <section className="mx-auto mt-9 w-full max-w-[1080px] px-[var(--one-gutter)]">
-              <OneMarketSectionHeader title="Top movers" icon={ChartColumnIncreasing} tone="orange" actionLabel="See all" actionHref="/kai/analysis?view=movers" />
+              <OneMarketSectionHeader title="Most bought on One" icon={Blocks} tone="indigo" />
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {mostBoughtRows.map((row) => (
+                  <OneMarketStockCard key={row.symbol} row={row} />
+                ))}
+              </div>
+            </section>
+
+            <section className="mx-auto mt-9 w-full max-w-[1080px] px-[var(--one-gutter)]">
+              <OneMarketSectionHeader title="Top movers" icon={ChartColumnIncreasing} tone="orange" actionLabel="See all" actionHref={`${ROUTES.KAI_ANALYSIS}?view=movers`} />
               <div className="mb-3.5 grid grid-cols-3 rounded-xl bg-[color:var(--one-surface)] p-[3px]">
                 {[
                   { id: "gain" as const, label: "Gainers" },
@@ -2177,7 +2238,7 @@ export function KaiMarketPreviewView() {
             </section>
 
             <section className="mx-auto mt-9 w-full max-w-[1080px] px-[var(--one-gutter)]">
-              <OneMarketSectionHeader title="Market news" icon={Newspaper} tone="teal" actionLabel="More" actionHref="/kai/analysis" />
+              <OneMarketSectionHeader title="Market news" icon={Newspaper} tone="teal" actionLabel="More" actionHref={ROUTES.KAI_ANALYSIS} />
               <OneMarketNewsCards rows={marketNewsRows} />
             </section>
 
