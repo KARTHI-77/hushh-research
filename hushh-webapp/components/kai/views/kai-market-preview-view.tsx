@@ -6,7 +6,6 @@ import {
   Activity,
   AlertTriangle,
   Bell,
-  Blocks,
   Bot,
   ChartColumnIncreasing,
   ChevronRight,
@@ -603,37 +602,6 @@ function OneMarketIndexStrip({
         </button>
       ))}
     </div>
-  );
-}
-
-function OneMarketStockCard({ row }: { row: OneMarketDisplayRow }) {
-  const tone = oneMarketTone(row.changePct);
-  return (
-    <button
-      type="button"
-      onClick={() => openOneMarketHref(`/kai/analysis?symbol=${encodeURIComponent(row.symbol)}`)}
-      className="min-h-[124px] rounded-[18px] bg-[color:var(--one-card)] px-4 py-[15px] text-left shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_28px_-14px_rgba(0,0,0,0.16)] transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-[0_1px_2px_rgba(0,0,0,0.04),0_20px_34px_-18px_rgba(0,0,0,0.22)] active:scale-[0.985]"
-    >
-      <BrandLogo symbol={row.symbol} className="h-8 w-8 rounded-[9px]" />
-      <div className="mt-[9px] truncate text-[13px] font-semibold text-[color:var(--one-fg)]">
-        {row.companyName}
-      </div>
-      <div className="mt-[7px] flex items-baseline gap-[7px]">
-        <span className="text-[14px] font-semibold tabular-nums text-[color:var(--one-fg)]">
-          {formatOneMarketPrice(row.price)}
-        </span>
-        <span
-          className={cn(
-            "text-[12px] font-semibold tabular-nums",
-            tone === "up" && "text-[color:var(--one-up)]",
-            tone === "down" && "text-[color:var(--one-down)]",
-            tone === "neutral" && "text-[color:var(--one-fg3)]"
-          )}
-        >
-          {formatOneMarketPercent(row.changePct)}
-        </span>
-      </div>
-    </button>
   );
 }
 
@@ -2177,15 +2145,6 @@ export function KaiMarketPreviewView() {
                 onSourceChange={handlePickSourceChange}
                 controlMode="adaptive-surface"
               />
-            </section>
-
-            <section className="mx-auto mt-9 w-full max-w-[1080px] px-[var(--one-gutter)]">
-              <OneMarketSectionHeader title="Most bought on One" icon={Blocks} tone="indigo" />
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {mostBoughtRows.map((row) => (
-                  <OneMarketStockCard key={row.symbol} row={row} />
-                ))}
-              </div>
             </section>
 
             <section className="mx-auto mt-9 w-full max-w-[1080px] px-[var(--one-gutter)]">
