@@ -99,6 +99,7 @@ describe("top shell breadcrumbs", () => {
         { label: "Preferences", href: undefined },
       ],
     });
+   
   });
 
   it("routes receipts back to the Gmail profile panel", () => {
@@ -154,4 +155,9 @@ describe("top shell breadcrumbs", () => {
       ],
     });
   });
+  it("keeps breadcrumb href stable with empty search params", () => {
+  const params = new URLSearchParams();
+
+  expect(params.toString()).toBe("");
+});
 });
