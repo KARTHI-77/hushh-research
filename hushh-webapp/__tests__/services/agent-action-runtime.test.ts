@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { executeAgentGatewayAction } from "@/lib/agent/agent-action-runtime";
+import { ROUTES } from "@/lib/navigation/routes";
 
 function baseInput(actionId: string) {
   return {
@@ -29,7 +30,7 @@ describe("executeAgentGatewayAction connected systems", () => {
 
     const result = await executeAgentGatewayAction(input);
 
-    expect(input.router.push).toHaveBeenCalledWith("/connected-systems");
+    expect(input.router.push).toHaveBeenCalledWith(ROUTES.CONNECTED_SYSTEMS);
     expect(result.status).toBe("started");
     expect(result.screenAfter).toBe("connected_systems");
   });
