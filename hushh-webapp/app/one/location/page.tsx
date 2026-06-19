@@ -3251,6 +3251,11 @@ function OneLocationAgentPageContent() {
     if (locationOnboardingBusy) return;
     setLocationOnboardingBusy(true);
     try {
+      if (isLocationServicesDisabled(permission)) {
+        await openLocationSettingsForOnboarding();
+        return;
+      }
+
       if (
         permission?.state === "denied" ||
         permission?.state === "restricted"

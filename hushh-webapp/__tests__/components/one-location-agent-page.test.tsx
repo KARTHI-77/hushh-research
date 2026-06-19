@@ -10,7 +10,9 @@ const {
   mockDecryptLocationEnvelope,
   mockRegisterKey,
   mockGetPermissionState,
+  mockRequestLocationPermission,
   mockOpenLocationSettings,
+  mockOpenAppSettings,
   mockCaptureCurrentPosition,
   mockCreateGrant,
   mockStoreEnvelope,
@@ -33,7 +35,9 @@ const {
   mockDecryptLocationEnvelope: vi.fn(),
   mockRegisterKey: vi.fn(),
   mockGetPermissionState: vi.fn(),
+  mockRequestLocationPermission: vi.fn(),
   mockOpenLocationSettings: vi.fn(),
+  mockOpenAppSettings: vi.fn(),
   mockCaptureCurrentPosition: vi.fn(),
   mockCreateGrant: vi.fn(),
   mockStoreEnvelope: vi.fn(),
@@ -87,7 +91,9 @@ vi.mock("@/lib/one-location/service", () => ({
   OneLocationService: {
     registerRecipientKey: mockRegisterKey,
     getPermissionState: mockGetPermissionState,
+    requestLocationPermission: mockRequestLocationPermission,
     openLocationSettings: mockOpenLocationSettings,
+    openAppSettings: mockOpenAppSettings,
     getActivity: mockGetActivity,
     getState: mockGetState,
     createGrant: mockCreateGrant,
@@ -316,7 +322,7 @@ async function skipLocationEntryFlow() {
   ).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Continue" }));
   expect(
-    await screen.findByRole("heading", { name: "Keep your map live" }),
+    await screen.findByRole("heading", { name: /location/i }),
   ).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Not now" }));
   expect(
@@ -355,6 +361,16 @@ describe("OneLocationAgentPage", () => {
     mockOpenLocationSettings.mockResolvedValue({
       opened: true,
       sourcePlatform: "android",
+    });
+    mockOpenAppSettings.mockResolvedValue({
+      opened: true,
+      sourcePlatform: "android",
+    });
+    mockRequestLocationPermission.mockResolvedValue({
+      state: "granted",
+      precise: true,
+      background: "foreground-only",
+      locationServicesEnabled: true,
     });
     mockCaptureCurrentPosition.mockResolvedValue({
       latitude: 28.6139,
@@ -508,7 +524,7 @@ describe("OneLocationAgentPage", () => {
     expect(screen.queryByText("Verify your phone number first")).toBeNull();
   });
 
-  it("shows the location onboarding before requesting foreground permission", async () => {
+  it("requests native foreground permission from the onboarding permission step", async () => {
     mockGetState.mockResolvedValueOnce({
       ...locationState(),
       ownerGrants: [],
@@ -545,12 +561,16 @@ describe("OneLocationAgentPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(
-      await screen.findByRole("heading", { name: "Keep your map live" }),
+      await screen.findByRole("heading", { name: "Allow location access" }),
     ).toBeTruthy();
     expect(screen.getByText("You can pause sharing anytime")).toBeTruthy();
+    expect(mockRequestLocationPermission).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    await waitFor(() => expect(mockCaptureCurrentPosition).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Allow Location" }));
+    await waitFor(() =>
+      expect(mockRequestLocationPermission).toHaveBeenCalledTimes(1),
+    );
+    expect(mockCaptureCurrentPosition).not.toHaveBeenCalled();
     expect(
       await screen.findByRole("heading", { name: "One Location Agent" }),
     ).toBeTruthy();
@@ -574,10 +594,10 @@ describe("OneLocationAgentPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(
-      await screen.findByRole("heading", { name: "Keep your map live" }),
+      await screen.findByRole("heading", { name: "Allow location access" }),
     ).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Allow Location" }));
     expect(
       await screen.findByRole("heading", { name: "One Location Agent" }),
     ).toBeTruthy();
@@ -633,11 +653,11 @@ describe("OneLocationAgentPage", () => {
       container.querySelectorAll('[data-slot="skeleton"]').length,
     ).toBe(0);
 
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(
-      await screen.findByRole("heading", { name: "Keep your map live" }),
-    ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  expect(
+      await screen.findByRole("heading", { name: "Allow location access" }),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Not now" }));
     expect(await screen.findByLabelText("Loading One Location")).toBeTruthy();
     expect(
       container.querySelectorAll('[data-slot="skeleton"]').length,
@@ -1249,9 +1269,14 @@ describe("OneLocationAgentPage", () => {
     });
 
     render(<OneLocationAgentPage />);
-    await skipLocationEntryFlow();
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
+    expect(
+      await screen.findByRole("heading", {
+        name: "Experience location sharing with One.",
+      }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByText("Turn on phone Location")).toBeTruthy();
 
     fireEvent.click(
