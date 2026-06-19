@@ -1019,13 +1019,13 @@ function KaiAnalysisPageContent() {
             review history, or start a new debate with your stored holdings context.
           </p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            <MorphyButton onClick={() => router.push("/kai")}>
+            <MorphyButton onClick={() => router.push(ROUTES.KAI_HOME)}>
               Return to Kai
             </MorphyButton>
             <MorphyButton
               variant="none"
               effect="fade"
-              onClick={() => router.push("/kai/portfolio")}
+              onClick={() => router.push(ROUTES.KAI_PORTFOLIO)}
             >
               Open Portfolio
             </MorphyButton>

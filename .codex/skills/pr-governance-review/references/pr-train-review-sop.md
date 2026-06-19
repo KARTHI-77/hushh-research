@@ -139,29 +139,9 @@ Record the starting developer branch before any worktree, PR checkout, detached 
 
 ### tmp/ scratch + report retention
 
-PR-governance runs (autodrive, patch campaign, repass audits, live reports,
-contributor-impact dashboards) write large scratch + report files into `tmp/`
-on every wave. `tmp/` is gitignored but unbounded growth bloats the repo working
-copy (observed: 124M / 600+ files, ~94M of it stale >7 days). Retention is
-enforced, not manual:
-
-1. The janitor `scripts/maintenance/clean_tmp.sh` is the source of truth. It
-   age-outs any `tmp/` file older than `RETENTION_DAYS` (default 7), but always
-   keeps the newest `KEEP_PER_FAMILY` (default 5) of each dated report family
-   (live-report, refill, lane, contributor-impact, founder-brief, autodrive-run,
-   patch-run/queue, verify-zero), then prunes `__pycache__`/`*.pyc`/empty dirs
-   and runs `git worktree prune`. It refuses to run outside `<repo>/tmp` and
-   supports `--dry-run`.
-2. A daily `no_agent` Hermes cron (`hushh-research tmp janitor`, 06:00) invokes
-   it via `~/.hermes/scripts/hushh_research_tmp_janitor.sh` — zero tokens, silent
-   on success, alerts only on failure.
-3. At the end of any interactive or cron PR-governance wave, the "Clean tmp
-   scratch at end" hygiene step means: run `scripts/maintenance/clean_tmp.sh`
-   (NOT a blanket `rm -rf tmp/*`, which would destroy the 12h live-report reuse
-   cache and in-flight resumable state). Reusable scratch the next run still
-   needs (`tmp/pr-governance-live-report.md`, `tmp/autodrive-run.json`,
-   `tmp/patch-queue.json`) is protected by keep-last-N, so the janitor is safe to
-   run between waves.
+Use `pr-train-retention.md` for scratch/report retention. The short rule here:
+run `scripts/maintenance/clean_tmp.sh` at the end of interactive or cron PR
+governance waves; never use a blanket `rm -rf tmp/*`.
 
 ## Subagent Taskforce And Worker Pool
 

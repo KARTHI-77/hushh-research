@@ -22,11 +22,14 @@ describe("app bottom navigation", () => {
     expect(resolveBottomNavigationScope("/one/location", "investor")).toBe(
       "one",
     );
-    expect(resolveBottomNavigationScope("/one/connected-systems", "investor")).toBe(
-      "one",
-    );
+    expect(
+      resolveBottomNavigationScope("/one/connected-systems", "investor"),
+    ).toBe("one");
     expect(resolveBottomNavigationScope("/consents", "ria")).toBe("one");
     expect(resolveBottomNavigationScope("/agent", "ria")).toBe("one");
+    expect(resolveBottomNavigationScope(ROUTES.MARKETPLACE, "investor")).toBe(
+      "one",
+    );
     expect(resolveBottomNavigationScope("/kaizen", "investor")).toBe("one");
     expect(resolveBottomNavigationScope("/marketplace-old", "ria")).toBe("one");
   });
@@ -35,11 +38,7 @@ describe("app bottom navigation", () => {
     expect(resolveBottomNavigationScope("/one/kai/portfolio", "investor")).toBe(
       "investor",
     );
-    expect(resolveBottomNavigationScope("/marketplace", "investor")).toBe(
-      "investor",
-    );
     expect(resolveBottomNavigationScope("/ria/clients", "ria")).toBe("ria");
-    expect(resolveBottomNavigationScope("/marketplace", "ria")).toBe("ria");
   });
 
   it("resolves One active mode and rotating middle slot by route", () => {
@@ -53,9 +52,11 @@ describe("app bottom navigation", () => {
     expect(resolveOneActiveNav("/consents?tab=active")).toBe("guardian");
     expect(resolveOneActiveNav(ROUTES.PKM)).toBe("pkm");
     expect(resolveOneActiveNav(ROUTES.CONNECTED_SYSTEMS)).toBe("connected");
+    expect(resolveOneActiveNav(ROUTES.MARKETPLACE)).toBe("connect");
     expect(resolveOneNavSlot(ROUTES.ONE_KYC)).toBe("email");
     expect(resolveOneNavSlot(ROUTES.PROFILE)).toBe("pkm");
     expect(resolveOneNavSlot(ROUTES.CONNECTED_SYSTEMS)).toBe("connected");
+    expect(resolveOneNavSlot(ROUTES.MARKETPLACE)).toBe("connect");
   });
 
   it("keeps global destinations out of contextual route-family slots", () => {
@@ -73,24 +74,37 @@ describe("app bottom navigation", () => {
 
   it("builds scoped bottom navigation without duplicating Search", () => {
     expect(resolveBottomNavOptionKeys(ROUTES.CONNECTED_SYSTEMS, "one")).toEqual(
-      ["dashboard", "connected", "profile"],
+      ["dashboard", "connected", "connect", "profile"],
     );
-    expect(resolveBottomNavOptionKeys(ROUTES.GMAIL, "one")).toEqual(
-      ["dashboard", "gmail", "profile"],
-    );
-    expect(resolveBottomNavOptionKeys(ROUTES.ONE_HOME, "one")).toEqual(
-      ["dashboard", "profile"],
-    );
-    expect(resolveBottomNavOptionKeys(ROUTES.PROFILE, "one")).toEqual(
-      ["dashboard", "profile"],
-    );
+    expect(resolveBottomNavOptionKeys(ROUTES.GMAIL, "one")).toEqual([
+      "dashboard",
+      "gmail",
+      "connect",
+      "profile",
+    ]);
+    expect(resolveBottomNavOptionKeys(ROUTES.ONE_HOME, "one")).toEqual([
+      "dashboard",
+      "connect",
+      "profile",
+    ]);
+    expect(resolveBottomNavOptionKeys(ROUTES.PROFILE, "one")).toEqual([
+      "dashboard",
+      "connect",
+      "profile",
+    ]);
+    expect(resolveBottomNavOptionKeys(ROUTES.MARKETPLACE, "one")).toEqual([
+      "dashboard",
+      "connect",
+      "profile",
+    ]);
     expect(resolveBottomNavOptionKeys(ROUTES.KAI_ANALYSIS, "investor")).toEqual(
-      ["dashboard", "finance", "analysis", "profile"],
+      ["finance", "portfolio", "analysis", "connect", "profile"],
     );
     expect(resolveBottomNavOptionKeys(ROUTES.RIA_PICKS, "ria")).toEqual([
-      "dashboard",
       "ria-home",
       "clients",
+      "picks",
+      "connect",
       "profile",
     ]);
     expect(resolveBottomNavOptionKeys(ROUTES.RIA_HOME, "ria")).not.toContain(
@@ -99,10 +113,14 @@ describe("app bottom navigation", () => {
     expect(
       resolveBottomNavOptionKeys(ROUTES.KAI_HOME, "investor"),
     ).not.toContain("ria-home");
+    expect(resolveBottomNavOptionKeys(ROUTES.KAI_HOME, "investor")).toContain(
+      "portfolio",
+    );
   });
 
   it("maps One context nav actions to the intended routes", () => {
     expect(resolveBottomNavHref("finance", "one")).toBe(ROUTES.KAI_HOME);
+    expect(resolveBottomNavHref("connect", "one")).toBe(ROUTES.MARKETPLACE);
     expect(resolveBottomNavHref("gmail", "one")).toBe(ROUTES.GMAIL);
     expect(resolveBottomNavHref("email", "one")).toBe(ROUTES.ONE_KYC);
     expect(resolveBottomNavHref("location", "one")).toBe(ROUTES.ONE_LOCATION);
@@ -122,7 +140,6 @@ describe("app bottom navigation", () => {
     expect(resolveInvestorActiveNav(ROUTES.KAI_HOME)).toBe("finance");
     expect(resolveInvestorActiveNav(ROUTES.KAI_PORTFOLIO)).toBe("portfolio");
     expect(resolveInvestorActiveNav(ROUTES.KAI_ANALYSIS)).toBe("analysis");
-    expect(resolveInvestorActiveNav(ROUTES.MARKETPLACE)).toBe("connect");
     expect(resolveInvestorNavSlot(ROUTES.KAI_HOME)).toBe("finance");
     expect(resolveInvestorNavSlot(ROUTES.KAI_ANALYSIS)).toBe("analysis");
 

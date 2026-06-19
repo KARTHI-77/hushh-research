@@ -1,4 +1,4 @@
-import { ROUTES } from "@/lib/navigation/routes";
+import { normalizeInternalRouteHref, ROUTES } from "@/lib/navigation/routes";
 
 export type TopShellBreadcrumbItem = {
   label: string;
@@ -18,15 +18,6 @@ function titleizeSegment(segment: string): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
-}
-
-function normalizeInternalHref(
-  value: string | null | undefined,
-): string | null {
-  const next = String(value || "").trim();
-  if (!next.startsWith("/")) return null;
-  if (next.startsWith("//")) return null;
-  return next;
 }
 
 function profilePanelLabel(panel: string | null): string | null {
@@ -148,6 +139,19 @@ export function resolveTopShellBreadcrumb(
     };
   }
 
+  if (pathname === ROUTES.ONE_ONBOARDING) {
+    const originHref = normalizeInternalRouteHref(searchParams?.get("from"));
+    return {
+      backHref: originHref || ROUTES.ONE_HOME,
+      width: "content",
+      align: "center",
+      items: [
+        { label: "One", href: ROUTES.ONE_HOME },
+        { label: "Setup" },
+      ],
+    };
+  }
+
   if (pathname === ROUTES.RIA_CLIENTS) {
     return {
       backHref: ROUTES.RIA_HOME,
@@ -209,7 +213,7 @@ export function resolveTopShellBreadcrumb(
   }
 
   if (pathname === ROUTES.CONSENTS) {
-    const originHref = normalizeInternalHref(searchParams?.get("from"));
+    const originHref = normalizeInternalRouteHref(searchParams?.get("from"));
     const privacyHref = profilePanelHref("access");
     const backHref = originHref || privacyHref;
     return {
@@ -249,8 +253,9 @@ export function resolveTopShellBreadcrumb(
   }
 
   if (pathname === ROUTES.GMAIL) {
+    const originHref = normalizeInternalRouteHref(searchParams?.get("from"));
     return {
-      backHref: ROUTES.ONE_HOME,
+      backHref: originHref || ROUTES.ONE_HOME,
       width: "profile",
       align: "center",
       items: [

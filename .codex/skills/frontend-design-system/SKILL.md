@@ -55,7 +55,7 @@ Non-owned surfaces:
 2. Decide the owning layer first: stock UI, Morphy UX, or app-ui.
 3. Keep route-container ownership with shared shells.
 4. Update docs or verification commands when the design rule itself changes.
-5. Keep persona-facing labels plain-language and route action ids aligned to One/Kai/Nav ownership.
+5. Keep persona-facing labels plain-language and route action ids aligned to One/Kai/Nav ownership. For One consent/vault copy, frame user-held knowledge/information as safewords and avoid generic `your data` onboarding language.
 6. Keep consumer notifications, Email Helper rows, and background-task rows free of implementation diagnostics. Do not show `PKM`, manifests, schemas, tokens, thread ids, workflow ids, consent ids, hashes, timings, correlation ids, route names, raw errors, or dummy-save language outside developer-only surfaces.
 7. For signed-in route shell, header, search/filter, or hover changes, verify shared `AppPageShell`, `PageHeader`, `KaiCommandBarGlobal`, and app-ui interaction contracts before adding route-local chrome.
 8. Use shadcn Sonner for transient success/error/loading feedback and shadcn AlertDialog for destructive confirmation. Do not add route-local inline error banners for row actions, saves, deletes, refreshes, or short-lived failures; reserve inline errors for stable page-blocking states.

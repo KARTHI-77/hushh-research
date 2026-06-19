@@ -212,10 +212,15 @@
   {
     "route": "/kai/onboarding",
     "mode": "redirect",
-    "exemptionReason": "Compatibility redirect route only launches the canonical /one/kai/onboarding flow."
+    "exemptionReason": "Compatibility redirect route only launches the canonical /one/onboarding flow."
   },
   {
     "route": "/one/kai/onboarding",
+    "mode": "redirect",
+    "exemptionReason": "Compatibility redirect route only launches the canonical /one/onboarding flow."
+  },
+  {
+    "route": "/one/onboarding",
     "mode": "flow",
     "exemptionReason": "Fullscreen onboarding flow owns its own shell and safe-area spacing."
   },

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { ColumnDef } from "@tanstack/react-table";
 import { Loader2, Lock, Mail, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
@@ -10,6 +11,7 @@ import {
   AppPageHeaderRegion,
   AppPageShell,
 } from "@/components/app-ui/app-page-shell";
+import { DataTable } from "@/components/app-ui/data-table";
 import { PageHeader } from "@/components/app-ui/page-sections";
 import { SurfaceInset, SurfaceStack } from "@/components/app-ui/surfaces";
 import { Progress } from "@/components/ui/progress";
@@ -63,7 +65,10 @@ function formatDate(value?: string | null): string {
   }).format(date);
 }
 
-function formatAmount(currency?: string | null, amount?: number | null): string {
+function formatAmount(
+  currency?: string | null,
+  amount?: number | null,
+): string {
   if (typeof amount !== "number" || Number.isNaN(amount)) return "—";
   const normalized = (currency || "USD").toUpperCase();
   try {
@@ -82,7 +87,10 @@ function computeSyncProgressPercent(run: GmailSyncRun | null): number {
   if (run.status === "queued") return 8;
   if (run.status === "running") {
     const listed = Math.max(1, run.listed_count || 0);
-    const pipelineWork = (run.filtered_count || 0) + (run.synced_count || 0) + (run.extracted_count || 0);
+    const pipelineWork =
+      (run.filtered_count || 0) +
+      (run.synced_count || 0) +
+      (run.extracted_count || 0);
     const ratio = Math.max(0, Math.min(1, pipelineWork / (listed * 3)));
     return Math.max(12, Math.min(95, Math.round(ratio * 100)));
   }
@@ -92,7 +100,7 @@ function computeSyncProgressPercent(run: GmailSyncRun | null): number {
 
 function buildEditableReceiptMemoryArtifact(
   artifact: ReceiptMemoryArtifact,
-  summaryDraft: string
+  summaryDraft: string,
 ): ReceiptMemoryArtifact {
   const nextSummary = summaryDraft.trim();
   const currentSummary =
@@ -140,6 +148,50 @@ interface ReceiptMemorySourceWatermark {
   highlights_window_days: number;
 }
 
+const receiptColumns: ColumnDef<ReceiptListItem>[] = [
+  {
+    id: "merchant",
+    header: "Merchant",
+    cell: ({ row }) => (
+      <div className="min-w-0 space-y-1">
+        <p className="truncate font-medium text-foreground">
+          {row.original.merchant_name || row.original.from_name || "Unknown merchant"}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">
+          {row.original.subject || "No subject"}
+        </p>
+      </div>
+    ),
+  },
+  {
+    accessorKey: "amount",
+    header: "Amount",
+    cell: ({ row }) => (
+      <Badge variant="secondary">
+        {formatAmount(row.original.currency, row.original.amount)}
+      </Badge>
+    ),
+  },
+  {
+    accessorKey: "order_id",
+    header: "Order",
+    cell: ({ row }) => (
+      <span className="text-sm text-muted-foreground">
+        {row.original.order_id || "—"}
+      </span>
+    ),
+  },
+  {
+    id: "receipt_date",
+    header: "Receipt date",
+    cell: ({ row }) => (
+      <span className="text-sm text-muted-foreground">
+        {formatDate(row.original.receipt_date || row.original.gmail_internal_date)}
+      </span>
+    ),
+  },
+];
+
 function toComparableIso(value: string | null | undefined): string | null {
   if (!value) return null;
   const date = new Date(value);
@@ -150,7 +202,11 @@ function toComparableIso(value: string | null | undefined): string | null {
 
 function receiptSortKey(item: ReceiptListItem): [number, number] | null {
   const timestamp = toComparableIso(
-    item.receipt_date || item.gmail_internal_date || item.created_at || item.updated_at || null
+    item.receipt_date ||
+      item.gmail_internal_date ||
+      item.created_at ||
+      item.updated_at ||
+      null,
   );
   if (!timestamp) return null;
   const parsed = Date.parse(timestamp);
@@ -159,9 +215,14 @@ function receiptSortKey(item: ReceiptListItem): [number, number] | null {
 }
 
 function buildReceiptMemorySourceWatermark(
-  cached: ReturnType<typeof getCachedGmailReceipts>
+  cached: ReturnType<typeof getCachedGmailReceipts>,
 ): ReceiptMemorySourceWatermark | null {
-  if (!cached || cached.has_more || !Array.isArray(cached.items) || cached.items.length === 0) {
+  if (
+    !cached ||
+    cached.has_more ||
+    !Array.isArray(cached.items) ||
+    cached.items.length === 0
+  ) {
     return null;
   }
 
@@ -178,10 +239,16 @@ function buildReceiptMemorySourceWatermark(
   if (!latestItem) return null;
 
   const latestReceiptDate = toComparableIso(
-    latestItem.receipt_date || latestItem.gmail_internal_date || latestItem.created_at || null
+    latestItem.receipt_date ||
+      latestItem.gmail_internal_date ||
+      latestItem.created_at ||
+      null,
   );
   const latestReceiptUpdatedAt = toComparableIso(
-    latestItem.updated_at || latestItem.created_at || latestItem.receipt_date || null
+    latestItem.updated_at ||
+      latestItem.created_at ||
+      latestItem.receipt_date ||
+      null,
   );
 
   if (!latestReceiptDate || !latestReceiptUpdatedAt) {
@@ -201,24 +268,31 @@ function buildReceiptMemorySourceWatermark(
 
 function isReceiptMemoryWatermarkCurrent(
   artifact: ReceiptMemoryArtifact | null,
-  cached: ReturnType<typeof getCachedGmailReceipts>
+  cached: ReturnType<typeof getCachedGmailReceipts>,
 ): boolean {
   if (!artifact) return false;
   const current = buildReceiptMemorySourceWatermark(cached);
   if (!current) return false;
 
   const sourceWatermark = artifact.source_watermark;
-  if (!sourceWatermark || typeof sourceWatermark !== "object" || Array.isArray(sourceWatermark)) {
+  if (
+    !sourceWatermark ||
+    typeof sourceWatermark !== "object" ||
+    Array.isArray(sourceWatermark)
+  ) {
     return false;
   }
 
   const record = sourceWatermark as Record<string, unknown>;
   return (
     Number(record.eligible_receipt_count) === current.eligible_receipt_count &&
-    toComparableIso(String(record.latest_receipt_updated_at || "")) === current.latest_receipt_updated_at &&
+    toComparableIso(String(record.latest_receipt_updated_at || "")) ===
+      current.latest_receipt_updated_at &&
     Number(record.latest_receipt_id) === current.latest_receipt_id &&
-    toComparableIso(String(record.latest_receipt_date || "")) === current.latest_receipt_date &&
-    String(record.deterministic_config_version || "") === current.deterministic_config_version &&
+    toComparableIso(String(record.latest_receipt_date || "")) ===
+      current.latest_receipt_date &&
+    String(record.deterministic_config_version || "") ===
+      current.deterministic_config_version &&
     Number(record.inference_window_days) === current.inference_window_days &&
     Number(record.highlights_window_days) === current.highlights_window_days
   );
@@ -236,13 +310,14 @@ export default function ProfileReceiptsPage() {
   const [loadingReceipts, setLoadingReceipts] = useState(false);
   const [hasVault, setHasVault] = useState<boolean | null>(null);
   const [showVaultUnlock, setShowVaultUnlock] = useState(false);
-  const [receiptMemoryArtifact, setReceiptMemoryArtifact] = useState<ReceiptMemoryArtifact | null>(
-    null
-  );
+  const [receiptMemoryArtifact, setReceiptMemoryArtifact] =
+    useState<ReceiptMemoryArtifact | null>(null);
   const [receiptSummaryDraft, setReceiptSummaryDraft] = useState("");
   const [receiptMemoryLoading, setReceiptMemoryLoading] = useState(false);
   const [receiptMemorySaving, setReceiptMemorySaving] = useState(false);
-  const [receiptMemoryMessage, setReceiptMemoryMessage] = useState<string | null>(null);
+  const [receiptMemoryMessage, setReceiptMemoryMessage] = useState<
+    string | null
+  >(null);
   const receiptsRef = useRef<ReceiptListItem[]>([]);
   const pageRef = useRef(1);
   const pendingSyncFeedbackRef = useRef(false);
@@ -288,7 +363,7 @@ export default function ProfileReceiptsPage() {
       options?: {
         preserveCachedItems?: boolean;
         silent?: boolean;
-      }
+      },
     ) => {
       if (!user?.uid || !vaultOwnerToken || !isVaultUnlocked) return;
       const showBlockingLoader = !options?.silent;
@@ -347,7 +422,7 @@ export default function ProfileReceiptsPage() {
         }
       }
     },
-    [isVaultUnlocked, user, vaultOwnerToken]
+    [isVaultUnlocked, user, vaultOwnerToken],
   );
 
   const gmail = useGmailConnectorStatus({
@@ -408,7 +483,8 @@ export default function ProfileReceiptsPage() {
   const connectorState = gmail.presentation.state;
   const latestSyncText = gmail.presentation.latestSyncText;
   const latestSyncBadge = gmail.presentation.latestSyncBadge;
-  const isPassiveBackfillState = connectorState === "connected_backfill_running";
+  const isPassiveBackfillState =
+    connectorState === "connected_backfill_running";
 
   const handleSyncNow = useCallback(async () => {
     if (!user?.uid) return;
@@ -428,25 +504,28 @@ export default function ProfileReceiptsPage() {
       console.error("[ProfileReceiptsPage] Failed to start Gmail sync:", error);
       toast.error(
         sanitizeGmailUserMessage(error, {
-          fallback: "We couldn't sync your receipts. Please try again in a moment.",
+          fallback:
+            "We couldn't sync your receipts. Please try again in a moment.",
           authFallback: "Reconnect Gmail to continue syncing your receipts.",
-        })
+        }),
       );
     }
   }, [gmail, isConnected, syncing, user?.uid]);
 
-  const showConnectPrompt =
+  const showDisconnectedNotice =
     !gmail.loadingStatus &&
     !gmail.statusError &&
     !isConnected &&
-    !hasStoredReceipts &&
-    gmail.status?.configured !== false;
-  const showDisconnectedNotice =
-    !gmail.loadingStatus && !gmail.statusError && !isConnected && hasStoredReceipts;
-  const progressPercent = useMemo(() => computeSyncProgressPercent(gmail.syncRun), [gmail.syncRun]);
+    hasStoredReceipts;
+  const progressPercent = useMemo(
+    () => computeSyncProgressPercent(gmail.syncRun),
+    [gmail.syncRun],
+  );
   const latestRunMetrics = useMemo(() => {
     if (!gmail.syncRun) return null;
-    const extractionSuccessPercent = Math.round((gmail.syncRun.extraction_success_rate || 0) * 100);
+    const extractionSuccessPercent = Math.round(
+      (gmail.syncRun.extraction_success_rate || 0) * 100,
+    );
     return {
       listed: gmail.syncRun.listed_count || 0,
       filtered: gmail.syncRun.filtered_count || 0,
@@ -466,12 +545,12 @@ export default function ProfileReceiptsPage() {
         ? `Connected to ${gmail.status.google_email}`
         : connectorState === "connected_initial_scan_running"
           ? "Connected to your Gmail"
-        : connectorState === "connected_backfill_running"
+          : connectorState === "connected_backfill_running"
             ? "Connected to your Gmail"
             : hasStoredReceipts
-          ? "Saved receipts are still available here."
-          : "Connect Gmail to bring in your recent purchases.",
-    [connectorState, gmail.status?.google_email, hasStoredReceipts]
+              ? "Saved receipts are still available here."
+              : "Sync receipt emails into One.",
+    [connectorState, gmail.status?.google_email, hasStoredReceipts],
   );
   const isSyncingState =
     connectorState === "connected_initial_scan_running" ||
@@ -479,7 +558,9 @@ export default function ProfileReceiptsPage() {
     connectorState === "syncing";
   const hasStaleBackgroundSync = gmail.isStale && isSyncingState;
   const canBuildReceiptMemoryPreview =
-    Boolean(user?.uid) && hasSealedReceiptAccess && (total > 0 || hasStoredReceipts);
+    Boolean(user?.uid) &&
+    hasSealedReceiptAccess &&
+    (total > 0 || hasStoredReceipts);
   const receiptSummaryDraftTrimmed = receiptSummaryDraft.trim();
   const autoReceiptSummaryKey = useMemo(() => {
     if (!user?.uid || !isConnected || !canBuildReceiptMemoryPreview) {
@@ -506,8 +587,9 @@ export default function ProfileReceiptsPage() {
   ]);
   const cachedReceipts = user?.uid ? getCachedGmailReceipts(user.uid) : null;
   const receiptMemoryWatermarkCurrent = useMemo(
-    () => isReceiptMemoryWatermarkCurrent(receiptMemoryArtifact, cachedReceipts),
-    [cachedReceipts, receiptMemoryArtifact]
+    () =>
+      isReceiptMemoryWatermarkCurrent(receiptMemoryArtifact, cachedReceipts),
+    [cachedReceipts, receiptMemoryArtifact],
   );
   const statusSummary = useMemo(
     () =>
@@ -516,7 +598,7 @@ export default function ProfileReceiptsPage() {
         loading: loadingStatus,
         errorText: gmail.statusError,
       }),
-    [gmail.status, gmail.statusError, loadingStatus]
+    [gmail.status, gmail.statusError, loadingStatus],
   );
   const primaryActionLabel = isConnected
     ? syncing
@@ -535,8 +617,8 @@ export default function ProfileReceiptsPage() {
           : "border-border/60 bg-background/68";
   const receiptsVoiceSurfaceMetadata = useMemo(() => {
     const visibleModules = ["Receipt status", "Receipts list"];
-    if (showConnectPrompt || showDisconnectedNotice) {
-      visibleModules.push("Gmail connector prompt");
+    if (showDisconnectedNotice) {
+      visibleModules.push("Gmail reconnect notice");
     }
     if (receiptMemoryArtifact) {
       visibleModules.push("Shopping summary");
@@ -562,7 +644,8 @@ export default function ProfileReceiptsPage() {
       {
         id: "open_gmail_connector",
         label: "Connect Gmail",
-        purpose: "opens the Gmail connector so you can connect or reconnect Gmail.",
+        purpose:
+          "opens the Gmail connector so you can connect or reconnect Gmail.",
         actionId: "route.profile_gmail_panel",
         role: "button",
         voiceAliases: ["connect gmail", "open gmail connector", "open gmail"],
@@ -577,7 +660,8 @@ export default function ProfileReceiptsPage() {
       {
         id: "save_receipts_memory",
         label: "Save insights",
-        purpose: "saves the current shopping summary into your personal memory.",
+        purpose:
+          "saves the current shopping summary into your personal memory.",
         actionId: "profile.receipts_memory.save",
         role: "button",
         voiceAliases: ["save insights", "save summary"],
@@ -599,12 +683,14 @@ export default function ProfileReceiptsPage() {
         {
           id: "receipt_status",
           title: "Receipt status",
-          purpose: "This section shows whether Gmail is connected and whether receipts are syncing right now.",
+          purpose:
+            "This section shows whether Gmail is connected and whether receipts are syncing right now.",
         },
         {
           id: "receipt_insights",
           title: "Save insights",
-          purpose: "This section creates and saves a simple shopping summary from your receipts.",
+          purpose:
+            "This section creates and saves a simple shopping summary from your receipts.",
         },
         {
           id: "stored_receipts",
@@ -650,7 +736,9 @@ export default function ProfileReceiptsPage() {
           ? "Receipt status"
           : "Stored receipts",
       visibleModules,
-      focusedWidget: activeControl?.label || (receiptMemoryArtifact ? "Shopping summary" : "Receipts list"),
+      focusedWidget:
+        activeControl?.label ||
+        (receiptMemoryArtifact ? "Shopping summary" : "Receipts list"),
       modalState: showVaultUnlock ? "vault_unlock" : null,
       availableActions,
       activeControlId: activeVoiceControlId,
@@ -677,25 +765,28 @@ export default function ProfileReceiptsPage() {
                 {
                   fallback:
                     "We couldn't update your receipts right now. Please try again in a moment.",
-                  authFallback: "Reconnect Gmail to continue syncing your receipts.",
-                }
+                  authFallback:
+                    "Reconnect Gmail to continue syncing your receipts.",
+                },
               )
             : null,
         preview_available: Boolean(receiptMemoryArtifact),
         preview_summary_editable: Boolean(receiptMemoryArtifact),
         preview_stale: receiptMemoryArtifact?.freshness.is_stale || false,
-        preview_stale_after_days: receiptMemoryArtifact?.freshness.stale_after_days || null,
+        preview_stale_after_days:
+          receiptMemoryArtifact?.freshness.stale_after_days || null,
         preview_merchant_count:
-          receiptMemoryArtifact?.deterministic_projection.observed_facts.merchant_affinity.length ||
-          0,
+          receiptMemoryArtifact?.deterministic_projection.observed_facts
+            .merchant_affinity.length || 0,
         preview_pattern_count:
-          receiptMemoryArtifact?.deterministic_projection.observed_facts.purchase_patterns.length ||
-          0,
+          receiptMemoryArtifact?.deterministic_projection.observed_facts
+            .purchase_patterns.length || 0,
         preview_highlight_count:
-          receiptMemoryArtifact?.deterministic_projection.observed_facts.recent_highlights.length ||
-          0,
+          receiptMemoryArtifact?.deterministic_projection.observed_facts
+            .recent_highlights.length || 0,
         preview_signal_count:
-          receiptMemoryArtifact?.deterministic_projection.inferred_preferences.length || 0,
+          receiptMemoryArtifact?.deterministic_projection.inferred_preferences
+            .length || 0,
       },
     };
   }, [
@@ -716,7 +807,6 @@ export default function ProfileReceiptsPage() {
     receiptMemoryLoading,
     receiptMemorySaving,
     statusSummary.detail,
-    showConnectPrompt,
     showDisconnectedNotice,
     showVaultUnlock,
     syncing,
@@ -728,7 +818,9 @@ export default function ProfileReceiptsPage() {
       setShowVaultUnlock(true);
       return;
     }
-    toast.info("Create and unlock your vault from Profile before saving receipt memory.");
+    toast.info(
+      "Create and unlock your vault from Profile before saving receipt memory.",
+    );
   }, [hasVault]);
 
   const handleBuildReceiptMemoryPreview = useCallback(
@@ -745,13 +837,15 @@ export default function ProfileReceiptsPage() {
           forceRefresh,
         });
         setReceiptMemoryArtifact(artifact);
-        setReceiptMemoryMessage(
-          "Your shopping summary is ready to review."
-        );
+        setReceiptMemoryMessage("Your shopping summary is ready to review.");
       } catch (error) {
-        console.error("[ProfileReceiptsPage] Failed to build receipt summary:", error);
+        console.error(
+          "[ProfileReceiptsPage] Failed to build receipt summary:",
+          error,
+        );
         const message = sanitizeGmailUserMessage(error, {
-          fallback: "We couldn't create a shopping summary right now. Please try again in a moment.",
+          fallback:
+            "We couldn't create a shopping summary right now. Please try again in a moment.",
         });
         setReceiptMemoryMessage(message);
         toast.error(message);
@@ -759,18 +853,20 @@ export default function ProfileReceiptsPage() {
         setReceiptMemoryLoading(false);
       }
     },
-    [isVaultUnlocked, user, vaultOwnerToken]
+    [isVaultUnlocked, user, vaultOwnerToken],
   );
 
   usePublishVoiceSurfaceMetadata(receiptsVoiceSurfaceMetadata);
 
   useEffect(() => {
     setReceiptSummaryDraft(
-      receiptMemoryArtifact?.candidate_pkm_payload.receipts_memory.readable_summary.text || ""
+      receiptMemoryArtifact?.candidate_pkm_payload.receipts_memory
+        .readable_summary.text || "",
     );
   }, [
     receiptMemoryArtifact?.artifact_id,
-    receiptMemoryArtifact?.candidate_pkm_payload.receipts_memory.readable_summary.text,
+    receiptMemoryArtifact?.candidate_pkm_payload.receipts_memory
+      .readable_summary.text,
   ]);
 
   useEffect(() => {
@@ -789,7 +885,7 @@ export default function ProfileReceiptsPage() {
 
     autoReceiptSummaryKeyRef.current = autoReceiptSummaryKey;
     void handleBuildReceiptMemoryPreview(
-      Boolean(receiptMemoryArtifact) && !receiptMemoryWatermarkCurrent
+      Boolean(receiptMemoryArtifact) && !receiptMemoryWatermarkCurrent,
     );
   }, [
     autoReceiptSummaryKey,
@@ -814,17 +910,21 @@ export default function ProfileReceiptsPage() {
     try {
       const artifactForSave = buildEditableReceiptMemoryArtifact(
         receiptMemoryArtifact,
-        receiptSummaryDraft
+        receiptSummaryDraft,
       );
-      const existingContext = await PkmDomainResourceService.prepareDomainWriteContext({
-        userId: user.uid,
-        domain: "shopping",
-        vaultKey,
-        vaultOwnerToken,
-      });
+      const existingContext =
+        await PkmDomainResourceService.prepareDomainWriteContext({
+          userId: user.uid,
+          domain: "shopping",
+          vaultKey,
+          vaultOwnerToken,
+        });
       if (
         existingContext.domainData &&
-        hasMatchingReceiptMemoryProvenance(existingContext.domainData, artifactForSave)
+        hasMatchingReceiptMemoryProvenance(
+          existingContext.domainData,
+          artifactForSave,
+        )
       ) {
         setReceiptMemoryMessage("Your saved insights are already up to date.");
         toast.message("Your saved insights are already up to date.");
@@ -842,37 +942,48 @@ export default function ProfileReceiptsPage() {
             currentManifest: context.currentManifest,
             artifact: artifactForSave,
           });
-          const validation = await PersonalKnowledgeModelService.validatePreparedDomainStore({
-            userId: user.uid,
-            vaultKey,
-            vaultOwnerToken,
-            domain: "shopping",
-            domainData: prepared.domainData,
-            summary: prepared.summary,
-            manifest: prepared.manifest,
-            structureDecision: prepared.structureDecision,
-            baseFullBlob: context.baseFullBlob,
-            expectedDataVersion:
-              context.currentEncryptedDomain?.dataVersion ?? context.expectedDataVersion,
-            upgradeContext: context.upgradeContext,
-          });
+          const validation =
+            await PersonalKnowledgeModelService.validatePreparedDomainStore({
+              userId: user.uid,
+              vaultKey,
+              vaultOwnerToken,
+              domain: "shopping",
+              domainData: prepared.domainData,
+              summary: prepared.summary,
+              manifest: prepared.manifest,
+              structureDecision: prepared.structureDecision,
+              baseFullBlob: context.baseFullBlob,
+              expectedDataVersion:
+                context.currentEncryptedDomain?.dataVersion ??
+                context.expectedDataVersion,
+              upgradeContext: context.upgradeContext,
+            });
           if (!validation.success) {
-            throw new Error(validation.message || "Failed to validate receipt memory for PKM.");
+            throw new Error(
+              validation.message ||
+                "Failed to validate receipt memory for PKM.",
+            );
           }
           return prepared;
         },
       });
 
       if (!result.success) {
-        throw new Error(result.message || "Failed to save receipt memory to PKM.");
+        throw new Error(
+          result.message || "Failed to save receipt memory to PKM.",
+        );
       }
       setReceiptMemoryArtifact(artifactForSave);
       setReceiptMemoryMessage("Your shopping summary is saved.");
       toast.success("Insights saved");
     } catch (error) {
-      console.error("[ProfileReceiptsPage] Failed to save receipt insights:", error);
+      console.error(
+        "[ProfileReceiptsPage] Failed to save receipt insights:",
+        error,
+      );
       const message = sanitizeGmailUserMessage(error, {
-        fallback: "We couldn't save your insights right now. Please try again in a moment.",
+        fallback:
+          "We couldn't save your insights right now. Please try again in a moment.",
       });
       setReceiptMemoryMessage(message);
       toast.error(message);
@@ -893,8 +1004,13 @@ export default function ProfileReceiptsPage() {
     try {
       await loadReceipts(page + 1);
     } catch (error) {
-      console.error("[ProfileReceiptsPage] Failed to load older receipts:", error);
-      toast.error("We couldn't load older receipts right now. Please try again.");
+      console.error(
+        "[ProfileReceiptsPage] Failed to load older receipts:",
+        error,
+      );
+      toast.error(
+        "We couldn't load older receipts right now. Please try again.",
+      );
     }
   }, [loadReceipts, page]);
 
@@ -928,10 +1044,18 @@ export default function ProfileReceiptsPage() {
                   ? void handleSyncNow()
                   : router.push(`${ROUTES.PROFILE}?panel=gmail`)
               }
-              disabled={isConnected ? syncing : gmail.status?.configured === false}
+              disabled={
+                isConnected ? syncing : gmail.status?.configured === false
+              }
               className="min-w-[140px]"
-              data-voice-control-id={isConnected ? "sync_gmail_receipts" : "open_gmail_connector"}
-              data-voice-action-id={isConnected ? "profile.gmail.sync_now" : "route.profile_gmail_panel"}
+              data-voice-control-id={
+                isConnected ? "sync_gmail_receipts" : "open_gmail_connector"
+              }
+              data-voice-action-id={
+                isConnected
+                  ? "profile.gmail.sync_now"
+                  : "route.profile_gmail_panel"
+              }
               data-voice-label={primaryActionLabel}
               data-voice-purpose={
                 isConnected
@@ -965,9 +1089,13 @@ export default function ProfileReceiptsPage() {
                 <h2 className="text-lg font-semibold tracking-tight text-foreground">
                   {statusSummary.title}
                 </h2>
-                <p className="text-sm text-muted-foreground">{statusSummary.detail}</p>
+                <p className="text-sm text-muted-foreground">
+                  {statusSummary.detail}
+                </p>
                 {statusSummary.helper ? (
-                  <p className="text-xs text-muted-foreground">{statusSummary.helper}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {statusSummary.helper}
+                  </p>
                 ) : null}
               </div>
               <Badge variant="secondary">
@@ -985,23 +1113,9 @@ export default function ProfileReceiptsPage() {
             ) : null}
             {hasStaleBackgroundSync ? (
               <p className="text-xs text-amber-600">
-                Gmail is still running in the background. This status may lag behind for a bit.
+                Gmail is still running in the background. This status may lag
+                behind for a bit.
               </p>
-            ) : null}
-
-            {!isConnected ? (
-              <div className="pt-1">
-                <Button
-                  onClick={() => router.push(`${ROUTES.PROFILE}?panel=gmail`)}
-                  data-voice-control-id="open_gmail_connector"
-                  data-voice-action-id="route.profile_gmail_panel"
-                  data-voice-label={primaryActionLabel}
-                  data-voice-purpose="opens the Gmail connector so you can connect or reconnect Gmail."
-                >
-                  <Mail className="mr-2 h-4 w-4" />
-                  {primaryActionLabel}
-                </Button>
-              </div>
             ) : null}
           </SurfaceInset>
 
@@ -1024,10 +1138,16 @@ export default function ProfileReceiptsPage() {
               <div className="space-y-3 rounded-xl border border-border/60 bg-background/60 p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="secondary">
-                    {receiptMemoryArtifact.freshness.is_stale ? "Needs refresh" : "Ready to save"}
+                    {receiptMemoryArtifact.freshness.is_stale
+                      ? "Needs refresh"
+                      : "Ready to save"}
                   </Badge>
                   <Badge variant="outline">
-                    {receiptMemoryArtifact.deterministic_projection.budget_stats.eligible_receipt_count} receipts
+                    {
+                      receiptMemoryArtifact.deterministic_projection
+                        .budget_stats.eligible_receipt_count
+                    }{" "}
+                    receipts
                   </Badge>
                 </div>
 
@@ -1038,7 +1158,9 @@ export default function ProfileReceiptsPage() {
                   <textarea
                     id="receipt-summary-draft"
                     value={receiptSummaryDraft}
-                    onChange={(event) => setReceiptSummaryDraft(event.target.value)}
+                    onChange={(event) =>
+                      setReceiptSummaryDraft(event.target.value)
+                    }
                     rows={5}
                     className="min-h-[128px] w-full resize-y rounded-xl border border-border/70 bg-background px-3 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/80 focus:border-foreground/20"
                     placeholder="Your shopping summary will appear here."
@@ -1048,21 +1170,23 @@ export default function ProfileReceiptsPage() {
                   />
                 </label>
 
-                {receiptMemoryArtifact.candidate_pkm_payload.receipts_memory.readable_summary.highlights.length > 0 ? (
+                {receiptMemoryArtifact.candidate_pkm_payload.receipts_memory
+                  .readable_summary.highlights.length > 0 ? (
                   <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                     {receiptMemoryArtifact.candidate_pkm_payload.receipts_memory.readable_summary.highlights.map(
                       (item) => (
                         <Badge key={item} variant="outline">
                           {item}
                         </Badge>
-                      )
+                      ),
                     )}
                   </div>
                 ) : null}
 
                 {receiptMemoryArtifact.freshness.is_stale ? (
                   <p className="text-xs text-amber-600">
-                    This summary is a little older. We&apos;ll refresh it again after your next sync.
+                    This summary is a little older. We&apos;ll refresh it again
+                    after your next sync.
                   </p>
                 ) : null}
               </div>
@@ -1071,7 +1195,11 @@ export default function ProfileReceiptsPage() {
             <div className="flex flex-wrap gap-2">
               <Button
                 onClick={() => void handleSaveReceiptMemory()}
-                disabled={!receiptMemoryArtifact || !receiptSummaryDraftTrimmed || receiptMemorySaving}
+                disabled={
+                  !receiptMemoryArtifact ||
+                  !receiptSummaryDraftTrimmed ||
+                  receiptMemorySaving
+                }
                 variant="none"
                 effect="fade"
                 data-voice-control-id="save_receipts_memory"
@@ -1094,7 +1222,8 @@ export default function ProfileReceiptsPage() {
               </p>
             ) : isSyncingState ? (
               <p className="text-xs text-muted-foreground">
-                We&apos;ll prepare your shopping summary after Gmail finishes syncing.
+                We&apos;ll prepare your shopping summary after Gmail finishes
+                syncing.
               </p>
             ) : null}
             {!vaultKey || !vaultOwnerToken || !isVaultUnlocked ? (
@@ -1103,7 +1232,9 @@ export default function ProfileReceiptsPage() {
               </p>
             ) : null}
             {receiptMemoryMessage ? (
-              <p className="text-xs text-muted-foreground">{receiptMemoryMessage}</p>
+              <p className="text-xs text-muted-foreground">
+                {receiptMemoryMessage}
+              </p>
             ) : null}
           </SurfaceInset>
 
@@ -1117,10 +1248,16 @@ export default function ProfileReceiptsPage() {
           {isSyncingState && gmail.syncRun ? (
             <SurfaceInset className="space-y-1 px-4 py-3 text-sm">
               <p className="font-medium text-foreground">Latest sync</p>
-              <p className="text-muted-foreground">Run: {gmail.syncRun.run_id}</p>
-              <p className="text-muted-foreground">Status: {gmail.syncRun.status}</p>
               <p className="text-muted-foreground">
-                Synced {gmail.syncRun.synced_count} / Filtered {gmail.syncRun.filtered_count} / Extracted {gmail.syncRun.extracted_count}
+                Run: {gmail.syncRun.run_id}
+              </p>
+              <p className="text-muted-foreground">
+                Status: {gmail.syncRun.status}
+              </p>
+              <p className="text-muted-foreground">
+                Synced {gmail.syncRun.synced_count} / Filtered{" "}
+                {gmail.syncRun.filtered_count} / Extracted{" "}
+                {gmail.syncRun.extracted_count}
               </p>
               {latestRunMetrics ? (
                 <div className="space-y-2 pt-1">
@@ -1131,12 +1268,16 @@ export default function ProfileReceiptsPage() {
                     <span>Stored: {latestRunMetrics.synced}</span>
                     <span>Extracted: {latestRunMetrics.extracted}</span>
                     <span>Duplicates: {latestRunMetrics.duplicates}</span>
-                    <span>Extract %: {latestRunMetrics.extractionSuccessPercent}%</span>
+                    <span>
+                      Extract %: {latestRunMetrics.extractionSuccessPercent}%
+                    </span>
                   </div>
                 </div>
               ) : null}
               {gmail.syncRun.error_message ? (
-                <p className="text-destructive">{gmail.syncRun.error_message}</p>
+                <p className="text-destructive">
+                  {gmail.syncRun.error_message}
+                </p>
               ) : null}
             </SurfaceInset>
           ) : null}
@@ -1147,22 +1288,11 @@ export default function ProfileReceiptsPage() {
             </SurfaceInset>
           ) : null}
 
-          {showConnectPrompt ? (
-            <SurfaceInset className="flex flex-col items-start gap-3 px-4 py-4 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2 text-foreground">
-                <Mail className="h-4 w-4" />
-                Connect Gmail to start syncing receipts.
-              </div>
-              <Button onClick={() => router.push(`${ROUTES.PROFILE}?panel=gmail`)}>
-                Connect Gmail
-              </Button>
-            </SurfaceInset>
-          ) : null}
-
           {showDisconnectedNotice ? (
             <SurfaceInset className="px-4 py-4 text-sm text-muted-foreground">
-              Gmail is currently disconnected. Your previously synced receipts stay available below,
-              but Sync now is disabled until you reconnect.
+              Gmail is currently disconnected. Your previously synced receipts
+              stay available below, but Sync now is disabled until you
+              reconnect.
             </SurfaceInset>
           ) : null}
           {isConnected && !hasSealedReceiptAccess && !loadingStatus ? (
@@ -1175,14 +1305,21 @@ export default function ProfileReceiptsPage() {
             </SurfaceInset>
           ) : null}
 
-          {isConnected && hasSealedReceiptAccess && loadingReceipts && !loadingStatus ? (
+          {isConnected &&
+          hasSealedReceiptAccess &&
+          loadingReceipts &&
+          !loadingStatus ? (
             <SurfaceInset className="flex items-center gap-2 px-4 py-4 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading your receipts…
             </SurfaceInset>
           ) : null}
 
-          {isConnected && hasSealedReceiptAccess && !loadingReceipts && receipts.length === 0 && !loadingStatus ? (
+          {isConnected &&
+          hasSealedReceiptAccess &&
+          !loadingReceipts &&
+          receipts.length === 0 &&
+          !loadingStatus ? (
             <SurfaceInset className="px-4 py-4 text-sm text-muted-foreground">
               {gmail.syncRun?.synced_count
                 ? "Your receipts are still finishing up. Please try syncing again in a moment."
@@ -1190,23 +1327,20 @@ export default function ProfileReceiptsPage() {
             </SurfaceInset>
           ) : null}
 
-          {receipts.length > 0
-            ? receipts.map((item) => (
-                <SurfaceInset key={item.id} className="space-y-2 px-4 py-4 text-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <p className="font-medium text-foreground">{item.merchant_name || item.from_name || "Unknown merchant"}</p>
-                      <p className="text-muted-foreground">{item.subject || "No subject"}</p>
-                    </div>
-                    <Badge variant="secondary">{formatAmount(item.currency, item.amount)}</Badge>
-                  </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
-                    <span>Order number: {item.order_id || "—"}</span>
-                    <span>Receipt date: {formatDate(item.receipt_date || item.gmail_internal_date)}</span>
-                  </div>
-                </SurfaceInset>
-              ))
-            : null}
+          {receipts.length > 0 ? (
+            <DataTable
+              columns={receiptColumns}
+              data={receipts}
+              searchKey="merchant_name"
+              globalSearchKeys={["merchant_name", "from_name", "subject", "order_id"]}
+              searchPlaceholder="Search receipts"
+              initialPageSize={8}
+              pageSizeOptions={[8, 16, 24]}
+              density="compact"
+              stickyHeader
+              tableClassName="min-w-[720px]"
+            />
+          ) : null}
 
           {receipts.length > 0 && hasMore ? (
             <div className="flex justify-center pt-2">

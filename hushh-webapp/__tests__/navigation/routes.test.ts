@@ -4,6 +4,7 @@ import {
   buildRiaClientAccountRoute,
   buildRiaClientRequestRoute,
   buildRiaClientWorkspaceRoute,
+  buildOneOnboardingRoute,
   isKaiOnboardingRoute,
   isPublicRoute,
   isRiaRoute,
@@ -51,8 +52,12 @@ describe("navigation routes", () => {
   });
 
   it("preserves kai onboarding route detection for nested onboarding paths", () => {
+    expect(buildOneOnboardingRoute()).toBe("/one/onboarding");
+    expect(buildOneOnboardingRoute({ from: "/one" })).toBe("/one/onboarding?from=%2Fone");
     expect(isKaiOnboardingRoute("/one/kai/onboarding")).toBe(true);
     expect(isKaiOnboardingRoute("/one/kai/onboarding/complete")).toBe(true);
+    expect(isKaiOnboardingRoute("/one/onboarding")).toBe(true);
+    expect(isKaiOnboardingRoute("/one/onboarding/complete")).toBe(true);
     expect(isKaiOnboardingRoute("/kai/onboarding")).toBe(true);
     expect(isKaiOnboardingRoute("/kai/onboarding/complete")).toBe(true);
 

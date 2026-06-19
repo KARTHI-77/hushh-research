@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -96,8 +97,6 @@ function statusBadge(status: string | undefined | null): string {
     .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
     .join(" ");
 }
-
-const READ_RETURN_FIELDS = ["Title", "Department", "LeadSource", "MailingCity", "MailingStreet"];
 
 const RANDOM_DEMO_CHANGES = [
   { Title: "VP Sales", MailingCity: "New York", Department: "Retail Partnerships" },
@@ -284,10 +283,13 @@ function ConnectedSystemLogo({
       className={`${dimensions} inline-flex shrink-0 items-center justify-center border border-border/60 bg-white shadow-sm`}
     >
       {logoSrc ? (
-        <img
+        <Image
           src={logoSrc}
           alt={`${label} logo`}
+          width={size === "hero" ? 112 : 64}
+          height={size === "hero" ? 56 : 40}
           className="h-full w-full object-contain"
+          unoptimized
         />
       ) : (
         <Icon icon={Building2} size={size === "hero" ? "md" : "sm"} />
@@ -302,7 +304,14 @@ function CrmTypeLogoBadge({ system }: { system?: ConnectedSystemSummary | null }
   const label = [system?.systemType, system?.systemName].filter(Boolean).join(" ") || system?.displayName || "CRM";
   return (
     <span className="inline-flex h-7 w-20 items-center justify-center rounded-md border border-border/60 bg-white px-2 py-1 shadow-sm">
-      <img src={logoSrc} alt={`${label} logo`} className="max-h-4 w-full object-contain" />
+      <Image
+        src={logoSrc}
+        alt={`${label} logo`}
+        width={80}
+        height={28}
+        className="max-h-4 w-full object-contain"
+        unoptimized
+      />
     </span>
   );
 }
@@ -526,7 +535,10 @@ export function ConnectedSystemsPanel({
   const selectedSystemKey = selectedSystem
     ? `${selectedSystem.systemId}:${selectedSystem.objectTypeDefault || "Contact"}`
     : "";
-  const supportedFields = schema?.supportedFields || selectedSystem?.fieldAllowlist || [];
+  const supportedFields = useMemo(
+    () => schema?.supportedFields || selectedSystem?.fieldAllowlist || [],
+    [schema?.supportedFields, selectedSystem?.fieldAllowlist]
+  );
   const canUseBackend = Boolean(vaultOwnerToken);
   const customerName = selectedSystem?.customerDisplayName || "Macy's";
   const systemType = selectedSystem?.systemType || "Salesforce";
@@ -566,7 +578,6 @@ export function ConnectedSystemsPanel({
     [currentRecordId, readResult]
   );
   const primaryCrmRecord = currentReadRecord || crmRecords[0] || null;
-  const hasLiveCrmRecord = Boolean(primaryCrmRecord);
   const readResultHasCurrentRecord = Boolean(currentReadRecord);
   const crmRecordReadKey = useMemo(
     () =>
@@ -971,6 +982,8 @@ export function ConnectedSystemsPanel({
   useEffect(() => {
     if (!vaultOwnerToken || !selectedSystem || mode !== "detail") return;
     void loadSchema({ silent: true });
+    // loadSchema is intentionally keyed by selected system and vault state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, selectedSystem, vaultOwnerToken]);
 
   useEffect(() => {
@@ -985,6 +998,8 @@ export function ConnectedSystemsPanel({
       return;
     }
     void readRecord({ silent: true });
+    // readRecord is intentionally keyed by the active binding and lookup state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     activeBinding,
     currentRecordId,
@@ -1018,6 +1033,8 @@ export function ConnectedSystemsPanel({
       });
       setAutoLinkResolvedKey(attemptKey);
     })();
+    // readRecord is intentionally keyed by the lookup identity and route state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     activeBinding,
     autoLinkKey,

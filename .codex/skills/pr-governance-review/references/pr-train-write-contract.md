@@ -1,7 +1,6 @@
 # PR Train Write Contract
 
-Use this reference after `pr-train-review-sop.md` has selected actionable
-trains.
+Use this reference after `pr-train-review-sop.md` selects actionable trains.
 
 ## Parent Writer Envelope
 
