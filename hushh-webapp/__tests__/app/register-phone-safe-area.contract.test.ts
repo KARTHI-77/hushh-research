@@ -23,4 +23,18 @@ describe("/register-phone safe-area shell contract", () => {
     expect(source).not.toContain("min-h-[24rem]");
     expect(source).not.toContain("4vh");
   });
+
+  it("exposes a signed-in sign-out escape without account deletion", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/register-phone/page.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain('aria-label="Account actions"');
+    expect(source).toContain("Sign out");
+    expect(source).toContain("signOut({ redirectTo: ROUTES.HOME })");
+    expect(source).toContain("setOnboardingRequiredCookie(false)");
+    expect(source).toContain("setOnboardingFlowActiveCookie(false)");
+    expect(source).not.toContain("Delete account");
+  });
 });

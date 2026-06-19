@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { Icon } from "@/lib/morphy-ux/ui";
+import { ROUTES } from "@/lib/navigation/routes";
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -739,7 +740,7 @@ export default function PortfolioHealthPage() {
                 size="default"
                 variant="blue-gradient"
                 effect="fade"
-                onClick={() => router.push("/kai/portfolio")}
+                onClick={() => router.push(ROUTES.KAI_PORTFOLIO)}
               >
                 Back to portfolio
               </Button>

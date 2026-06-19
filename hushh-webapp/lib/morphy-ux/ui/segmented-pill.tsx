@@ -26,6 +26,7 @@ type SegmentedPillProps = {
   onValueChange: (value: string) => void;
   size?: SegmentedPillSize;
   layout?: SegmentedPillLayout;
+  slotCount?: number;
   hitArea?: "segment" | "content";
   className?: string;
   ariaLabel?: string;
@@ -91,6 +92,7 @@ export const SegmentedPill = React.forwardRef<
       onValueChange,
       size = "default",
       layout = "inline",
+      slotCount,
       hitArea = "segment",
       className,
       ariaLabel = "Segmented selector",
@@ -101,6 +103,11 @@ export const SegmentedPill = React.forwardRef<
     const isStacked = layout === "stacked";
     const [activePulseKey, setActivePulseKey] = React.useState(0);
     const previousValueRef = React.useRef(value);
+    const resolvedSlotCount = Math.max(
+      slotCount ?? options.length,
+      options.length,
+      1,
+    );
     const activeIndex = Math.max(
       0,
       options.findIndex((option) => option.value === value),
@@ -126,7 +133,7 @@ export const SegmentedPill = React.forwardRef<
           className,
         )}
         style={{
-          gridTemplateColumns: `repeat(${Math.max(options.length, 1)}, minmax(0, 1fr))`,
+          gridTemplateColumns: `repeat(${resolvedSlotCount}, minmax(0, 1fr))`,
         }}
       >
         <div
@@ -134,7 +141,7 @@ export const SegmentedPill = React.forwardRef<
           data-segment-indicator
           className="pointer-events-none absolute left-1 top-1 bottom-1 overflow-hidden rounded-full bg-black/10 shadow-[0_2px_8px_rgba(0,0,0,0.08)] backdrop-blur-sm transition-transform duration-[420ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] dark:bg-white/15 dark:shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
           style={{
-            width: `calc((100% - 0.5rem) / ${Math.max(options.length, 1)})`,
+            width: `calc((100% - 0.5rem) / ${resolvedSlotCount})`,
             transform: `translateX(calc(${activeIndex * 100}% + var(--segment-drag-x, 0px)))`,
           }}
         >

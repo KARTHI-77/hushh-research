@@ -32,6 +32,28 @@ describe("top shell breadcrumbs", () => {
     });
   });
 
+  it("uses sanitized from params for Kai onboarding back navigation", () => {
+    const params = new URLSearchParams();
+    params.set("from", "/one?mode=finance");
+
+    expect(resolveTopShellBreadcrumb("/one/onboarding", params)).toEqual({
+      backHref: "/one?mode=finance",
+      width: "content",
+      align: "center",
+      items: [
+        { label: "One", href: "/one" },
+        { label: "Setup" },
+      ],
+    });
+
+    const unsafeParams = new URLSearchParams();
+    unsafeParams.set("from", "//evil.example/path");
+
+    expect(resolveTopShellBreadcrumb("/one/onboarding", unsafeParams)?.backHref).toBe(
+      "/one",
+    );
+  });
+
   it("treats the PKM agent lab as a profile privacy surface", () => {
     expect(resolveTopShellBreadcrumb("/profile/pkm-agent-lab")).toEqual({
       backHref: "/profile?panel=access",

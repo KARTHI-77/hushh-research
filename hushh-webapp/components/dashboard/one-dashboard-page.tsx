@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  BrainCircuit,
   ChartNoAxesCombined,
   ChevronRight,
   Database,
@@ -8,7 +9,9 @@ import {
   Mail,
   MailCheck,
   MapPin,
+  Shield,
   ShieldCheck,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 
@@ -17,10 +20,11 @@ import {
   AppPageHeaderRegion,
   AppPageShell,
 } from "@/components/app-ui/app-page-shell";
-import { PageHeader } from "@/components/app-ui/page-sections";
+import { PageHeader, SectionHeader } from "@/components/app-ui/page-sections";
 import { SurfaceStack } from "@/components/app-ui/surfaces";
 import { Badge } from "@/components/ui/badge";
 import { buildConsentCenterHref } from "@/lib/consent/consent-sheet-route";
+import { MaterialRipple } from "@/lib/morphy-ux/material-ripple";
 import { ROUTES } from "@/lib/navigation/routes";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +35,7 @@ type OneDashboardMode = {
   href: string;
   icon: LucideIcon;
   status: string;
+  setupState: "ready" | "setup" | "attention";
   tone:
     | "finance"
     | "gmail"
@@ -39,11 +44,11 @@ type OneDashboardMode = {
     | "pkm"
     | "consent"
     | "connected";
-  group: "primary" | "workspace" | "trust";
+  group: "workflow" | "memory" | "access";
 };
 
 const MODE_TILE_CLASS =
-  "group relative isolate flex min-h-[7.25rem] flex-col overflow-hidden rounded-lg border border-border/65 bg-card/78 p-3 text-left shadow-sm transition-[background-color,border-color,box-shadow] duration-200 hover:border-foreground/20 hover:bg-card hover:shadow-[0_16px_36px_-28px_rgba(15,23,42,0.55)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-[8rem] sm:p-4";
+  "group relative isolate flex min-h-[5.8rem] flex-col overflow-hidden rounded-lg border bg-card/78 p-3 text-left shadow-sm transition-[background-color,border-color,box-shadow] duration-200 hover:bg-card hover:shadow-[0_14px_32px_-28px_rgba(15,23,42,0.55)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-[6.15rem]";
 
 const MODE_ICON_CLASS_BY_TONE: Record<OneDashboardMode["tone"], string> = {
   finance: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
@@ -55,17 +60,48 @@ const MODE_ICON_CLASS_BY_TONE: Record<OneDashboardMode["tone"], string> = {
   connected: "bg-cyan-500/12 text-cyan-700 dark:text-cyan-300",
 };
 
-const MODE_ACCENT_LINE_BY_TONE: Record<OneDashboardMode["tone"], string> = {
-  finance: "bg-emerald-500/70",
-  gmail: "bg-rose-500/70",
-  email: "bg-sky-500/70",
-  location: "bg-teal-500/70",
-  pkm: "bg-amber-500/70",
-  consent: "bg-violet-500/70",
-  connected: "bg-cyan-500/70",
+const MODE_BORDER_CLASS_BY_TONE: Record<OneDashboardMode["tone"], string> = {
+  finance:
+    "border-emerald-500/28 hover:border-emerald-500/55 dark:border-emerald-400/24 dark:hover:border-emerald-300/48",
+  gmail:
+    "border-rose-500/28 hover:border-rose-500/55 dark:border-rose-400/24 dark:hover:border-rose-300/48",
+  email:
+    "border-sky-500/28 hover:border-sky-500/55 dark:border-sky-400/24 dark:hover:border-sky-300/48",
+  location:
+    "border-teal-500/28 hover:border-teal-500/55 dark:border-teal-400/24 dark:hover:border-teal-300/48",
+  pkm:
+    "border-amber-500/32 hover:border-amber-500/58 dark:border-amber-400/26 dark:hover:border-amber-300/50",
+  consent:
+    "border-violet-500/28 hover:border-violet-500/55 dark:border-violet-400/24 dark:hover:border-violet-300/48",
+  connected:
+    "border-cyan-500/28 hover:border-cyan-500/55 dark:border-cyan-400/24 dark:hover:border-cyan-300/48",
 };
 
-function buildModes(pendingConsents: number): OneDashboardMode[] {
+const MODE_STATUS_CLASS_BY_STATE: Record<OneDashboardMode["setupState"], string> =
+  {
+    ready:
+      "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    setup:
+      "border-amber-500/22 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    attention:
+      "border-violet-500/22 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+  };
+
+function resolveOneSetupStatus(
+  oneSetupResolved: boolean | null | undefined,
+): Pick<OneDashboardMode, "status" | "setupState"> {
+  if (oneSetupResolved === true) {
+    return { status: "Setup done", setupState: "ready" };
+  }
+  return { status: "Setup needed", setupState: "setup" };
+}
+
+function buildModes(
+  pendingConsents: number,
+  oneSetupResolved?: boolean | null,
+): OneDashboardMode[] {
+  const oneSetup = resolveOneSetupStatus(oneSetupResolved);
+
   return [
     {
       id: "finance",
@@ -73,9 +109,10 @@ function buildModes(pendingConsents: number): OneDashboardMode[] {
       description: "Kai market, portfolio, analysis, and RIA handoff.",
       href: ROUTES.KAI_HOME,
       icon: ChartNoAxesCombined,
-      status: "Primary",
+      status: oneSetup.status,
+      setupState: oneSetup.setupState,
       tone: "finance",
-      group: "primary",
+      group: "workflow",
     },
     {
       id: "gmail",
@@ -83,9 +120,10 @@ function buildModes(pendingConsents: number): OneDashboardMode[] {
       description: "Receipt sync and purchase-memory review.",
       href: ROUTES.GMAIL,
       icon: Mail,
-      status: "Receipts",
+      status: "Setup needed",
+      setupState: "setup",
       tone: "gmail",
-      group: "workspace",
+      group: "memory",
     },
     {
       id: "email",
@@ -93,9 +131,10 @@ function buildModes(pendingConsents: number): OneDashboardMode[] {
       description: "Approval drafts and client request workflows.",
       href: ROUTES.ONE_KYC,
       icon: MailCheck,
-      status: "Requests",
+      status: "Ready",
+      setupState: "ready",
       tone: "email",
-      group: "workspace",
+      group: "workflow",
     },
     {
       id: "location",
@@ -103,19 +142,21 @@ function buildModes(pendingConsents: number): OneDashboardMode[] {
       description: "Live sharing, referrals, and local context.",
       href: ROUTES.ONE_LOCATION,
       icon: MapPin,
-      status: "Private",
+      status: "Ready",
+      setupState: "ready",
       tone: "location",
-      group: "workspace",
+      group: "workflow",
     },
     {
       id: "pkm",
       title: "Personal Data",
-      description: "Saved profile intelligence and sharing controls.",
+      description: "Saved knowledge and information you can review.",
       href: ROUTES.PKM,
       icon: FolderSearch,
-      status: "Vault",
+      status: "Ready",
+      setupState: "ready",
       tone: "pkm",
-      group: "workspace",
+      group: "memory",
     },
     {
       id: "consent",
@@ -123,19 +164,21 @@ function buildModes(pendingConsents: number): OneDashboardMode[] {
       description: "Access requests, approvals, and revocations.",
       href: buildConsentCenterHref("pending"),
       icon: ShieldCheck,
-      status: pendingConsents > 0 ? `${pendingConsents} pending` : "Clear",
+      status: pendingConsents > 0 ? `${pendingConsents} pending` : "Ready",
+      setupState: pendingConsents > 0 ? "attention" : "ready",
       tone: "consent",
-      group: "trust",
+      group: "access",
     },
     {
       id: "connected-systems",
       title: "Connected Systems",
-      description: "Salesforce CRM demo CRUD with approved MCP writes.",
+      description: "Approved CRM reads and writes.",
       href: ROUTES.CONNECTED_SYSTEMS,
       icon: Database,
-      status: "Salesforce CRM",
+      status: "Setup needed",
+      setupState: "setup",
       tone: "connected",
-      group: "trust",
+      group: "workflow",
     },
   ];
 }
@@ -152,15 +195,13 @@ function ModeTile({
     <Link
       href={mode.href}
       aria-label={`Open ${mode.title}`}
-      className={cn(MODE_TILE_CLASS, className)}
+      className={cn(
+        MODE_TILE_CLASS,
+        MODE_BORDER_CLASS_BY_TONE[mode.tone],
+        className,
+      )}
     >
-      <span
-        aria-hidden="true"
-        className={cn(
-          "pointer-events-none absolute inset-x-3 top-0 h-px rounded-full opacity-0 transition-opacity duration-200 group-hover:opacity-100",
-          MODE_ACCENT_LINE_BY_TONE[mode.tone],
-        )}
-      />
+      <MaterialRipple variant="link" effect="glass" className="rounded-lg" />
       <span className="flex items-start justify-between gap-2">
         <span
           className={cn(
@@ -173,7 +214,10 @@ function ModeTile({
         <span className="flex min-w-0 items-center gap-1">
           <Badge
             variant="secondary"
-            className="max-w-[6.75rem] truncate text-[10px] sm:max-w-[9rem] sm:text-xs"
+            className={cn(
+              "max-w-[7.75rem] truncate text-[10px] sm:max-w-[9rem] sm:text-xs",
+              MODE_STATUS_CLASS_BY_STATE[mode.setupState],
+            )}
           >
             {mode.status}
           </Badge>
@@ -183,11 +227,11 @@ function ModeTile({
           />
         </span>
       </span>
-      <span className="mt-3 block min-w-0 sm:mt-4">
+      <span className="mt-2 block min-w-0 sm:mt-2.5">
         <span className="block text-[15px] font-semibold leading-5 text-foreground sm:text-lg sm:leading-6">
           {mode.title}
         </span>
-        <span className="mt-1.5 hidden text-sm leading-6 text-muted-foreground sm:block">
+        <span className="mt-1 hidden text-sm leading-5 text-muted-foreground sm:line-clamp-1 sm:block md:line-clamp-2">
           {mode.description}
         </span>
       </span>
@@ -195,21 +239,65 @@ function ModeTile({
   );
 }
 
+function ModeSection({
+  title,
+  description,
+  icon,
+  accent,
+  modes,
+  gridClassName,
+}: {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  accent: "neutral" | "kai" | "consent";
+  modes: OneDashboardMode[];
+  gridClassName: string;
+}) {
+  if (modes.length === 0) {
+    return null;
+  }
+
+  return (
+    <section
+      aria-labelledby={`one-section-${title.toLowerCase()}`}
+      className="space-y-2"
+    >
+      <SectionHeader
+        id={`one-section-${title.toLowerCase()}`}
+        title={title}
+        description={description}
+        icon={icon}
+        accent={accent}
+        className="px-0"
+        testId={`one-${title.toLowerCase()}-section`}
+      />
+      <div className={cn("grid gap-2 sm:gap-2.5", gridClassName)}>
+        {modes.map((mode) => (
+          <ModeTile key={mode.id} mode={mode} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function OneDashboardPage({
   displayName,
   pendingConsents = 0,
+  oneSetupResolved = null,
 }: {
   displayName?: string | null;
   pendingConsents?: number;
+  oneSetupResolved?: boolean | null;
 }) {
   const firstName =
     String(displayName || "")
       .trim()
       .split(/\s+/)[0] || "there";
-  const modes = buildModes(pendingConsents);
-  const primaryMode = modes.find((mode) => mode.group === "primary");
-  const workspaceModes = modes.filter((mode) => mode.group === "workspace");
-  const trustModes = modes.filter((mode) => mode.group === "trust");
+  const modes = buildModes(pendingConsents, oneSetupResolved);
+  const workflowModes = modes.filter((mode) => mode.group === "workflow");
+  const memoryModes = modes.filter((mode) => mode.group === "memory");
+  const accessModes = modes.filter((mode) => mode.group === "access");
 
   return (
     <AppPageShell
@@ -225,9 +313,9 @@ export function OneDashboardPage({
     >
       <AppPageHeaderRegion>
         <PageHeader
-          eyebrow="One dashboard"
-          title={`Good to see you, ${firstName}.`}
-          description="Pick the mode you need now. Finance stays first; every other agent opens in its own focused workspace."
+          eyebrow={`Good to see you, ${firstName}.`}
+          title="One dashboard"
+          description="Start a workflow, open memory, or review access."
           icon={LayoutDashboard}
           accent="neutral"
           actions={
@@ -243,36 +331,30 @@ export function OneDashboardPage({
 
       <AppPageContentRegion>
         <SurfaceStack compact className="gap-4">
-          {primaryMode ? (
-            <section aria-label="Primary One mode">
-              <ModeTile
-                mode={primaryMode}
-                className="min-h-[6.75rem] sm:min-h-[7.25rem]"
-              />
-            </section>
-          ) : null}
-
-          <section aria-label="One workspaces" className="space-y-2">
-            <div className="px-1 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-              Workspaces
-            </div>
-            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-4">
-              {workspaceModes.map((mode) => (
-                <ModeTile key={mode.id} mode={mode} />
-              ))}
-            </div>
-          </section>
-
-          <section aria-label="Trust and systems" className="space-y-2">
-            <div className="px-1 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-              Trust & systems
-            </div>
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3">
-              {trustModes.map((mode) => (
-                <ModeTile key={mode.id} mode={mode} />
-              ))}
-            </div>
-          </section>
+          <ModeSection
+            title="Workflows"
+            description="Finance, email, location, and connected systems."
+            icon={Workflow}
+            accent="kai"
+            modes={workflowModes}
+            gridClassName="grid-cols-2 md:grid-cols-4"
+          />
+          <ModeSection
+            title="Memory"
+            description="Gmail receipts and saved knowledge."
+            icon={BrainCircuit}
+            accent="neutral"
+            modes={memoryModes}
+            gridClassName="grid-cols-1 sm:grid-cols-2"
+          />
+          <ModeSection
+            title="Access"
+            description="Approvals and revocations."
+            icon={Shield}
+            accent="consent"
+            modes={accessModes}
+            gridClassName="grid-cols-1 sm:grid-cols-2"
+          />
         </SurfaceStack>
       </AppPageContentRegion>
     </AppPageShell>

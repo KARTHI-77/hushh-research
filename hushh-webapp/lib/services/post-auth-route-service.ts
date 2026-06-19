@@ -5,8 +5,9 @@ import { PreVaultUserStateService } from "@/lib/services/pre-vault-user-state-se
 import { RiaService } from "@/lib/services/ria-service";
 import { buildPhoneMandateRoute, ROUTES } from "@/lib/navigation/routes";
 import { shouldRequirePhoneMandate } from "@/lib/services/phone-mandate-service";
+import type { PreVaultOnboardingAnswers } from "@/lib/services/pre-vault-onboarding-service";
 
-const PRE_VAULT_ROUTE = ROUTES.KAI_ONBOARDING;
+const PRE_VAULT_ROUTE = ROUTES.ONE_ONBOARDING;
 const DEFAULT_HOME_ROUTE = ROUTES.ONE_HOME;
 const NO_VAULT_DEFAULT_ROUTE = ROUTES.ONE_HOME;
 
@@ -16,6 +17,16 @@ function normalizeRedirectPath(path: string | null | undefined): string {
     return DEFAULT_HOME_ROUTE;
   }
   return path;
+}
+
+function hasCompletePreVaultAnswers(
+  answers: PreVaultOnboardingAnswers | null | undefined,
+): boolean {
+  return Boolean(
+    answers?.investment_horizon &&
+      answers?.drawdown_response &&
+      answers?.volatility_preference,
+  );
 }
 
 export class PostAuthRouteService {
@@ -35,7 +46,9 @@ export class PostAuthRouteService {
       fallbackRoute === ROUTES.ONE_HOME ||
       fallbackRoute === ROUTES.KAI_HOME ||
       fallbackRoute === ROUTES.LEGACY_KAI_HOME ||
-      fallbackRoute === ROUTES.KAI_ONBOARDING;
+      fallbackRoute === ROUTES.ONE_ONBOARDING ||
+      fallbackRoute === ROUTES.LEGACY_ONE_KAI_ONBOARDING ||
+      fallbackRoute === ROUTES.LEGACY_KAI_ONBOARDING;
 
     if (params.idToken && canOverrideWithPersona) {
       try {
@@ -58,7 +71,12 @@ export class PostAuthRouteService {
       ) {
         return PRE_VAULT_ROUTE;
       }
-      if (fallbackRoute === ROUTES.KAI_ONBOARDING && onboardingResolved) {
+      if (
+        (fallbackRoute === ROUTES.ONE_ONBOARDING ||
+          fallbackRoute === ROUTES.LEGACY_ONE_KAI_ONBOARDING ||
+          fallbackRoute === ROUTES.LEGACY_KAI_ONBOARDING) &&
+        onboardingResolved
+      ) {
         return DEFAULT_HOME_ROUTE;
       }
       return fallbackRoute;
@@ -71,7 +89,12 @@ export class PostAuthRouteService {
         remoteState.preOnboardingCompleted === null &&
         remoteState.preOnboardingSkipped === null &&
         remoteState.preOnboardingCompletedAt === null;
-      if (remoteUnset && pending?.completed) {
+      const pendingResolved =
+        pending?.completed === true &&
+        Boolean(pending.completed_at) &&
+        (pending.skipped === true || hasCompletePreVaultAnswers(pending.answers));
+
+      if (remoteUnset && pendingResolved) {
         const completedAtMs =
           pending.completed_at && !Number.isNaN(Date.parse(pending.completed_at))
             ? Date.parse(pending.completed_at)

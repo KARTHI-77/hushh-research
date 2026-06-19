@@ -107,7 +107,11 @@ export function resolveRouteId(pathname: string): RouteId {
     return "ria_workspace";
   }
   if (pathname === ROUTES.KAI_HOME || pathname === ROUTES.LEGACY_KAI_HOME) return "kai_home";
-  if (pathname === ROUTES.KAI_ONBOARDING || pathname === ROUTES.LEGACY_KAI_ONBOARDING) {
+  if (
+    pathname === ROUTES.ONE_ONBOARDING ||
+    pathname === ROUTES.LEGACY_ONE_KAI_ONBOARDING ||
+    pathname === ROUTES.LEGACY_KAI_ONBOARDING
+  ) {
     return "kai_onboarding";
   }
   if (pathname === ROUTES.KAI_IMPORT || pathname === ROUTES.LEGACY_KAI_IMPORT) {

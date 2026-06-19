@@ -6,7 +6,7 @@ import {
 import { activeKaiRouteTabFromPath } from "@/lib/navigation/kai-route-tabs";
 import { activeRiaRouteTabFromPath } from "@/lib/navigation/ria-route-tabs";
 
-export type SharedBottomNavKey = "dashboard" | "search" | "profile";
+export type SharedBottomNavKey = "dashboard" | "connect" | "search" | "profile";
 export type InvestorNavKey =
   | SharedBottomNavKey
   | "finance"
@@ -48,20 +48,15 @@ function isBottomNavRoute(pathname: string, route: string): boolean {
 
 export function resolveBottomNavigationScope(
   pathname: string | null | undefined,
-  activePersona: string | null | undefined,
+  _activePersona: string | null | undefined,
 ): AppBottomNavScope {
   const normalizedPathname = normalizeBottomNavPathname(pathname);
-  if (
-    isBottomNavRoute(normalizedPathname, ROUTES.RIA_HOME) ||
-    (activePersona === "ria" &&
-      isBottomNavRoute(normalizedPathname, ROUTES.MARKETPLACE))
-  ) {
+  if (isBottomNavRoute(normalizedPathname, ROUTES.RIA_HOME)) {
     return "ria";
   }
   if (
     isBottomNavRoute(normalizedPathname, ROUTES.KAI_HOME) ||
-    isBottomNavRoute(normalizedPathname, ROUTES.LEGACY_KAI_HOME) ||
-    isBottomNavRoute(normalizedPathname, ROUTES.MARKETPLACE)
+    isBottomNavRoute(normalizedPathname, ROUTES.LEGACY_KAI_HOME)
   ) {
     return "investor";
   }
@@ -72,8 +67,14 @@ export function resolveOneNavSlot(
   pathname: string | null | undefined,
 ): OneNavKey {
   const normalizedPathname = normalizeBottomNavPathname(pathname);
-  if (normalizedPathname === ROUTES.HOME || normalizedPathname === ROUTES.ONE_HOME) {
+  if (
+    normalizedPathname === ROUTES.HOME ||
+    normalizedPathname === ROUTES.ONE_HOME
+  ) {
     return "guardian";
+  }
+  if (isBottomNavRoute(normalizedPathname, ROUTES.MARKETPLACE)) {
+    return "connect";
   }
   if (isBottomNavRoute(normalizedPathname, ROUTES.CONNECTED_SYSTEMS)) {
     return "connected";
@@ -111,10 +112,16 @@ export function resolveOneActiveNav(
   pathname: string | null | undefined,
 ): OneNavKey {
   const normalizedPathname = normalizeBottomNavPathname(pathname);
-  if (normalizedPathname === ROUTES.HOME || normalizedPathname === ROUTES.ONE_HOME) {
+  if (
+    normalizedPathname === ROUTES.HOME ||
+    normalizedPathname === ROUTES.ONE_HOME
+  ) {
     return "dashboard";
   }
   if (normalizedPathname === ROUTES.AGENT) return "search";
+  if (isBottomNavRoute(normalizedPathname, ROUTES.MARKETPLACE)) {
+    return "connect";
+  }
   if (isBottomNavRoute(normalizedPathname, ROUTES.CONNECTED_SYSTEMS)) {
     return "connected";
   }
@@ -166,7 +173,10 @@ export function resolveInvestorActiveNav(
   pathname: string | null | undefined,
 ): InvestorNavKey {
   const normalizedPathname = normalizeBottomNavPathname(pathname);
-  if (normalizedPathname === ROUTES.HOME || normalizedPathname === ROUTES.ONE_HOME) {
+  if (
+    normalizedPathname === ROUTES.HOME ||
+    normalizedPathname === ROUTES.ONE_HOME
+  ) {
     return "dashboard";
   }
   if (normalizedPathname === ROUTES.AGENT) return "search";
@@ -200,7 +210,10 @@ export function resolveRiaActiveNav(
   pathname: string | null | undefined,
 ): RiaNavKey {
   const normalizedPathname = normalizeBottomNavPathname(pathname);
-  if (normalizedPathname === ROUTES.HOME || normalizedPathname === ROUTES.ONE_HOME) {
+  if (
+    normalizedPathname === ROUTES.HOME ||
+    normalizedPathname === ROUTES.ONE_HOME
+  ) {
     return "dashboard";
   }
   if (normalizedPathname === ROUTES.AGENT) return "search";
@@ -247,16 +260,20 @@ export function resolveBottomNavOptionKeys(
       normalizedPathname === ROUTES.ONE_HOME ||
       isBottomNavRoute(normalizedPathname, ROUTES.PROFILE)
     ) {
-      return ["dashboard", "profile"];
+      return ["dashboard", "connect", "profile"];
     }
-    return ["dashboard", resolveOneNavSlot(normalizedPathname), "profile"];
+    const contextKey = resolveOneNavSlot(normalizedPathname);
+    if (contextKey === "connect") {
+      return ["dashboard", "connect", "profile"];
+    }
+    return ["dashboard", contextKey, "connect", "profile"];
   }
 
   if (scope === "investor") {
-    return ["dashboard", "finance", "analysis", "profile"];
+    return ["finance", "portfolio", "analysis", "connect", "profile"];
   }
 
-  return ["dashboard", "ria-home", "clients", "profile"];
+  return ["ria-home", "clients", "picks", "connect", "profile"];
 }
 
 export function resolveBottomNavAction(

@@ -161,16 +161,17 @@ The signed-in bottom navigation is a shared shell surface, not a route-local tab
 Rules:
 
 1. The segmented bottom bar is contextual route-family navigation. Do not include global destinations such as `One`, `Search`, or `Profile` on every route.
-2. `/one` and `/profile` may show the compact root switch `One / Profile` because that is the dashboard/account shell relationship, not a feature-family tab list.
-3. `Search` belongs to the shared command dock, not the segmented navigation and not the agent chat trigger. The detached Search bubble must align to the same bottom row as the route pill instead of overlapping it.
-4. Generic One sub-app routes such as `/one/gmail`, `/one/pkm`, `/one/connected-systems`, and `/consents` should hide the segmented route bar unless the route family has meaningful sibling actions.
-5. Investor finance routes own finance-family actions such as `Market`, `Portfolio`, `Connect`, and `Analysis`.
-6. RIA routes own advisory-family actions such as `RIA`, `Clients`, `Connect`, and `Picks`.
-7. Do not expose finance-specific tabs on generic One routes unless the route is inside the finance workspace.
-8. Use canonical route constants through `lib/navigation/app-bottom-nav.ts`; route files must not build their own bottom-nav arrays.
-9. Treat Search as an action that opens `KaiCommandBarGlobal` command/action discovery. Do not route Search to `/agent`, do not open agent chat from Search, and do not duplicate Search inside the segmented route nav.
-10. Bottom-nav active state should use border, fill, and icon-color contrast. Avoid hover bounce, active icon scaling, or springy overshoot that shifts attention away from the current route.
-11. Use familiar symmetric icons for global anchors. Agent/search entry points should read as search or conversation access, not decorative sparkle automation.
+2. The bottom bar uses fixed five-item sizing. Routes with fewer actions keep the same per-item size and the pill ends at the last real action; do not add fake disabled tabs, empty slots, or stretch two-tab bars wider.
+3. `/one` and `/profile` show the compact root switch `One / Connect / Profile` because that is the dashboard/connection/account shell relationship, not a feature-family tab list.
+4. `Search` belongs to the shared command dock, not the segmented navigation and not the agent chat trigger. The detached Search bubble must align to the same bottom row as the route pill instead of overlapping it.
+5. Generic One sub-app routes such as `/one/gmail`, `/one/pkm`, `/one/connected-systems`, and `/consents` may show `One / current context / Connect / Profile` when the current context is meaningful.
+6. Investor finance routes own finance-family actions such as `Market`, `Portfolio`, `Connect`, and `Analysis`.
+7. RIA routes own advisory-family actions such as `RIA`, `Clients`, `Connect`, and `Picks`.
+8. Do not expose finance-specific tabs on generic One routes unless the route is inside the finance workspace.
+9. Use canonical route constants through `lib/navigation/app-bottom-nav.ts`; route files must not build their own bottom-nav arrays.
+10. Treat Search as an action that opens `KaiCommandBarGlobal` command/action discovery. Do not route Search to `/agent`, do not open agent chat from Search, and do not duplicate Search inside the segmented route nav.
+11. Bottom-nav active state should use border, fill, and icon-color contrast. Avoid hover bounce, active icon scaling, or springy overshoot that shifts attention away from the current route.
+12. Use familiar symmetric icons for global anchors. Agent/search entry points should read as search or conversation access, not decorative sparkle automation.
 
 ## Row and Card Interaction Contract
 

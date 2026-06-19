@@ -52,6 +52,16 @@ import {
 } from "@/lib/navigation/app-bottom-nav";
 import { openKaiCommandBar } from "@/lib/navigation/kai-command-bar-events";
 
+const BOTTOM_NAV_MAX_SLOT_COUNT = 5;
+const BOTTOM_NAV_SLOT_WIDTH_REM = 5.4;
+const BOTTOM_NAV_SEARCH_BUBBLE_WIDTH = "70px";
+const BOTTOM_NAV_EMPTY_GROUP_WIDTH = "58px";
+
+function resolveBottomNavMaxWidth(count: number): string {
+  const slotCount = Math.min(Math.max(count, 1), BOTTOM_NAV_MAX_SLOT_COUNT);
+  return `${slotCount * BOTTOM_NAV_SLOT_WIDTH_REM}rem`;
+}
+
 const BOTTOM_NAV_OPTION_META: Record<
   AppBottomNavKey,
   Omit<SegmentedPillOption, "badge">
@@ -194,7 +204,10 @@ export const Navbar = () => {
 
   useEffect(() => {
     if (!pathname) return;
-    if (pathname.startsWith(ROUTES.KAI_HOME) || pathname.startsWith(ROUTES.LEGACY_KAI_HOME)) {
+    if (
+      pathname.startsWith(ROUTES.KAI_HOME) ||
+      pathname.startsWith(ROUTES.LEGACY_KAI_HOME)
+    ) {
       useKaiSession.getState().setLastKaiPath(pathname);
       return;
     }
@@ -273,26 +286,26 @@ export const Navbar = () => {
     };
   }, [isAuthenticated, navOptions.length, useOnboardingChrome]);
 
-  const bottomNavWidth = useMemo(() => {
-    const count = navOptions.length;
-    if (count <= 0) return "0px";
-    if (count <= 2) return "min(calc(100vw - 6rem), 17.5rem)";
-    if (count === 3) return "min(calc(100vw - 6rem), 22.5rem)";
-    return "min(calc(100vw - 6rem), 27rem)";
-  }, [navOptions.length]);
-  const bottomNavGroupWidth = useMemo(() => {
-    const count = navOptions.length;
-    if (count <= 0) return "58px";
-    if (count <= 2) return "min(calc(100vw - 2rem), calc(17.5rem + 70px))";
-    if (count === 3) return "min(calc(100vw - 2rem), calc(22.5rem + 70px))";
-    return "min(calc(100vw - 2rem), calc(27rem + 70px))";
-  }, [navOptions.length]);
+  const bottomNavMaxWidth =
+    navOptions.length > 0 ? resolveBottomNavMaxWidth(navOptions.length) : "0px";
+  const bottomNavWidth =
+    navOptions.length > 0
+      ? `min(calc(100vw - 6rem), ${bottomNavMaxWidth})`
+      : "0px";
+  const bottomNavGroupWidth =
+    navOptions.length > 0
+      ? `min(calc(100vw - 2rem), calc(${bottomNavMaxWidth} + ${BOTTOM_NAV_SEARCH_BUBBLE_WIDTH}))`
+      : BOTTOM_NAV_EMPTY_GROUP_WIDTH;
 
   if (hideNavbar) {
     return null;
   }
 
-  if (!isAuthenticated || useOnboardingChrome) {
+  if (useOnboardingChrome) {
+    return null;
+  }
+
+  if (!isAuthenticated) {
     return (
       <nav
         className="fixed right-0 top-0 z-50 flex justify-end px-4 pointer-events-none"
@@ -377,7 +390,7 @@ export const Navbar = () => {
           style={{ width: bottomNavWidth }}
         >
           <SegmentedPill
-            size="shell"
+            size="compact"
             layout="stacked"
             hitArea="segment"
             value={activeNav}
@@ -401,7 +414,9 @@ export const Navbar = () => {
           )}
           onClick={() => {
             if (busyOperations["portfolio_save"]) {
-              toast.info("Saving to vault. Please wait until encryption completes.");
+              toast.info(
+                "Saving to vault. Please wait until encryption completes.",
+              );
               return;
             }
             openKaiCommandBar();

@@ -114,12 +114,13 @@ import {
 Rules:
 
 1. Keep the segmented bottom bar scoped to the active route family. Do not add universal `One`, `Search`, or `Profile` tabs to every route.
-2. `/one` and `/profile` may show the compact root switch `One / Profile`; One sub-app routes should not inherit unrelated root or profile actions.
-3. Keep `Search` in the shared command dock, separate from both segmented route navigation and agent chat, and align the detached Search bubble to the same bottom row as the route pill.
-4. Let the active route family decide the contextual slots instead of showing finance-only tabs everywhere; `/one` uses dashboard tiles for mode entry, and `/one/kai/*` owns Market/Portfolio/Connect/Analysis.
-5. Route files should link to canonical destinations such as `/one/gmail`, `/one/pkm`, and `/one/connected-systems`; legacy Profile panels may redirect, but should not own new mode navigation.
-6. `Search` opens `KaiCommandBarGlobal` command/action discovery through `openKaiCommandBar`; do not route Search to `/agent` or call `agentPopover.openAgent`.
-7. Keep bottom-nav motion stable. Prefer fill, outline, and color changes over bounce, active icon scaling, or spring overshoot.
+2. Keep bottom-nav items at the same size as the five-action bar. Routes with fewer actions should end the pill at the last real action instead of rendering empty slots, stretching shorter bars, or adding disabled placeholders.
+3. `/one` and `/profile` may show the compact root switch `One / Connect / Profile`; One sub-app routes may add one meaningful current-context action.
+4. Keep `Search` in the shared command dock, separate from both segmented route navigation and agent chat, and align the detached Search bubble to the same bottom row as the route pill.
+5. Let the active route family decide the contextual slots instead of showing finance-only tabs everywhere; `/one` uses dashboard tiles for mode entry, and `/one/kai/*` owns Market/Portfolio/Connect/Analysis.
+6. Route files should link to canonical destinations such as `/one/gmail`, `/one/pkm`, and `/one/connected-systems`; legacy Profile panels may redirect, but should not own new mode navigation.
+7. `Search` opens `KaiCommandBarGlobal` command/action discovery through `openKaiCommandBar`; do not route Search to `/agent` or call `agentPopover.openAgent`.
+8. Keep bottom-nav motion stable. Prefer fill, outline, and color changes over bounce, active icon scaling, or spring overshoot.
 
 ## Pattern: Nested Route Back Navigation
 
