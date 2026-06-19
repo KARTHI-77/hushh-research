@@ -421,7 +421,7 @@ function UploadPanel({
               onClick={onUpload}
               disabled={submitting || !fileContent.trim()}
             >
-              <Upload className="mr-2 h-4 w-4" />
+              <Upload aria-hidden="true" className="mr-2 h-4 w-4" />
               {submitting ? "Uploading..." : "Upload and replace top picks"}
             </Button>
             <Button asChild variant="none" effect="fade" size="sm">
@@ -2327,7 +2327,7 @@ export default function RiaPicksPage() {
                     }}
                     className="w-full justify-center"
                   >
-                    <Upload className="mr-2 h-4 w-4" />
+                    <Upload aria-hidden="true" className="mr-2 h-4 w-4" />
                     {uploadOpen ? "Close upload" : "Upload"}
                   </Button>
                   <Button
