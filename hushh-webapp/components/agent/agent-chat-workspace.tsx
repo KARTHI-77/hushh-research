@@ -2831,6 +2831,19 @@ export function AgentChatWorkspace({
                   <X className="h-4 w-4" />
                 </Button>
               ) : null}
+              {isPopover && onMinimize ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-lg text-[rgba(0,0,0,0.56)] hover:bg-black/[0.04] hover:text-[#1d1d1f] focus-visible:ring-2 focus-visible:ring-primary/60 dark:text-zinc-300 dark:hover:bg-white/[0.07] dark:hover:text-zinc-50 sm:hidden"
+                  onClick={onMinimize}
+                  aria-label="Close Agent"
+                  title="Close Agent"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              ) : null}
               {windowControls ? <div className="ml-1">{windowControls}</div> : null}
             </div>
           </div>
