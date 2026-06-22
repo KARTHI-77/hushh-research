@@ -105,11 +105,12 @@ class RecipientDirectoryProbe(OneLocationAgentService):
         return []
 
 
-def test_verified_recipient_directory_filters_self_and_requires_phone_verified() -> None:
+def test_verified_recipient_directory_filters_self_and_allows_explicit_network_connection() -> None:
     service = RecipientDirectoryProbe()
 
     assert service.list_verified_recipients(owner_user_id="owner") == []
     assert "a.phone_verified = TRUE" in service.sql
+    assert "one_location_network_connections" in service.sql
     assert "a.user_id <> :owner_user_id" in service.sql
     assert "ORDER BY COALESCE" in service.sql
     assert service.params["owner_user_id"] == "owner"
@@ -201,6 +202,8 @@ class FourUserMemoryService(OneLocationAgentService):
         self.referrals: dict[str, dict] = {}
         self.public_invites: dict[str, dict] = {}
         self.public_submissions: dict[str, dict] = {}
+        self.circle_invites: dict[str, dict] = {}
+        self.network_connections: dict[str, dict] = {}
         self.events: dict[str, dict] = {}
         self.notifications: list[dict] = []
         self.professional_relationships: list[dict] = []
@@ -257,8 +260,18 @@ class FourUserMemoryService(OneLocationAgentService):
         if "FROM actor_identity_cache a" in sql:
             owner = params["owner_user_id"]
             rows = []
+            connected_ids = {
+                connection["user_b_id"]
+                if connection["user_a_id"] == owner
+                else connection["user_a_id"]
+                for connection in self.network_connections.values()
+                if connection["status"] == "active"
+                and owner in {connection["user_a_id"], connection["user_b_id"]}
+            }
             for user_id, identity in self.identities.items():
-                if user_id == owner or not identity["phone_verified"]:
+                if user_id == owner:
+                    continue
+                if not identity["phone_verified"] and user_id not in connected_ids:
                     continue
                 key = self._active_key(user_id)
                 rows.append(
@@ -374,6 +387,29 @@ class FourUserMemoryService(OneLocationAgentService):
                 )
                 if invite["owner_user_id"] == params["user_id"]
             ][:20]
+        if "FROM one_location_circle_invites" in sql:
+            return [
+                invite
+                for invite in sorted(
+                    self.circle_invites.values(),
+                    key=lambda item: item["created_at"],
+                    reverse=True,
+                )
+                if invite["owner_user_id"] == params["user_id"]
+                or invite.get("claimed_by_user_id") == params["user_id"]
+            ][:20]
+        if "FROM one_location_network_connections" in sql:
+            owner = params.get("owner_user_id") or params.get("user_id")
+            return [
+                connection
+                for connection in sorted(
+                    self.network_connections.values(),
+                    key=lambda item: item["connected_at"],
+                    reverse=True,
+                )
+                if connection["status"] == "active"
+                and (connection["user_a_id"] == owner or connection["user_b_id"] == owner)
+            ][:200]
         if "FROM one_location_public_invite_submissions submission" in sql:
             rows = []
             for submission in sorted(
@@ -535,6 +571,22 @@ class FourUserMemoryService(OneLocationAgentService):
                     or submission.get("request_id") in stale_request_ids
                 )
             }
+            stale_circle_invite_ids = {
+                invite_id
+                for invite_id, invite in self.circle_invites.items()
+                if in_user_scope(invite, ("owner_user_id", "claimed_by_user_id"))
+                and (
+                    invite["status"] in {"claimed", "expired", "revoked"}
+                    and (
+                        invite.get("revoked_at")
+                        or invite.get("claimed_at")
+                        or invite.get("updated_at")
+                        or invite.get("expires_at")
+                        or invite.get("created_at")
+                    )
+                    <= cutoff
+                )
+            }
 
             deleted_events = 0
             for event_id, event in list(self.events.items()):
@@ -544,6 +596,7 @@ class FourUserMemoryService(OneLocationAgentService):
                     or event.get("request_id") in stale_request_ids
                     or event.get("referral_id") in stale_referral_ids
                     or metadata.get("invite_id") in stale_public_invite_ids
+                    or metadata.get("invite_id") in stale_circle_invite_ids
                     or metadata.get("submission_id") in stale_public_submission_ids
                 ):
                     deleted_events += 1
@@ -582,12 +635,18 @@ class FourUserMemoryService(OneLocationAgentService):
                 if invite_id in self.public_invites:
                     deleted_public_invites += 1
                     del self.public_invites[invite_id]
+            deleted_circle_invites = 0
+            for invite_id in list(stale_circle_invite_ids):
+                if invite_id in self.circle_invites:
+                    deleted_circle_invites += 1
+                    del self.circle_invites[invite_id]
             return {
                 "deleted_grants": deleted_grants,
                 "deleted_envelopes": deleted_envelopes,
                 "deleted_requests": deleted_requests,
                 "deleted_referrals": deleted_referrals,
                 "deleted_public_invites": deleted_public_invites,
+                "deleted_circle_invites": deleted_circle_invites,
                 "deleted_public_submissions": deleted_public_submissions,
                 "deleted_events": deleted_events,
             }
@@ -627,6 +686,8 @@ class FourUserMemoryService(OneLocationAgentService):
                 ):
                     return identity
             return None
+        if "FROM actor_identity_cache" in sql and "WHERE user_id = :user_id" in sql:
+            return self.identities.get(params["user_id"])
         if "INSERT INTO one_location_recipient_keys" in sql:
             user_id = params["user_id"]
             key_id = params["key_id"]
@@ -869,6 +930,101 @@ class FourUserMemoryService(OneLocationAgentService):
             return row
         if "UPDATE one_location_public_invites" in sql and "status = 'revoked'" in sql:
             invite = self.public_invites.get(params["invite_id"])
+            if (
+                invite
+                and invite["owner_user_id"] == params["owner_user_id"]
+                and invite["status"] == "active"
+            ):
+                invite["status"] = "revoked"
+                invite["revoked_at"] = datetime.now(timezone.utc)
+                return invite
+            return None
+        if "INSERT INTO one_location_circle_invites" in sql:
+            invite_id = str(uuid.uuid4())
+            row = {
+                "id": invite_id,
+                "owner_user_id": params["owner_user_id"],
+                "invite_code_hash": params["invite_code_hash"],
+                "status": "active",
+                "duration_hours": params["duration_hours"],
+                "expires_at": params["expires_at"],
+                "claimed_by_user_id": None,
+                "request_id": None,
+                "message": params.get("message"),
+                "claimed_at": None,
+                "created_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc),
+                "revoked_at": None,
+                "metadata": json.loads(params.get("metadata_json") or "{}"),
+            }
+            self.circle_invites[invite_id] = row
+            return row
+        if "INSERT INTO one_location_network_connections" in sql:
+            existing = next(
+                (
+                    connection
+                    for connection in self.network_connections.values()
+                    if connection["user_a_id"] == params["user_a_id"]
+                    and connection["user_b_id"] == params["user_b_id"]
+                ),
+                None,
+            )
+            now = datetime.now(timezone.utc)
+            if existing:
+                existing.update(
+                    {
+                        "inviter_user_id": params["inviter_user_id"],
+                        "invitee_user_id": params["invitee_user_id"],
+                        "invite_id": params["invite_id"],
+                        "status": "active",
+                        "updated_at": now,
+                        "revoked_at": None,
+                        "metadata": json.loads(params.get("metadata_json") or "{}"),
+                    }
+                )
+                return existing
+            connection_id = str(uuid.uuid4())
+            row = {
+                "id": connection_id,
+                "user_a_id": params["user_a_id"],
+                "user_b_id": params["user_b_id"],
+                "inviter_user_id": params["inviter_user_id"],
+                "invitee_user_id": params["invitee_user_id"],
+                "invite_id": params["invite_id"],
+                "status": "active",
+                "connected_at": now,
+                "created_at": now,
+                "updated_at": now,
+                "revoked_at": None,
+                "metadata": json.loads(params.get("metadata_json") or "{}"),
+            }
+            self.network_connections[connection_id] = row
+            return row
+        if "FROM one_location_circle_invites i" in sql:
+            for invite in self.circle_invites.values():
+                if invite["invite_code_hash"] == params["invite_code_hash"]:
+                    return invite
+            return None
+        if "UPDATE one_location_circle_invites" in sql and "status = 'expired'" in sql:
+            invite = self.circle_invites.get(params["invite_id"])
+            if invite and invite["status"] == "active":
+                invite["status"] = "expired"
+                return invite
+            return None
+        if "UPDATE one_location_circle_invites" in sql and "status = 'claimed'" in sql:
+            invite = self.circle_invites.get(params["invite_id"])
+            if (
+                invite
+                and invite["owner_user_id"] == params["owner_user_id"]
+                and invite["status"] == "active"
+            ):
+                invite["status"] = "claimed"
+                invite["claimed_by_user_id"] = params["claimant_user_id"]
+                invite["claimed_at"] = datetime.now(timezone.utc)
+                return invite
+            return None
+        if "UPDATE one_location_circle_invites" in sql and "status = 'revoked'" in sql:
+            invite = self.circle_invites.get(params["invite_id"])
             if (
                 invite
                 and invite["owner_user_id"] == params["owner_user_id"]
@@ -1566,6 +1722,91 @@ def test_public_invite_submission_without_key_never_creates_access() -> None:
     assert "matchedUserId" not in submitted["submission"]
     assert "request" not in submitted
     assert service.requests == {}
+
+
+def test_invite_to_one_claim_creates_network_connection_without_location_access() -> None:
+    service = FourUserMemoryService()
+    service.register_recipient_key(
+        user_id="user_b",
+        key_id="key-user_b",
+        public_key_jwk={"kty": "EC", "crv": "P-256", "x": "user_b", "y": "user_b"},
+    )
+
+    created = service.create_circle_invite(
+        owner_user_id="user_a",
+        duration_hours=1,
+        message="Join me on One.",
+    )
+    token = created["inviteToken"]
+
+    assert created["inviteUrl"].endswith(token)
+    assert created["inviteUrl"].startswith("/one/location/invite/")
+    assert token not in json.dumps(service.circle_invites, default=str)
+
+    resolved = service.resolve_circle_invite(invite_token=token)
+    serialized_resolve = json.dumps(resolved)
+    assert resolved["invite"]["ownerLabel"] == "User A - *******0001"
+    assert "ownerUserId" not in serialized_resolve
+    assert "grant" not in serialized_resolve
+    assert "ciphertext" not in serialized_resolve
+    assert "latitude" not in serialized_resolve
+    assert "longitude" not in serialized_resolve
+
+    claimed = service.claim_circle_invite(
+        invite_token=token,
+        claimant_user_id="user_b",
+        message="Happy to join.",
+    )
+
+    assert claimed["invite"]["status"] == "claimed"
+    assert claimed["invite"]["claimedByUserId"] == "user_b"
+    assert claimed["connection"]["status"] == "active"
+    assert claimed["connection"]["inviterUserId"] == "user_a"
+    assert claimed["connection"]["inviteeUserId"] == "user_b"
+    assert claimed["connection"]["inviteId"] == claimed["invite"]["id"]
+    assert service.requests == {}
+    assert service.grants == {}
+    assert "latitude" not in json.dumps(claimed, default=str)
+    assert "longitude" not in json.dumps(service.notifications, default=str)
+    assert token not in json.dumps(service.notifications, default=str)
+    assert {item["notification_type"] for item in service.notifications} >= {
+        "location_one_network_joined"
+    }
+    assert any(
+        event["event_type"] == "location_one_network_joined" for event in service.events.values()
+    )
+
+    recipients_for_owner = service.list_verified_recipients(owner_user_id="user_a")
+    user_b = next(
+        recipient for recipient in recipients_for_owner if recipient["userId"] == "user_b"
+    )
+    assert user_b["recommendationCategory"] == "trusted_circle"
+    assert user_b["relationshipType"] == "One Network"
+    assert any(
+        reason["code"] == "one_network_connection" for reason in user_b["recommendationReasons"]
+    )
+
+    with pytest.raises(OneLocationAgentError) as duplicate:
+        service.claim_circle_invite(invite_token=token, claimant_user_id="user_c")
+
+    assert duplicate.value.code == "LOCATION_CIRCLE_INVITE_NOT_ACTIVE"
+
+
+def test_invite_to_one_claim_requires_phone_verified_identity() -> None:
+    service = FourUserMemoryService()
+    service.identities["user_c"]["phone_verified"] = False
+    created = service.create_circle_invite(owner_user_id="user_a", duration_hours=1)
+
+    with pytest.raises(OneLocationAgentError) as exc:
+        service.claim_circle_invite(
+            invite_token=created["inviteToken"],
+            claimant_user_id="user_c",
+        )
+
+    assert exc.value.code == "LOCATION_PHONE_VERIFICATION_REQUIRED"
+    assert service.network_connections == {}
+    assert service.requests == {}
+    assert next(iter(service.circle_invites.values()))["status"] == "active"
 
 
 def test_public_invite_submission_limits_bound_duplicate_phone_requests() -> None:
