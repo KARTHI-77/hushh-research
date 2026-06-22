@@ -721,6 +721,7 @@ export function AgentChatWorkspace({
   const voiceTtsSpeakingRef = useRef(false);
   const pkmAbortControllersRef = useRef<Set<AbortController>>(new Set());
   const latestVisibleTurnIdRef = useRef<string | null>(null);
+  const typedSubmitInFlightRef = useRef(false);
 
   const voiceActive = voiceState !== "idle";
   const voiceMuted = voiceState === "muted";
@@ -2195,7 +2196,14 @@ export function AgentChatWorkspace({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    await runAgentTurn(input, { source: "typed" });
+    if (!canSend || typedSubmitInFlightRef.current) return;
+
+    typedSubmitInFlightRef.current = true;
+    try {
+      await runAgentTurn(input, { source: "typed" });
+    } finally {
+      typedSubmitInFlightRef.current = false;
+    }
   };
 
   function setAgentVoiceStatus(status: AgentVoiceStatus, message?: string | null) {
