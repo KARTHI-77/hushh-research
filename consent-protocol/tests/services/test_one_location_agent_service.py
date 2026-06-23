@@ -116,6 +116,7 @@ def test_verified_recipient_directory_filters_self_and_allows_explicit_network_c
     assert service.params["owner_user_id"] == "owner"
 
 
+
 class EnvelopeReadProbe(OneLocationAgentService):
     def __init__(self) -> None:
         self.calls: list[str] = []
@@ -271,10 +272,13 @@ class FourUserMemoryService(OneLocationAgentService):
             for user_id, identity in self.identities.items():
                 if user_id == owner:
                     continue
+                # Mirror the real SQL: phone-verified users OR active One Network
+                # connections are visible recipients.
                 if not identity["phone_verified"] and user_id not in connected_ids:
                     continue
                 key = self._active_key(user_id)
                 rows.append(
+
                     {
                         **identity,
                         "key_id": key["key_id"] if key else None,
@@ -1091,6 +1095,7 @@ def test_kai_circle_recipient_directory_uses_safe_recommendation_signals() -> No
     }
 
     for user_id in (user_a, user_b, user_c, user_d, user_f, user_g):
+
         service.register_recipient_key(
             user_id=user_id,
             key_id=f"key-{user_id}",
@@ -1233,6 +1238,7 @@ def test_kai_circle_recipient_directory_uses_safe_recommendation_signals() -> No
     )
     assert by_id[user_e]["recommendationCategory"] == "needs_setup"
     assert by_id[user_e]["canReceiveLocation"] is False
+
 
     ranks = [recipient["recommendationRank"] for recipient in recipients]
     assert ranks == sorted(ranks)
