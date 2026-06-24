@@ -48,7 +48,7 @@ function TooltipContent({
         {...props}
       >
         {children}
-        <TooltipPrimitive.Arrow className="fill-foreground z-50 size-2.5" />
+        <TooltipPrimitive.Arrow className="fill-foreground z-50" />
       </TooltipPrimitive.Content>
     </TooltipPrimitive.Portal>
   )
