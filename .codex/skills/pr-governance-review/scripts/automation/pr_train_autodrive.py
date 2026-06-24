@@ -64,12 +64,24 @@ def inventory():
     return d,sorted(un),sorted(cr)
 
 def detect_repass(cr):
-    """Return green+mergeable repass PR numbers (contributor addressed since CR).
-    Batched: queries 15 PRs per GraphQL call via aliases to stay fast."""
+    """Return repass PR numbers (contributor addressed since the maintainer CR).
+
+    Two independent signals (a PR is a repass if EITHER fires):
+      1. TIMESTAMP: latest contributor commit / non-maintainer comment is newer
+         than the latest maintainer CHANGES_REQUESTED review.
+      2. HEAD-DRIFT: the current head SHA differs from the commit_id the latest
+         maintainer review was pinned to. This is IMMUNE to timestamp quirks
+         (rebases keep an old committedDate while moving the head; edited review
+         bodies keep an old submittedAt) — the exact failure mode that left 20+
+         genuinely-addressed PRs looking blocked. Head-drift is the source of
+         truth for "the contributor changed the code after we reviewed it".
+    Batched: queries 15 PRs per GraphQL call via aliases to stay fast.
+    """
     from datetime import datetime
     def ts(x): return datetime.fromisoformat(x.replace("Z","+00:00")) if x else None
     FRAG="""pXNX: pullRequest(number:XNX){
-      reviews(last:30){nodes{author{login} state submittedAt}}
+      headRefOid
+      reviews(last:30){nodes{author{login} state submittedAt commit{oid}}}
       commits(last:1){nodes{commit{committedDate}}}
       comments(last:15){nodes{author{login} createdAt}}}"""
     repass=[]
@@ -84,12 +96,25 @@ def detect_repass(cr):
         for n in b:
             pr=repo.get(f"p{n}")
             if not pr: continue
-            revs=[ts(r["submittedAt"]) for r in pr["reviews"]["nodes"] if r["state"]=="CHANGES_REQUESTED"]
+            head=pr.get("headRefOid")
+            maint_revs=[r for r in pr["reviews"]["nodes"]
+                        if (r.get("author") or {}).get("login") in MAINT
+                        and r["state"]=="CHANGES_REQUESTED"]
+            revs=[ts(r["submittedAt"]) for r in maint_revs]
             last_rev=max([r for r in revs if r],default=None)
+            # commit_id the most-recent maintainer CR review was pinned to
+            reviewed_head=None
+            if maint_revs:
+                last_maint=max(maint_revs,key=lambda r: r.get("submittedAt") or "")
+                reviewed_head=(last_maint.get("commit") or {}).get("oid")
             lc=pr["commits"]["nodes"]; last_commit=ts(lc[0]["commit"]["committedDate"]) if lc else None
             cc=[ts(c["createdAt"]) for c in pr["comments"]["nodes"] if (c["author"] or {}).get("login") not in MAINT]
             last_act=max([t for t in ([last_commit]+cc) if t],default=None)
-            if last_rev and last_act and last_act>last_rev: repass.append(n)
+            timestamp_repass = bool(last_rev and last_act and last_act>last_rev)
+            # HEAD-DRIFT: head moved past the reviewed commit (timestamp-immune).
+            head_drift = bool(head and reviewed_head and head!=reviewed_head)
+            if timestamp_repass or head_drift:
+                repass.append(n)
     return sorted(repass)
 
 def engine_scan(prs,tag,max_chunks,max_age_s=7200):
