@@ -111,6 +111,11 @@ import {
   type OneLocationContactSignalResult,
 } from "@/lib/one-location/contact-signals";
 import { OneLocationActivityDashboard } from "@/components/one-location/activity-dashboard";
+import {
+  LocationRedesignHub,
+  type LocationHubViewModel,
+} from "@/components/one-location/redesign/location-redesign-hub";
+import { LocationRedesignSkeleton } from "@/components/one-location/redesign/location-redesign-skeleton";
 import { buildOneLocationActivityFallback } from "@/lib/one-location/activity";
 import type {
   OneLocationAccessRequest,
@@ -3957,6 +3962,109 @@ function OneLocationAgentPageContent() {
         onRequestPermission={handleLocationOnboardingPermission}
         onSkip={handleSkipLocationOnboarding}
       />
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Mobile-first redesign (Figma: one_location_final_fixed_clean_navigation).
+  // PRESENTATION ONLY: the view-model below wires the redesigned hub to the
+  // EXACT existing state + handlers, so consent gating, crypto, analytics, and
+  // routing are unchanged. The full original UI remains intact below and is
+  // used for the loading/error states (and as a guaranteed fallback). The
+  // global app footer is never touched.
+  // ---------------------------------------------------------------------------
+  const USE_LOCATION_REDESIGN = true;
+
+  const locationHubVm: LocationHubViewModel = {
+    userId: auth.userId ?? null,
+    canShare,
+    busy,
+    readiness: {
+      tone: locationReadiness.tone,
+      title: locationReadiness.title,
+      description: locationReadiness.description,
+      actionLabel: locationReadiness.actionLabel ?? null,
+    },
+    permissionIsPrompt: permission?.state === "prompt",
+    myLocationPoint,
+    myLocationError,
+    recipients: rankedRecipients,
+    visibleRecipients,
+    activeOwnerGrants,
+    receivedGrants: visibleReceivedGrants,
+    pendingOwnerRequests,
+    requestedByMe,
+    latestActivePublicInvite,
+    latestActiveCircleInvite,
+    activityReceipts: (locationActivity?.events ?? []).map((event) => ({
+      id: event.id,
+      title: event.title,
+      detail: event.detail,
+    })),
+    recipientSearch,
+    selectedRecipientIds,
+    selectedRequestOwnerIds,
+    durationHours,
+    requestMessage,
+    shareReviewOpen,
+    publicInviteUrl,
+    circleInviteUrl,
+    setRecipientSearch,
+    setDurationHours,
+    setRequestMessage,
+    setShareReviewOpen,
+    toggleShareRecipient: (id) => toggleShareRecipient(id, "section_list"),
+    toggleRequestOwner: (id) => toggleRequestOwner(id, "section_list"),
+    onRefresh: () => void refresh(),
+    onShowMyLocation: () => void handleShowMyLiveLocation(),
+    onRequestPermission: () => void handleRequestLocationPermission(),
+    onOpenLocationSettings: () => void handleOpenLocationSettings(),
+    onSyncContacts: () => void handleSyncContactSignal(),
+    onShareToContacts: () => void handleShareContactInvite(),
+    onOpenShareReview: () => void handleOpenShareReview(),
+    onConfirmShare: () => void handleShare(),
+    onSendRequest: () => void handleRequestAccess(),
+    onApprove: (request) => void handleApprove(request),
+    onDeny: (requestId) => void handleDeny(requestId),
+    onViewGrant: (grant) => void handleView(grant),
+    onUnwatchGrant: (grant) => handleUnwatch(grant),
+    onStopGrant: (grantId) => void handleRevoke(grantId),
+    onCreatePublicInvite: () => void handleCreatePublicInvite(),
+    onCopyPublicInvite: () => void handleCopyPublicInvite(),
+    onSharePublicInvite: () => void handleSharePublicInvite(),
+    onRevokePublicInvite: (invite) => void handleRevokePublicInvite(invite),
+    onCreateCircleInvite: () => void handleCreateCircleInvite(),
+    onCopyCircleInvite: () => void handleCopyCircleInvite(),
+    onShareCircleInvite: () => void handleShareCircleInvite(),
+    onRevokeCircleInvite: (invite) => void handleRevokeCircleInvite(invite),
+    recipientLabel,
+    recipientSubtitle: recipientRecommendationLine,
+    isRecipientShareReady: isShareReadyRecipient,
+    requestOwnerLabel: (request) => requestOwnerLabel(request, recipients),
+    requesterLabel: requestLabel,
+    grantRecipientLabel: grantCounterpartyLabel,
+    grantOwnerLabel: receivedGrantOwnerLabel,
+    formatDateTime,
+    expiresLabel: (value) =>
+      value ? `Live until ${formatDateTime(value)}` : "Live now",
+    expiresCountdownLabel: (value) => expiresCountdownLabel(value) ?? "Active",
+    renderMapPreview: (point, showNavigation) => (
+      <LocalMapPreview point={point} showNavigation={showNavigation} />
+    ),
+    decryptedPoints,
+  };
+
+  if (USE_LOCATION_REDESIGN && !loadError) {
+    return (
+      <AppPageShell width="standard" nativeTest={nativeTestConfig}>
+        <AppPageContentRegion className="mx-auto w-full max-w-[480px] min-w-0 space-y-6 overflow-x-hidden px-3 pb-12 pt-4">
+          {showInitialSkeleton ? (
+            <LocationRedesignSkeleton />
+          ) : (
+            <LocationRedesignHub vm={locationHubVm} />
+          )}
+        </AppPageContentRegion>
+      </AppPageShell>
     );
   }
 
