@@ -169,6 +169,14 @@ type FlowKind = "none" | "share" | "ask" | "invite" | "temp-link";
 
 const BUSY = (vm: LocationHubViewModel, key: string) => vm.busy === key;
 
+// People lists (Ready people / Pending invites) can grow long. Cap their height
+// and let them scroll internally so a large Circle doesn't stretch the page into
+// an endless column. ~max-h fits roughly 5 cards before scrolling; a thin,
+// touch-friendly scrollbar keeps it unobtrusive on mobile.
+const PEOPLE_LIST_SCROLL_CLASS =
+  "max-h-[340px] space-y-2.5 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-black/15 dark:[&::-webkit-scrollbar-thumb]:bg-white/20";
+
+
 export function LocationRedesignHub({ vm }: { vm: LocationHubViewModel }) {
   const [tab, setTab] = useState<LocationHubTab>("now");
   const [flow, setFlow] = useState<FlowKind>("none");
@@ -470,7 +478,7 @@ function PeopleHub({
 
       <SectionCard title="Ready people">
         {ready.length ? (
-          <div className="space-y-2.5">
+          <div className={PEOPLE_LIST_SCROLL_CLASS}>
             {ready.map((r) => (
               <TrustedPersonCard
                 key={r.userId}
@@ -497,7 +505,7 @@ function PeopleHub({
 
       {pending.length ? (
         <SectionCard title="Pending invites">
-          <div className="space-y-2.5">
+          <div className={PEOPLE_LIST_SCROLL_CLASS}>
             {pending.map((r) => (
               <TrustedPersonCard
                 key={r.userId}
@@ -510,6 +518,7 @@ function PeopleHub({
           </div>
         </SectionCard>
       ) : null}
+
 
       <TrustNoteCard
         title="Private sharing starts after approval"
