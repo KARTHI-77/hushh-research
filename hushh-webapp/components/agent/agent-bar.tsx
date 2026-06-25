@@ -12,7 +12,7 @@
 
 import React, { useMemo, type CSSProperties } from "react";
 import { usePathname } from "next/navigation";
-import { Mic, Sparkles } from "lucide-react";
+import { AudioLines, Mic } from "lucide-react";
 
 import { useOptionalAgentPopover } from "@/components/agent/agent-popover-provider";
 import { useAuth } from "@/hooks/use-auth";
@@ -114,16 +114,10 @@ export function AgentBar() {
           onClick={openAgent}
           aria-label={hint}
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-2.5 rounded-full text-left",
+            "flex min-w-0 flex-1 items-center gap-2.5 rounded-full pl-1 text-left",
             "transition-colors duration-200 active:scale-[0.99]",
           )}
         >
-          <span
-            aria-hidden
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/12 text-primary"
-          >
-            <Sparkles className="h-4 w-4" />
-          </span>
           <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-foreground/70">
             {hint}
           </span>
@@ -140,6 +134,20 @@ export function AgentBar() {
           )}
         >
           <Mic className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={openAgent}
+          aria-label="Start a conversational session"
+          title="Conversational mode (coming soon)"
+          className={cn(
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+            "bg-black/[0.05] text-foreground/70 dark:bg-white/[0.07]",
+            "transition-[background-color,transform] duration-200",
+            "hover:bg-black/[0.08] hover:text-primary dark:hover:bg-white/[0.1] active:scale-90",
+          )}
+        >
+          <AudioLines className="h-4 w-4" />
         </button>
       </div>
     </div>
