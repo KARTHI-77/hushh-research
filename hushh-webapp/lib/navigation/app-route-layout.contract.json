@@ -13,6 +13,14 @@
     }
   },
   {
+    "route": "/one/setup",
+    "mode": "standard",
+    "shellVerification": {
+      "file": "components/onboarding/setup/one-setup-hub.tsx",
+      "includes": ["AppPageShell", "AppPageHeaderRegion", "AppPageContentRegion", "PageHeader"]
+    }
+  },
+  {
     "route": "/developers",
     "mode": "standard",
     "shellVerification": {
@@ -32,6 +40,11 @@
     "route": "/login",
     "mode": "hidden",
     "exemptionReason": "Auth-only route intentionally bypasses the signed-in app shell."
+  },
+  {
+    "route": "/getting-started",
+    "mode": "hidden",
+    "exemptionReason": "Anonymous pre-auth intro route intentionally bypasses the signed-in app shell, matching the root and login entry routes."
   },
   {
     "route": "/one/kyc",

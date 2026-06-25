@@ -38,6 +38,7 @@ export function getRouteScope(pathname: string): RouteScope {
   if (
     pathname === ROUTES.HOME ||
     pathname === ROUTES.ONE_HOME ||
+    isRoute(pathname, ROUTES.ONE_SETUP) ||
     isRoute(pathname, ROUTES.AGENT) ||
     isRoute(pathname, ROUTES.CONSENTS) ||
     isRoute(pathname, ROUTES.GMAIL) ||

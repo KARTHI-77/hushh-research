@@ -64,12 +64,24 @@ def inventory():
     return d,sorted(un),sorted(cr)
 
 def detect_repass(cr):
-    """Return green+mergeable repass PR numbers (contributor addressed since CR).
-    Batched: queries 15 PRs per GraphQL call via aliases to stay fast."""
+    """Return repass PR numbers (contributor addressed since the maintainer CR).
+
+    Two independent signals (a PR is a repass if EITHER fires):
+      1. TIMESTAMP: latest contributor commit / non-maintainer comment is newer
+         than the latest maintainer CHANGES_REQUESTED review.
+      2. HEAD-DRIFT: the current head SHA differs from the commit_id the latest
+         maintainer review was pinned to. This is IMMUNE to timestamp quirks
+         (rebases keep an old committedDate while moving the head; edited review
+         bodies keep an old submittedAt) — the exact failure mode that left 20+
+         genuinely-addressed PRs looking blocked. Head-drift is the source of
+         truth for "the contributor changed the code after we reviewed it".
+    Batched: queries 15 PRs per GraphQL call via aliases to stay fast.
+    """
     from datetime import datetime
     def ts(x): return datetime.fromisoformat(x.replace("Z","+00:00")) if x else None
     FRAG="""pXNX: pullRequest(number:XNX){
-      reviews(last:30){nodes{author{login} state submittedAt}}
+      headRefOid
+      reviews(last:30){nodes{author{login} state submittedAt commit{oid}}}
       commits(last:1){nodes{commit{committedDate}}}
       comments(last:15){nodes{author{login} createdAt}}}"""
     repass=[]
@@ -84,12 +96,25 @@ def detect_repass(cr):
         for n in b:
             pr=repo.get(f"p{n}")
             if not pr: continue
-            revs=[ts(r["submittedAt"]) for r in pr["reviews"]["nodes"] if r["state"]=="CHANGES_REQUESTED"]
+            head=pr.get("headRefOid")
+            maint_revs=[r for r in pr["reviews"]["nodes"]
+                        if (r.get("author") or {}).get("login") in MAINT
+                        and r["state"]=="CHANGES_REQUESTED"]
+            revs=[ts(r["submittedAt"]) for r in maint_revs]
             last_rev=max([r for r in revs if r],default=None)
+            # commit_id the most-recent maintainer CR review was pinned to
+            reviewed_head=None
+            if maint_revs:
+                last_maint=max(maint_revs,key=lambda r: r.get("submittedAt") or "")
+                reviewed_head=(last_maint.get("commit") or {}).get("oid")
             lc=pr["commits"]["nodes"]; last_commit=ts(lc[0]["commit"]["committedDate"]) if lc else None
             cc=[ts(c["createdAt"]) for c in pr["comments"]["nodes"] if (c["author"] or {}).get("login") not in MAINT]
             last_act=max([t for t in ([last_commit]+cc) if t],default=None)
-            if last_rev and last_act and last_act>last_rev: repass.append(n)
+            timestamp_repass = bool(last_rev and last_act and last_act>last_rev)
+            # HEAD-DRIFT: head moved past the reviewed commit (timestamp-immune).
+            head_drift = bool(head and reviewed_head and head!=reviewed_head)
+            if timestamp_repass or head_drift:
+                repass.append(n)
     return sorted(repass)
 
 def engine_scan(prs,tag,max_chunks,max_age_s=7200):
@@ -194,9 +219,17 @@ def main():
     # smaller values for a quick partial pass. max-chunks 200 ⇒ up to 10k PRs/run.
     ap.add_argument("--max-merge",type=int,default=10000)
     ap.add_argument("--max-chunks",type=int,default=200)
+    # Destructive-on-others'-PRs guard: closing a contributor's PR as superseded
+    # is gated behind --apply-close. Without it, harvest_then_close duplicates are
+    # only COUNTED into close_candidates (dry-run) so the operator can review the
+    # list before any PR is closed. (Matches the operator's "destructive on others'
+    # GitHub = dry-run + counts first" rule.)
+    ap.add_argument("--apply-close",action="store_true",
+                    help="Actually close harvest_then_close duplicate PRs (default: dry-run count only).")
     a=ap.parse_args()
     res={"queued":[],"block_recorded":[],"operator_patch":[],"security_review":[],
          "conflicting":[],"collision_defer":[],"self_hold":[],"skipped":[],"fail":[],
+         "patch_auto_merged":[],"superseded_closed":[],"close_candidates":[],
          "inventory":{},"repass_detected":0}
     allpr,un,cr=inventory()
     res["inventory"]={"open_train":len(allpr),"unattended":len(un),"changes_requested":len(cr)}
@@ -239,10 +272,65 @@ def main():
         elif r=="no_template": res["skipped"].append(n)
         else: res["fail"].append(n)
         time.sleep(0.15)
-    # patch/harvest
+    # patch/harvest — COMPLETE the loop instead of just listing.
+    # 1. patch_then_merge / maintainer_harvest: if the contributor's head is
+    #    ALREADY green + mergeable + diff-safe (no sensitive path, not self-mock),
+    #    no maintainer patch is actually needed — approve + enqueue so it merges
+    #    and the PR auto-closes (the #3473 pattern). Otherwise it still needs a
+    #    hand-written patch: leave it for the patch campaign and record it in
+    #    operator_patch so it is never silently dropped.
     for n in sorted(reps):
-        if reps[n]["lane"] in ("patch_then_merge","maintainer_harvest"):
-            res["operator_patch"].append({"pr":n,"attach":reps[n]["attach"]})
+        if reps[n]["lane"] not in ("patch_then_merge","maintainer_harvest"): continue
+        files=reps[n]["files"]
+        if mn>=a.max_merge: res["operator_patch"].append({"pr":n,"attach":reps[n]["attach"]}); continue
+        if claimed & set(files): res["collision_defer"].append(n); continue
+        safe,why=diff_safe(n,files)
+        if not safe:
+            # touches a sensitive path or is self-mock — genuinely needs a human/
+            # campaign patch, do NOT auto-merge.
+            res["operator_patch"].append({"pr":n,"attach":reps[n]["attach"]}); continue
+        d=gh_json(n,"headRefOid,baseRefName,isDraft,mergeable,id")
+        if not d or d["baseRefName"]!="integration/pr-train" or d["isDraft"]:
+            res["operator_patch"].append({"pr":n,"attach":reps[n]["attach"]}); continue
+        if d["mergeable"]=="UNKNOWN": time.sleep(3); d=gh_json(n,"headRefOid,baseRefName,isDraft,mergeable,id") or d
+        if d["mergeable"]!="MERGEABLE":
+            # not cleanly mergeable as-is → real patch work; hand off, don't drop.
+            res["operator_patch"].append({"pr":n,"attach":reps[n]["attach"]}); continue
+        sha=d["headRefOid"][:8]
+        body=(f"## Approved: clean at current head\n\nRe-reviewed at head `{sha}`: the "
+              f"contributor's {reps[n]['contract']} change is self-sufficient, path-clean, "
+              f"green CI Status Gate, MERGEABLE, base integration/pr-train — no separate "
+              f"maintainer patch needed. Enqueued to merge queue; it closes on merge.")
+        run(["gh","pr","review",str(n),"--repo",REPO,"--approve","--body",body])
+        rc,o,e=run(["gh","api","graphql","-f",
+            f'query=mutation{{enqueuePullRequest(input:{{pullRequestId:"{d["id"]}"}}){{mergeQueueEntry{{state position}}}}}}'])
+        if rc==0 and '"errors"' not in o: mn+=1; claimed|=set(files); res["patch_auto_merged"].append(n)
+        elif "last pusher" in (o+e): res["self_hold"].append(n)
+        else: res["operator_patch"].append({"pr":n,"attach":reps[n]["attach"]})
+        time.sleep(0.2)
+    # 2. harvest_then_close / close_duplicate: the PR duplicates a preferred
+    #    canonical implementation. Post the superseded record, then close — but
+    #    closing a contributor's PR is destructive, so it is gated behind
+    #    --apply-close. Without the flag we only post the record (non-destructive)
+    #    and COUNT the close into close_candidates for operator review.
+    for n in sorted(reps):
+        if reps[n]["lane"] not in ("harvest_then_close","close_duplicate"): continue
+        hd=gh_json(n,"headRefOid,state")
+        if not hd or hd.get("state")!="OPEN": continue
+        head=hd.get("headRefOid")
+        # Post/refresh the superseded record first so the PR is never unattended,
+        # even if the close is deferred (dry-run) or fails.
+        post_record(n,reps[n]["comment"],head=head)
+        if a.apply_close:
+            rc,o,e=run(["gh","pr","close",str(n),"--repo",REPO,
+                        "--comment","Closing as superseded by the preferred canonical "
+                        "implementation for this product contract (see the maintainer "
+                        "record above). Thank you for the contribution — unique value "
+                        "has been harvested into the canonical path where applicable."])
+            (res["superseded_closed"] if rc==0 else res["fail"]).append(n)
+        else:
+            res["close_candidates"].append(n)
+        time.sleep(0.2)
     print(json.dumps(res,indent=1,default=str))
 
 if __name__=="__main__": main()

@@ -21,7 +21,7 @@ This repo now runs on a dedicated PR-train branch, a protected promotion branch,
 | Lane | Purpose | Default policy |
 |---|---|---|
 | `integration/pr-train` | Normal PR intake and async train landing | Effective landing base for every normal feature/fix/docs PR |
-| `main` | Promotion branch for deployable history | Only `integration/pr-train` may open normal promotion PRs into `main` |
+| `main` | Promotion branch for deployable history | `integration/pr-train` opens normal promotion PRs; governed maintainers may also merge a direct PR into `main` (CI gate + merge queue + post-merge smoke still required) |
 | UAT | Hosted validation environment | Manual deploy of an exact green `main` SHA |
 | Production | Live user traffic | Manual deploy of an approved green `main` SHA |
 
@@ -31,7 +31,7 @@ This repo now runs on a dedicated PR-train branch, a protected promotion branch,
 2. Contributor PRs may still be opened to `main` for a familiar GitHub intake experience; maintainers or automation retarget normal intake to `integration/pr-train` before review, approval, queue, merge, maintainer patch, or harvest.
 3. Merge all normal feature/fix/docs work into `integration/pr-train`.
 4. Promote `integration/pr-train` into `main` through a PR after the train is green and ancestry-clean.
-5. Do not merge direct feature, contributor, or agent PRs into `main`; CI blocks them unless the head branch is `integration/pr-train`.
+5. Non-maintainer feature, contributor, or agent PRs must not target `main`; CI blocks them unless the head branch is `integration/pr-train` (or a registered promote branch). Governed maintainers (anyone in `main.review_bypass_users` / `main.merge_queue_bypass_users`) may open a direct PR into `main` from any branch; the `CI Status Gate`, merge queue, and `Main Post-Merge Smoke Gate` still apply, so this removes only the train detour, not the safety gates.
 6. Continue follow-up fixes on the active development branch by default; do not create extra temporary branches for routine polish, validation follow-up, or same-lane fixes.
 7. Create a new branch only when isolation is materially required, such as a post-merge hotfix from `main`, a deploy blocker that must land independently, or unrelated in-flight changes on the current branch.
 8. After an isolated hotfix lands, return local work to the normal development branch or `integration/pr-train` and delete the temporary branch after rollout validation.
