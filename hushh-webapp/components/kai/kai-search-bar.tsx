@@ -22,7 +22,10 @@ import { VoiceDebugDrawer } from "@/components/kai/voice/voice-debug-drawer";
 import { ShellActionSurface } from "@/components/app-ui/shell-action-surface";
 import { morphyToast as toast } from "@/lib/morphy-ux/morphy";
 import { useKaiBottomChromeVisibility } from "@/lib/navigation/kai-bottom-chrome-visibility";
-import { KAI_COMMAND_BAR_OPEN_EVENT } from "@/lib/navigation/kai-command-bar-events";
+import {
+  KAI_COMMAND_BAR_OPEN_EVENT,
+  KAI_COMMAND_BAR_TOGGLE_EVENT,
+} from "@/lib/navigation/kai-command-bar-events";
 import { cn } from "@/lib/utils";
 import { useVault } from "@/lib/vault/vault-context";
 import { useAmplitudeMeter } from "@/lib/voice/use-amplitude-meter";
@@ -1166,14 +1169,23 @@ export function KaiSearchBar({
 
   useEffect(() => {
     const handleOpen = () => setOpen(true);
+    const handleToggle = () => setOpen((prev) => !prev);
     window.addEventListener(
       KAI_COMMAND_BAR_OPEN_EVENT,
       handleOpen as EventListener,
+    );
+    window.addEventListener(
+      KAI_COMMAND_BAR_TOGGLE_EVENT,
+      handleToggle as EventListener,
     );
     return () => {
       window.removeEventListener(
         KAI_COMMAND_BAR_OPEN_EVENT,
         handleOpen as EventListener,
+      );
+      window.removeEventListener(
+        KAI_COMMAND_BAR_TOGGLE_EVENT,
+        handleToggle as EventListener,
       );
     };
   }, []);

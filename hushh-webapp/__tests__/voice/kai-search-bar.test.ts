@@ -164,6 +164,7 @@ vi.mock("@/lib/navigation/kai-bottom-chrome-visibility", () => ({
 
 vi.mock("@/lib/navigation/kai-command-bar-events", () => ({
   KAI_COMMAND_BAR_OPEN_EVENT: "kai-open",
+  KAI_COMMAND_BAR_TOGGLE_EVENT: "kai-toggle",
 }));
 
 vi.mock("@/lib/utils", () => ({

@@ -50,7 +50,10 @@ import {
   type AppBottomNavScope,
   type AppBottomNavKey,
 } from "@/lib/navigation/app-bottom-nav";
-import { openKaiCommandBar } from "@/lib/navigation/kai-command-bar-events";
+import {
+  openKaiCommandBar,
+  toggleKaiCommandBar,
+} from "@/lib/navigation/kai-command-bar-events";
 
 const BOTTOM_NAV_MAX_SLOT_COUNT = 5;
 const BOTTOM_NAV_SLOT_WIDTH_REM = 5.4;
@@ -426,7 +429,7 @@ export const Navbar = () => {
               );
               return;
             }
-            openKaiCommandBar();
+            toggleKaiCommandBar();
           }}
         >
           <Icon icon={SearchIcon} size="md" className="shrink-0" />
