@@ -479,6 +479,7 @@ function PeopleHub({
                 tone="ready"
                 statusLabel="Ready"
                 actionLabel="Share"
+                actionAriaLabel={`Share location with ${vm.recipientLabel(r)}`}
                 onAction={() => {
                   vm.toggleShareRecipient(r.userId, "people_hub");
                   onStartShare();
@@ -858,6 +859,13 @@ function ShareFlow({
                 }
                 tone={ready ? "ready" : "pending"}
                 actionLabel={ready ? (selected ? "Selected" : "Select") : undefined}
+                actionAriaLabel={
+                  ready
+                    ? `${selected ? "Deselect" : "Select"} ${vm.recipientLabel(
+                        r,
+                      )} for private sharing`
+                    : undefined
+                }
                 onAction={
                   ready
                     ? () => vm.toggleShareRecipient(r.userId, "share_flow")
@@ -950,6 +958,9 @@ function AskFlow({
                 subtitle="Ready for private sharing"
                 tone="ready"
                 actionLabel={selected ? "Selected" : "Select"}
+                actionAriaLabel={`${
+                  selected ? "Deselect" : "Select"
+                } ${vm.recipientLabel(r)} for location request`}
                 onAction={() => vm.toggleRequestOwner(r.userId, "ask_flow")}
                 selected={selected}
               />

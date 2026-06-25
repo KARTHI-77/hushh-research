@@ -46,6 +46,7 @@ export function TrustedPersonCard({
   tone = "ready",
   statusLabel,
   actionLabel,
+  actionAriaLabel,
   onAction,
   actionBusy,
   actionDisabled,
@@ -56,6 +57,7 @@ export function TrustedPersonCard({
   tone?: "ready" | "pending" | "neutral";
   statusLabel?: string;
   actionLabel?: string;
+  actionAriaLabel?: string;
   onAction?: () => void;
   actionBusy?: boolean;
   actionDisabled?: boolean;
@@ -86,6 +88,7 @@ export function TrustedPersonCard({
           size="sm"
           variant={tone === "pending" ? "outline" : "default"}
           onClick={onAction}
+          aria-label={actionAriaLabel}
           isLoading={actionBusy}
           disabled={actionDisabled}
           className="h-8 shrink-0 rounded-full px-3.5 text-sm"
