@@ -7,7 +7,6 @@ import { HushhLoader } from "@/components/app-ui/hushh-loader";
 import { NativeTestBeacon } from "@/components/app-ui/native-test-beacon";
 import { NativeRouteMarker } from "@/components/app-ui/native-route-marker";
 import { useAuth } from "@/lib/firebase/auth-context";
-import { OnboardingLocalService } from "@/lib/services/onboarding-local-service";
 import { PreviewCarouselStep } from "@/components/onboarding/PreviewCarouselStep";
 import { ROUTES } from "@/lib/navigation/routes";
 
