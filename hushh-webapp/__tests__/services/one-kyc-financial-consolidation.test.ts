@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   collectAccounts,
+  consolidateFinancialPortfolio,
   dedupAccountsByFreshest,
 } from "@/lib/services/one-kyc-financial-consolidation";
 
@@ -78,8 +79,6 @@ describe("dedupAccountsByFreshest", () => {
     expect(dedupAccountsByFreshest(collected)).toHaveLength(2);
   });
 });
-
-import { consolidateFinancialPortfolio } from "@/lib/services/one-kyc-financial-consolidation";
 
 describe("consolidateFinancialPortfolio", () => {
   it("merges multiple lots of the same security into one position", () => {
