@@ -54,3 +54,19 @@ describe("DialogFooter", () => {
     ).toBeTruthy();
   });
 });
+
+describe("DialogTitle", () => {
+  it("renders with data-slot='dialog-title'", () => {
+    const { container } = render(
+      <Dialog open>
+        <DialogContent>
+          <DialogTitle>Title text</DialogTitle>
+        </DialogContent>
+      </Dialog>,
+    );
+
+    expect(
+      document.querySelector('[data-slot="dialog-title"]'),
+    ).toBeTruthy();
+  });
+});
