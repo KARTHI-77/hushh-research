@@ -55,9 +55,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { SegmentedTabs } from "@/lib/morphy-ux/ui/segmented-tabs";
 import { VaultLockGuard } from "@/components/vault/vault-lock-guard";
+
 import { useRequireAuth } from "@/hooks/use-auth";
+
+type LocationTab = "compose" | "activity";
+
+const LOCATION_TAB_PARAM = "tab";
+const LOCATION_TAB_OPTIONS: { value: LocationTab; label: string }[] = [
+  { value: "compose", label: "Share & Request" },
+  { value: "activity", label: "Activity & Links" },
+];
+
+function normalizeLocationTab(value: string | null | undefined): LocationTab {
+  return value === "activity" ? "activity" : "compose";
+}
+
 import type { HushhLocationPermissionState } from "@/lib/capacitor";
+
 import {
   decryptLocationEnvelope,
   encryptLocationForRecipient,
@@ -67,11 +83,14 @@ import {
   buildOneLocationNotificationHref,
   buildOneLocationWorkflowHref,
   isOneLocationGrantOpened,
+  isOneLocationGrantUnwatched,
   locationShareNotificationDescription,
   locationWorkflowNotificationCopy,
   markOneLocationGrantOpened,
+  markOneLocationGrantUnwatched,
   ONE_LOCATION_GRANT_ID_PARAM,
   ONE_LOCATION_GRANT_OPENED_EVENT,
+  ONE_LOCATION_GRANT_UNWATCHED_EVENT,
   ONE_LOCATION_NOTIFICATION_OPEN_PARAM,
   ONE_LOCATION_NOTIFICATION_OPEN_VALUE,
   ONE_LOCATION_REFERRAL_ID_PARAM,
@@ -124,6 +143,9 @@ const LIVE_LOCATION_UPDATE_INTERVAL_MS = 20_000;
 const LIVE_LOCATION_STALE_THRESHOLD_MS = LIVE_LOCATION_UPDATE_INTERVAL_MS * 3;
 const FOREGROUND_RETRY_DELAYS_MS = [450, 900] as const;
 const ONE_NETWORK_PREVIEW_LIMIT = 3;
+const REQUEST_MESSAGE_MAX_LENGTH = 80;
+
+
 const ONE_LOCATION_SHARE_TITLE = "Join me on One";
 const ONE_LOCATION_PUBLIC_SHARE_COPY = "Join my One Location circle";
 const ONE_LOCATION_CIRCLE_SHARE_COPY = "Join me on One";
@@ -682,7 +704,14 @@ function locationSourceLabel(sourcePlatform: PlainLocationPoint["sourcePlatform"
   }
 }
 
-function LocalMapPreview({ point }: { point: PlainLocationPoint }) {
+function LocalMapPreview({
+  point,
+  showNavigation = true,
+}: {
+  point: PlainLocationPoint;
+  // Self-location previews do not need Directions/Start - you are already there.
+  showNavigation?: boolean;
+}) {
   const captured = formatDateTime(point.capturedAt);
   const isStale = isLocationPointStale(point);
   const accuracy = locationAccuracyLabel(point);
@@ -690,6 +719,7 @@ function LocalMapPreview({ point }: { point: PlainLocationPoint }) {
   const directionsUrl = googleMapsDirectionsUrl(point);
   const startUrl = googleMapsStartNavigationUrl(point);
   const statusLabel = isStale ? "Last known location" : "Live location";
+
   return (
     <div className="w-full min-w-0 max-w-full overflow-hidden rounded-[var(--app-card-radius-standard)] border border-border/70 bg-[color:var(--app-card-surface-default-solid)]">
       <div className="relative h-48 max-w-full overflow-hidden bg-[#e5e5ea] sm:h-56 dark:bg-[#111113]">
@@ -734,40 +764,43 @@ function LocalMapPreview({ point }: { point: PlainLocationPoint }) {
           </p>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2">
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="h-10 w-full min-w-0 rounded-full border-[#0a84ff]/30 bg-[#0a84ff]/10 text-[#0066cc] hover:bg-[#0a84ff]/15 dark:text-[#76b7ff]"
-          >
-            <a
-              href={directionsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Open Google Maps directions to shared live location"
+        {showNavigation ? (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="h-10 w-full min-w-0 rounded-full border-[#0a84ff]/30 bg-[#0a84ff]/10 text-[#0066cc] hover:bg-[#0a84ff]/15 dark:text-[#76b7ff]"
             >
-              <Route className="h-4 w-4" aria-hidden="true" />
-              Directions
-            </a>
-          </Button>
-          <Button
-            asChild
-            size="sm"
-            className="h-10 w-full min-w-0 rounded-full bg-[#1c1c1e] text-white hover:bg-black dark:bg-white dark:text-[#1c1c1e] dark:hover:bg-white/90"
-          >
-            <a
-              href={startUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Start Google Maps navigation to shared live location"
+              <a
+                href={directionsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open Google Maps directions to shared live location"
+              >
+                <Route className="h-4 w-4" aria-hidden="true" />
+                Directions
+              </a>
+            </Button>
+            <Button
+              asChild
+              size="sm"
+              className="h-10 w-full min-w-0 rounded-full bg-[#1c1c1e] text-white hover:bg-black dark:bg-white dark:text-[#1c1c1e] dark:hover:bg-white/90"
             >
-              <Navigation className="h-4 w-4" aria-hidden="true" />
-              Start
-            </a>
-          </Button>
-        </div>
+              <a
+                href={startUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Start Google Maps navigation to shared live location"
+              >
+                <Navigation className="h-4 w-4" aria-hidden="true" />
+                Start
+              </a>
+            </Button>
+          </div>
+        ) : null}
       </div>
+
 
       {isStale ? (
         <div
@@ -1449,6 +1482,25 @@ function OneLocationAgentPageContent() {
   const [locationOnboardingBusy, setLocationOnboardingBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeMode, setActiveMode] = useState<ShareMode>("share");
+  const locationTab = normalizeLocationTab(
+    searchParams.get(LOCATION_TAB_PARAM),
+  );
+  const setLocationTab = useCallback(
+    (next: LocationTab) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === "compose") {
+        params.delete(LOCATION_TAB_PARAM);
+      } else {
+        params.set(LOCATION_TAB_PARAM, next);
+      }
+      const query = params.toString();
+      router.replace(query ? `/one/location?${query}` : "/one/location", {
+        scroll: false,
+      });
+    },
+    [router, searchParams],
+  );
+
   const [shareReviewOpen, setShareReviewOpen] = useState(false);
   const [recipientSearch, setRecipientSearch] = useState("");
   const [oneNetworkListExpanded, setOneNetworkListExpanded] = useState(false);
@@ -1482,6 +1534,9 @@ function OneLocationAgentPageContent() {
     Record<string, PlainLocationPoint>
   >({});
   const [openedGrantTick, setOpenedGrantTick] = useState(0);
+  // Bumped whenever the recipient unwatches a share, so the memoized
+  // "Shared with me" list recomputes immediately.
+  const [unwatchedTick, setUnwatchedTick] = useState(0);
   const [focusedSection, setFocusedSection] =
     useState<OneLocationFocusTarget | null>(null);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
@@ -1575,26 +1630,36 @@ function OneLocationAgentPageContent() {
       ),
     [auth.userId, state?.requests],
   );
+  // Every ACTIVE received share is shown inline in "Shared with me" so the
+  // recipient can view the live map directly - opening a notification is a
+  // convenience deep-link, NOT a requirement. Shares the recipient explicitly
+  // "unwatched" are hidden. Terminal (revoked/expired) grants are never listed
+  // here (the backend keeps them for ~12h for history only).
   const visibleReceivedGrants = useMemo(() => {
     void openedGrantTick;
-    return (state?.receivedGrants ?? []).filter((grant) =>
-      isOneLocationGrantOpened(auth.userId, grant.id),
+    void unwatchedTick;
+    return (state?.receivedGrants ?? []).filter(
+      (grant) =>
+        grant.status === "active" &&
+        !isOneLocationGrantUnwatched(auth.userId, grant.id),
     );
-  }, [auth.userId, openedGrantTick, state?.receivedGrants]);
+  }, [auth.userId, openedGrantTick, unwatchedTick, state?.receivedGrants]);
   const activeOwnerGrants = useMemo(
     () =>
       (state?.ownerGrants ?? []).filter((grant) => grant.status === "active"),
     [state?.ownerGrants],
   );
-  const activeVisibleReceivedGrants = useMemo(
-    () => visibleReceivedGrants.filter((grant) => grant.status === "active"),
-    [visibleReceivedGrants],
-  );
-  const hiddenReceivedGrantCount = (state?.receivedGrants ?? []).filter(
-    (grant) =>
-      grant.status === "active" &&
-      !isOneLocationGrantOpened(auth.userId, grant.id),
-  ).length;
+  const activeVisibleReceivedGrants = visibleReceivedGrants;
+  // Active shares the recipient unwatched (hidden locally). Used only to tailor
+  // the empty-state copy.
+  const unwatchedActiveReceivedGrantCount = useMemo(() => {
+    void unwatchedTick;
+    return (state?.receivedGrants ?? []).filter(
+      (grant) =>
+        grant.status === "active" &&
+        isOneLocationGrantUnwatched(auth.userId, grant.id),
+    ).length;
+  }, [auth.userId, unwatchedTick, state?.receivedGrants]);
   const activePublicInvites = useMemo(
     () =>
       (state?.publicInvites ?? []).filter(
@@ -1650,22 +1715,42 @@ function OneLocationAgentPageContent() {
         public_responses: publicResponsesSectionRef,
         activity: activitySectionRef,
       };
-      window.setTimeout(() => {
+      // Every deep-link focus target (Shared with me, Approvals, My requests,
+      // etc.) lives inside the "Activity & Links" tab. The default tab is
+      // "compose", where those sections render inside a `hidden` container, so
+      // scrollIntoView would silently no-op. Switch to the Activity tab first,
+      // then wait for the section to become visible (offsetParent !== null)
+      // before scrolling — retrying a few frames to cover the tab transition.
+      setLocationTab("activity");
+
+      let attempts = 0;
+      const tryScroll = () => {
         const element = sectionRefs[target]?.current;
-        if (!element) return;
-        element.scrollIntoView({ behavior: "smooth", block: "start" });
-        element.focus({ preventScroll: true });
-        setFocusedSection(target);
-        if (focusClearRef.current) {
-          window.clearTimeout(focusClearRef.current);
+        const isVisible = Boolean(element && element.offsetParent !== null);
+        if (element && isVisible) {
+          element.scrollIntoView({ behavior: "smooth", block: "start" });
+          element.focus({ preventScroll: true });
+          setFocusedSection(target);
+          if (focusClearRef.current) {
+            window.clearTimeout(focusClearRef.current);
+          }
+          focusClearRef.current = window.setTimeout(() => {
+            setFocusedSection((current) =>
+              current === target ? null : current,
+            );
+          }, 2200);
+          return;
         }
-        focusClearRef.current = window.setTimeout(() => {
-          setFocusedSection((current) => (current === target ? null : current));
-        }, 2200);
-      }, 80);
+        attempts += 1;
+        if (attempts <= 12) {
+          window.setTimeout(tryScroll, 80);
+        }
+      };
+      window.setTimeout(tryScroll, 80);
     },
-    [],
+    [setLocationTab],
   );
+
 
   const sectionFocusClassName = useCallback(
     (target: OneLocationFocusTarget) =>
@@ -2095,6 +2180,47 @@ function OneLocationAgentPageContent() {
       return;
     }
 
+    const introSeen =
+      typeof window !== "undefined" &&
+      window.localStorage.getItem(
+        `one_location_onboarding_v1:${auth.userId}`,
+      ) === "1";
+    // Re-show the permission screen only when location is *actionably* off:
+    // the phone Location switch is disabled, or the user explicitly denied /
+    // restricted access. Neutral states ("prompt" = never asked yet, or
+    // "unavailable" = web Permissions API can't determine state) must NOT trap
+    // the user on the permission screen — they can use the app, see their
+    // circle, and grant access at the moment they actually share.
+    const deviceLocationBlocked =
+      isLocationServicesDisabled(permission) ||
+      permission?.state === "denied" ||
+      permission?.state === "restricted";
+
+    // The marketing intro screen only ever shows once per user (persisted in
+    // localStorage). After that, the second "Allow location" screen is driven
+    // purely by the real device location state: it re-appears only when access
+    // is explicitly off / blocked, and stays hidden otherwise.
+    if (introSeen) {
+      // If onboarding is already visible (the user is mid-flow, e.g. just
+      // advanced from the intro to the permission step), never auto-hide or
+      // redirect — let them finish the current step. Dismissal happens through
+      // the flow's own handlers. Device-state-driven (re)appearance only
+      // applies on a fresh load when onboarding is not already showing.
+      if (locationOnboardingGate === "show") {
+        return;
+      }
+      if (deviceLocationBlocked) {
+        setLocationOnboardingStep("permission");
+        setLocationOnboardingGate("show");
+        return;
+      }
+      setLocationOnboardingGate("hidden");
+      return;
+    }
+
+
+
+
     if (locationOnboardingGate !== "show") {
       setLocationOnboardingStep("intro");
     }
@@ -2104,8 +2230,10 @@ function OneLocationAgentPageContent() {
     auth.userId,
     loadError,
     locationOnboardingGate,
+    permission,
     vaultOwnerToken,
   ]);
+
 
   useEffect(() => {
     return () => {
@@ -2219,6 +2347,37 @@ function OneLocationAgentPageContent() {
   }, [auth.userId]);
 
   useEffect(() => {
+    if (!auth.userId || typeof window === "undefined") return;
+    const handleGrantUnwatched = (event: Event) => {
+      const detail =
+        (event as CustomEvent<{ userId?: string; grantId?: string }>).detail ||
+        {};
+      if (detail.userId && detail.userId !== auth.userId) return;
+      setUnwatchedTick((value) => value + 1);
+      // Drop any decrypted map point for the unwatched grant immediately.
+      const grantId = String(detail.grantId || "").trim();
+      if (grantId) {
+        setDecryptedPoints((current) => {
+          if (!(grantId in current)) return current;
+          const next = { ...current };
+          delete next[grantId];
+          return next;
+        });
+      }
+    };
+    window.addEventListener(
+      ONE_LOCATION_GRANT_UNWATCHED_EVENT,
+      handleGrantUnwatched,
+    );
+    return () => {
+      window.removeEventListener(
+        ONE_LOCATION_GRANT_UNWATCHED_EVENT,
+        handleGrantUnwatched,
+      );
+    };
+  }, [auth.userId]);
+
+  useEffect(() => {
     if (!auth.userId || !state?.receivedGrants?.length) return;
     for (const grant of state.receivedGrants) {
       if (grant.status !== "active") continue;
@@ -2278,7 +2437,30 @@ function OneLocationAgentPageContent() {
       }
     }
 
+    // Owners who currently have an ACTIVE share with me. When a person re-shares
+    // their location within an existing window, the backend silently supersedes
+    // the prior grant (sets it to "revoked" with NO push), so a stale
+    // revoked/expired row sits alongside a fresh active one. We must NOT raise a
+    // "location removed" / "expired" notification in that case - it is the core
+    // source of the false "location removed by this user" spam. Only notify when
+    // the owner has genuinely stopped sharing (no active grant remains).
+    const ownersWithActiveReceivedGrant = new Set(
+      (state.receivedGrants ?? [])
+        .filter((grant) => grant.status === "active")
+        .map((grant) => String(grant.ownerUserId || "").trim())
+        .filter(Boolean),
+    );
     for (const grant of state.receivedGrants ?? []) {
+      const ownerId = String(grant.ownerUserId || "").trim();
+      const supersededByNewerShare =
+        Boolean(ownerId) && ownersWithActiveReceivedGrant.has(ownerId);
+      // A recipient who unwatched this share does not want any follow-up noise.
+      const recipientUnwatched = isOneLocationGrantUnwatched(
+        auth.userId,
+        grant.id,
+      );
+      if (supersededByNewerShare || recipientUnwatched) continue;
+
       if (grant.status === "revoked") {
         showWorkflowToast({
           notificationType: "location_share_revoked",
@@ -2541,6 +2723,52 @@ function OneLocationAgentPageContent() {
     },
     [viewGrantEnvelope],
   );
+
+  // Recipient-side "Unwatch": locally hide a received share so it stops
+  // appearing in "Shared with me" and stops surfacing notifications. The owner's
+  // grant is unaffected server-side (a recipient cannot revoke it); the backend
+  // continues to enforce real access. The choice persists across refreshes.
+  const handleUnwatch = useCallback(
+    (grant: OneLocationGrant) => {
+      if (!auth.userId) return;
+      markOneLocationGrantUnwatched(auth.userId, grant.id);
+      // Optimistically reflect the change even before the event listener fires.
+      setUnwatchedTick((value) => value + 1);
+      setDecryptedPoints((current) => {
+        if (!(grant.id in current)) return current;
+        const next = { ...current };
+        delete next[grant.id];
+        return next;
+      });
+      toast.success(
+        `Stopped watching ${receivedGrantOwnerLabel(grant)}'s location.`,
+      );
+    },
+    [auth.userId],
+  );
+
+  // When a received grant is revoked or expires, immediately drop its decrypted
+  // map point so the "Shared with me" map view for that person disappears.
+  useEffect(() => {
+    const activeGrantIds = new Set(
+      (state?.receivedGrants ?? [])
+        .filter((grant) => grant.status === "active")
+        .map((grant) => grant.id),
+    );
+    setDecryptedPoints((current) => {
+      const next: Record<string, PlainLocationPoint> = {};
+      let changed = false;
+      for (const [grantId, point] of Object.entries(current)) {
+        if (activeGrantIds.has(grantId)) {
+          next[grantId] = point;
+        } else {
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [state?.receivedGrants]);
+
 
   useEffect(() => {
     if (!vaultOwnerToken || !activeOwnerGrants.length) return;
@@ -3394,13 +3622,31 @@ function OneLocationAgentPageContent() {
   }, [ensureForegroundLocationReady]);
 
   const dismissLocationOnboarding = useCallback(() => {
+    // Persist that onboarding is complete so the one-time marketing intro never
+    // shows again for this user; only the location-permission screen can
+    // re-appear, and only when device location is actually off. We persist on
+    // dismissal/completion (not when merely advancing to the permission step)
+    // so a partially-seen flow still re-shows next time.
+    if (typeof window !== "undefined" && auth.userId) {
+      try {
+        window.localStorage.setItem(
+          `one_location_onboarding_v1:${auth.userId}`,
+          "1",
+        );
+      } catch {
+        // localStorage may be unavailable (private mode); intro will simply
+        // show again next time, which is acceptable.
+      }
+    }
     setLocationOnboardingGate("hidden");
     setLocationOnboardingBusy(false);
-  }, []);
+  }, [auth.userId]);
 
   const handleContinueLocationOnboardingIntro = useCallback(() => {
     setLocationOnboardingStep("permission");
   }, []);
+
+
 
   const handleSkipLocationOnboarding = useCallback(() => {
     dismissLocationOnboarding();
@@ -3563,9 +3809,51 @@ function OneLocationAgentPageContent() {
           <OneLocationInitialSkeleton />
         ) : (
           <div className="flex min-w-0 max-w-full flex-col gap-6">
-            <div className="min-w-0 max-w-full space-y-7">
+            <div className="px-1">
+              <SegmentedTabs
+                value={locationTab}
+                onValueChange={(value) =>
+                  setLocationTab(normalizeLocationTab(value))
+                }
+                options={
+                  pendingOwnerRequests.length
+                    ? LOCATION_TAB_OPTIONS.map((option) =>
+                        option.value === "activity"
+                          ? {
+                              ...option,
+                              label: `${option.label} (${pendingOwnerRequests.length})`,
+                            }
+                          : option,
+                      )
+                    : LOCATION_TAB_OPTIONS
+                }
+              />
+            </div>
+            {pendingOwnerRequests.length && locationTab !== "activity" ? (
+              <button
+                type="button"
+                onClick={() => setLocationTab("activity")}
+                className="mx-1 flex items-center gap-2 rounded-[14px] border border-[#ff3b30]/30 bg-[#ff3b30]/10 px-3.5 py-2.5 text-left text-[13px] font-semibold text-[#b42318] transition-colors hover:bg-[#ff3b30]/15 dark:text-[#ff9f9a]"
+              >
+                <UserRoundCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="min-w-0 flex-1">
+                  {pendingOwnerRequests.length === 1
+                    ? "1 person is waiting for you to approve their location request."
+                    : `${pendingOwnerRequests.length} people are waiting for you to approve their location requests.`}
+                </span>
+                <span className="shrink-0 underline">Review</span>
+              </button>
+            ) : null}
+
+            <div
+              className={cn(
+                "min-w-0 max-w-full space-y-7",
+                locationTab === "compose" ? "" : "hidden",
+              )}
+            >
               <section className="min-w-0 max-w-full space-y-2 px-1">
                 {sectionLabel("Device readiness")}
+
                 <div
                   className={cn(
                     "flex min-w-0 max-w-full flex-col items-center gap-3 overflow-hidden rounded-[20px] border px-4 py-4 text-center shadow-sm sm:flex-row sm:justify-between sm:text-left",
@@ -3657,9 +3945,13 @@ function OneLocationAgentPageContent() {
 
                   {myLocationPoint ? (
                     <div className="px-3.5 pb-3.5">
-                      <LocalMapPreview point={myLocationPoint} />
+                      <LocalMapPreview
+                        point={myLocationPoint}
+                        showNavigation={false}
+                      />
                     </div>
                   ) : null}
+
                 </div>
               </section>
 
@@ -4041,15 +4333,27 @@ function OneLocationAgentPageContent() {
                             )} selected for approval-first requests.`
                           : "Select one or more One users before requesting location access."}
                       </p>
-                      <Textarea
-                        value={requestMessage}
-                        onChange={(event) =>
-                          setRequestMessage(event.target.value)
-                        }
-                        placeholder="Optional reason"
-                        rows={3}
-                        className="rounded-[14px] border-black/[0.04] bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.07]"
-                      />
+                      <div className="space-y-1">
+                        <Textarea
+                          value={requestMessage}
+                          onChange={(event) =>
+                            setRequestMessage(
+                              event.target.value.slice(
+                                0,
+                                REQUEST_MESSAGE_MAX_LENGTH,
+                              ),
+                            )
+                          }
+                          placeholder="Optional reason"
+                          rows={3}
+                          maxLength={REQUEST_MESSAGE_MAX_LENGTH}
+                          className="rounded-[14px] border-black/[0.04] bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.07]"
+                        />
+                        <p className="px-1 text-right text-[11px] font-medium text-[#8e8e93] dark:text-white/45">
+                          {requestMessage.length}/{REQUEST_MESSAGE_MAX_LENGTH}
+                        </p>
+                      </div>
+
                       <ActionButton
                         busy={busy}
                         busyKey="request"
@@ -4069,8 +4373,14 @@ function OneLocationAgentPageContent() {
               </section>
             </div>
 
-            <div className="min-w-0 max-w-full space-y-6">
+            <div
+              className={cn(
+                "min-w-0 max-w-full space-y-6",
+                locationTab === "activity" ? "" : "hidden",
+              )}
+            >
               {SHOW_LOCATION_ACTIVITY_SECTION ? (
+
                 <section
                   ref={activitySectionRef}
                   tabIndex={-1}
@@ -4444,20 +4754,32 @@ function OneLocationAgentPageContent() {
                               </div>
                             </div>
                             {grant.status === "active" ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => void handleView(grant)}
-                                disabled={busy === "view"}
-                                className="w-full rounded-full border-black/[0.06] bg-[#f2f2f7] text-[#1c1c1e] hover:bg-white hover:text-[#1c1c1e] sm:w-auto dark:border-white/[0.08] dark:bg-white/10 dark:text-white dark:hover:bg-white/15 dark:hover:text-white"
-                              >
-                                {busy === "view" ? (
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                  <ShieldCheck className="mr-2 h-4 w-4" />
-                                )}
-                                View
-                              </Button>
+                              <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => void handleView(grant)}
+                                  disabled={busy === "view"}
+                                  className="w-full rounded-full border-black/[0.06] bg-[#f2f2f7] text-[#1c1c1e] hover:bg-white hover:text-[#1c1c1e] sm:w-auto dark:border-white/[0.08] dark:bg-white/10 dark:text-white dark:hover:bg-white/15 dark:hover:text-white"
+                                >
+                                  {busy === "view" ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <ShieldCheck className="mr-2 h-4 w-4" />
+                                  )}
+                                  View
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  aria-label={`Stop watching ${receivedGrantOwnerLabel(grant)}'s location`}
+                                  onClick={() => handleUnwatch(grant)}
+                                  className="w-full rounded-full border-black/[0.06] bg-transparent text-[#8e8e93] hover:bg-[#ff3b30]/10 hover:text-[#ff3b30] sm:w-auto dark:border-white/[0.08] dark:text-white/55 dark:hover:bg-[#ff453a]/15 dark:hover:text-[#ff9f9a]"
+                                >
+                                  <X className="mr-2 h-4 w-4" />
+                                  Unwatch
+                                </Button>
+                              </div>
                             ) : null}
                           </div>
                           {point ? (
@@ -4472,14 +4794,14 @@ function OneLocationAgentPageContent() {
                     <EmptyOneState
                       icon={MapPin}
                       title={
-                        hiddenReceivedGrantCount > 0
-                          ? "Open notification to view"
+                        unwatchedActiveReceivedGrantCount > 0
+                          ? "You unwatched your active shares"
                           : "Nothing shared with you"
                       }
                       description={
-                        hiddenReceivedGrantCount > 0
-                          ? "A location share is waiting in the notification bell."
-                          : "Approved recipient grants appear after you open their notification."
+                        unwatchedActiveReceivedGrantCount > 0
+                          ? "Refresh to start watching a hidden share again, or ask them to re-share."
+                          : "When someone shares their live location with you, it appears here automatically - no need to open a notification."
                       }
                     />
                   )}
