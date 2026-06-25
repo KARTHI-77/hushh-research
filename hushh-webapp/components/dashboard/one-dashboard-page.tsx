@@ -192,7 +192,14 @@ export function OneDashboardPage({
       .trim()
       .split(/\s+/)[0] || "there";
   const modes = buildModes(capabilityStatusById);
-  const pendingConsents = capabilityStatusById.consent?.pendingCount ?? 0;
+  const consentStatus = capabilityStatusById.consent;
+  const pendingConsents = consentStatus?.pendingCount ?? 0;
+  // Only make a positive "no pending consents" claim once consent is actually
+  // resolved (set up). While the state is still unknown/blocked we stay silent
+  // rather than implying an all-clear.
+  const consentResolved =
+    consentStatus?.state === "completed" ||
+    consentStatus?.state === "needs-attention";
   const hasSetupRemaining = Object.values(capabilityStatusById).some((status) =>
     isCapabilitySetupActionable(status),
   );
@@ -233,6 +240,10 @@ export function OneDashboardPage({
               {pendingConsents > 0 ? (
                 <Badge variant="secondary" className="w-fit whitespace-nowrap">
                   {`${pendingConsents} consent${pendingConsents === 1 ? "" : "s"} pending`}
+                </Badge>
+              ) : consentResolved ? (
+                <Badge variant="secondary" className="w-fit whitespace-nowrap">
+                  No pending consents
                 </Badge>
               ) : null}
             </span>
