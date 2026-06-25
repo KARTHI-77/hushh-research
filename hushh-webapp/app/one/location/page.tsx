@@ -148,6 +148,15 @@ const DURATION_OPTIONS = [
 const LIVE_LOCATION_UPDATE_INTERVAL_MS = 20_000;
 const LIVE_LOCATION_STALE_THRESHOLD_MS = LIVE_LOCATION_UPDATE_INTERVAL_MS * 3;
 const FOREGROUND_RETRY_DELAYS_MS = [450, 900] as const;
+// True live tracking: while a share is active and the app is foregrounded, the
+// owner subscribes to a continuous geolocation watch and publishes a fresh
+// encrypted envelope as soon as they MOVE at least this far. The min publish
+// interval prevents flooding the network when GPS jitters or the user moves
+// fast; the 20s interval above stays as a stationary heartbeat so a standing
+// user's point never goes stale.
+const LIVE_LOCATION_MIN_MOVE_METERS = 25;
+const LIVE_LOCATION_MIN_PUBLISH_INTERVAL_MS = 8_000;
+
 const ONE_NETWORK_PREVIEW_LIMIT = 3;
 const REQUEST_MESSAGE_MAX_LENGTH = 80;
 
@@ -681,6 +690,27 @@ function isLocationPointStale(point: PlainLocationPoint): boolean {
   if (!Number.isFinite(capturedAt)) return false;
   return Date.now() - capturedAt > LIVE_LOCATION_STALE_THRESHOLD_MS;
 }
+
+// Great-circle distance in metres between two points (Haversine). Used to decide
+// whether the owner has actually MOVED enough to warrant publishing a fresh
+// encrypted live-location update, so the watch stream doesn't flood the network
+// on GPS jitter while standing still.
+function locationDistanceMeters(
+  from: PlainLocationPoint,
+  to: PlainLocationPoint,
+): number {
+  const earthRadiusM = 6_371_000;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(to.latitude - from.latitude);
+  const dLon = toRad(to.longitude - from.longitude);
+  const lat1 = toRad(from.latitude);
+  const lat2 = toRad(to.latitude);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * earthRadiusM * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
 
 function formatLocationCoordinate(value: number): string {
   return Number.isFinite(value) ? value.toFixed(6) : "0.000000";
@@ -1714,6 +1744,13 @@ function OneLocationAgentPageContent() {
   const livePublishInFlightRef = useRef(false);
   const liveViewInFlightRef = useRef(false);
   const suppressAutoRecipientSelectionRef = useRef(false);
+  // Continuous movement-driven live tracking (owner side). Holds the active
+  // geolocation watch id, the last point we actually published (to measure
+  // movement), and the timestamp of that publish (to throttle bursts).
+  const liveWatchIdRef = useRef<string | null>(null);
+  const lastPublishedPointRef = useRef<PlainLocationPoint | null>(null);
+  const lastWatchPublishAtRef = useRef(0);
+
 
   const recipients = useMemo(
     () => state?.recipients ?? [],
@@ -2992,9 +3029,119 @@ function OneLocationAgentPageContent() {
     vaultOwnerToken,
   ]);
 
+  // True LIVE tracking (owner side): while a share is active and the app is in
+  // the foreground, subscribe to a continuous geolocation watch and re-publish
+  // an encrypted envelope to every active grant as soon as the owner MOVES
+  // (>= LIVE_LOCATION_MIN_MOVE_METERS), throttled so GPS jitter / fast motion
+  // can't flood the network. This complements the 20s heartbeat above: standing
+  // still keeps the point fresh via the interval, while walking/driving streams
+  // movement updates so recipients watch the dot move in near real time. The
+  // watch is foreground-only and cleans up on unmount or when sharing stops.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!vaultOwnerToken || !activeOwnerGrants.length) return;
+    if (
+      permission?.state === "denied" ||
+      permission?.state === "restricted" ||
+      permission?.state === "unavailable"
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    lastPublishedPointRef.current = null;
+    lastWatchPublishAtRef.current = 0;
+
+    const publishMovement = async (point: PlainLocationPoint) => {
+      if (cancelled) return;
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState === "hidden"
+      ) {
+        return;
+      }
+      if (livePublishInFlightRef.current) return;
+
+      const now = Date.now();
+      const previous = lastPublishedPointRef.current;
+      const movedMeters = previous
+        ? locationDistanceMeters(previous, point)
+        : Number.POSITIVE_INFINITY;
+      const sincePublishMs = now - lastWatchPublishAtRef.current;
+
+      // Always reflect movement in the owner's own live preview immediately.
+      setMyLocationPoint(point);
+
+      if (
+        previous &&
+        (movedMeters < LIVE_LOCATION_MIN_MOVE_METERS ||
+          sincePublishMs < LIVE_LOCATION_MIN_PUBLISH_INTERVAL_MS)
+      ) {
+        return;
+      }
+
+      livePublishInFlightRef.current = true;
+      try {
+        for (const grant of activeOwnerGrants) {
+          const recipient = recipientForGrant(grant);
+          if (!recipient?.keyId || !recipient.publicKeyJwk) continue;
+          await publishEnvelopeWithRetry(
+            grant,
+            recipient,
+            "foreground_interval",
+            point,
+          );
+        }
+        lastPublishedPointRef.current = point;
+        lastWatchPublishAtRef.current = Date.now();
+      } catch (error) {
+        console.warn(
+          "[OneLocationAgent] Live movement update skipped:",
+          error,
+        );
+      } finally {
+        livePublishInFlightRef.current = false;
+      }
+    };
+
+    void (async () => {
+      try {
+        const watchId = await OneLocationService.watchCurrentPosition(
+          (point) => void publishMovement(point),
+          (error) => {
+            console.warn("[OneLocationAgent] Live watch error:", error.message);
+          },
+        );
+        if (cancelled) {
+          void OneLocationService.clearLocationWatch(watchId).catch(() => null);
+          return;
+        }
+        liveWatchIdRef.current = watchId;
+      } catch (error) {
+        console.warn("[OneLocationAgent] Could not start live watch:", error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      const watchId = liveWatchIdRef.current;
+      liveWatchIdRef.current = null;
+      if (watchId) {
+        void OneLocationService.clearLocationWatch(watchId).catch(() => null);
+      }
+    };
+  }, [
+    activeOwnerGrants,
+    permission?.state,
+    publishEnvelopeWithRetry,
+    recipientForGrant,
+    vaultOwnerToken,
+  ]);
+
   useEffect(() => {
     if (!activeVisibleReceivedGrants.length) return;
     if (busy && busy !== "load") return;
+
 
     const refreshVisibleGrants = async () => {
       if (liveViewInFlightRef.current) return;
