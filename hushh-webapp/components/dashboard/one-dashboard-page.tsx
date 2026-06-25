@@ -1,16 +1,9 @@
 import Link from "next/link";
 import {
   BrainCircuit,
-  ChartNoAxesCombined,
   ChevronRight,
-  Database,
-  FolderSearch,
   LayoutDashboard,
-  Mail,
-  MailCheck,
-  MapPin,
   Shield,
-  ShieldCheck,
   Workflow,
   type LucideIcon,
 } from "lucide-react";
@@ -23,9 +16,8 @@ import {
 import { PageHeader, SectionHeader } from "@/components/app-ui/page-sections";
 import { SurfaceStack } from "@/components/app-ui/surfaces";
 import { Badge } from "@/components/ui/badge";
-import { buildConsentCenterHref } from "@/lib/consent/consent-sheet-route";
+import { ONE_CAPABILITIES } from "@/lib/onboarding/one-capabilities";
 import { MaterialRipple } from "@/lib/morphy-ux/material-ripple";
-import { ROUTES } from "@/lib/navigation/routes";
 import { cn } from "@/lib/utils";
 
 type OneDashboardMode = {
@@ -102,85 +94,42 @@ function buildModes(
 ): OneDashboardMode[] {
   const oneSetup = resolveOneSetupStatus(oneSetupResolved);
 
-  return [
-    {
-      id: "finance",
-      title: "Finance",
-      description: "Kai market, portfolio, analysis, and RIA handoff.",
-      href: ROUTES.KAI_HOME,
-      icon: ChartNoAxesCombined,
-      status: oneSetup.status,
-      setupState: oneSetup.setupState,
-      tone: "finance",
-      group: "workflow",
-    },
-    {
-      id: "gmail",
-      title: "Gmail",
-      description: "Receipt sync and purchase-memory review.",
-      href: ROUTES.GMAIL,
-      icon: Mail,
-      status: "Setup needed",
-      setupState: "setup",
-      tone: "gmail",
-      group: "memory",
-    },
-    {
-      id: "email",
-      title: "Email",
-      description: "Approval drafts and client request workflows.",
-      href: ROUTES.ONE_KYC,
-      icon: MailCheck,
-      status: "Ready",
-      setupState: "ready",
-      tone: "email",
-      group: "workflow",
-    },
-    {
-      id: "location",
-      title: "Location",
-      description: "Live sharing, referrals, and local context.",
-      href: ROUTES.ONE_LOCATION,
-      icon: MapPin,
-      status: "Ready",
-      setupState: "ready",
-      tone: "location",
-      group: "workflow",
-    },
-    {
-      id: "pkm",
-      title: "Personal Data",
-      description: "Saved knowledge and information you can review.",
-      href: ROUTES.PKM,
-      icon: FolderSearch,
-      status: "Ready",
-      setupState: "ready",
-      tone: "pkm",
-      group: "memory",
-    },
-    {
-      id: "consent",
-      title: "Consent Guardian",
-      description: "Access requests, approvals, and revocations.",
-      href: buildConsentCenterHref("pending"),
-      icon: ShieldCheck,
+  // Per-tile runtime status lives here; stable identity (title/desc/href/icon/
+  // tone/group) comes from the shared ONE_CAPABILITIES catalog so the dashboard
+  // and the pre-auth onboarding preview can never drift.
+  const runtimeById: Record<
+    string,
+    Pick<OneDashboardMode, "status" | "setupState">
+  > = {
+    finance: { status: oneSetup.status, setupState: oneSetup.setupState },
+    gmail: { status: "Setup needed", setupState: "setup" },
+    email: { status: "Ready", setupState: "ready" },
+    location: { status: "Ready", setupState: "ready" },
+    pkm: { status: "Ready", setupState: "ready" },
+    consent: {
       status: pendingConsents > 0 ? `${pendingConsents} pending` : "Ready",
       setupState: pendingConsents > 0 ? "attention" : "ready",
-      tone: "consent",
-      group: "access",
     },
-    {
-      id: "connected-systems",
-      title: "Connected Systems",
-      description: "Approved CRM reads and writes.",
-      href: ROUTES.CONNECTED_SYSTEMS,
-      icon: Database,
-      status: "Setup needed",
-      setupState: "setup",
-      tone: "connected",
-      group: "workflow",
-    },
-  ];
+    "connected-systems": { status: "Setup needed", setupState: "setup" },
+  };
+
+  return ONE_CAPABILITIES.map((cap) => {
+    const runtime = runtimeById[cap.id] ?? {
+      status: "Ready",
+      setupState: "ready" as const,
+    };
+    return {
+      id: cap.id,
+      title: cap.title,
+      description: cap.description,
+      href: cap.href,
+      icon: cap.icon,
+      status: runtime.status,
+      setupState: runtime.setupState,
+      tone: cap.tone,
+      group: cap.group,
+    };
+  });
 }
 
 function ModeTile({

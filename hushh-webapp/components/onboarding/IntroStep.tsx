@@ -9,43 +9,59 @@ import {
   kaiAppHeroTitleClassName,
 } from "@/components/kai/shared/kai-typography";
 
-function ShieldBadgeIcon(props: SVGProps<SVGSVGElement>) {
+// Vault — a private space only you can open (BYOK, encrypted even from us).
+function VaultLockIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <path d="M12 2.5 4.5 5.3v5.8c0 4.7 3.2 7.3 7.5 8.5 4.3-1.2 7.5-3.8 7.5-8.5V5.3L12 2.5Z" />
+      <rect x="4.2" y="10.2" width="15.6" height="11" rx="3.2" />
       <path
-        d="m8.4 12 2.3 2.3 4.9-4.9"
+        d="M7.6 10V7.6a4.4 4.4 0 0 1 8.8 0V10"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="2"
+      />
+      <circle cx="12" cy="15" r="1.7" fill="#ffffff" />
+      <path
+        d="M12 15.6v2.1"
         fill="none"
         stroke="#ffffff"
         strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2.2"
+        strokeWidth="2"
       />
     </svg>
   );
 }
 
-function HoldingsBarsIcon(props: SVGProps<SVGSVGElement>) {
+// Finance — One's money capability (Kai). Generic, explains a sub-app.
+function FinanceCapabilityIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <rect x="3.8" y="13.3" width="4.2" height="7.1" rx="1.3" />
-      <rect x="9.9" y="8.8" width="4.2" height="11.6" rx="1.3" />
-      <rect x="16" y="3.6" width="4.2" height="16.8" rx="1.3" />
-    </svg>
-  );
-}
-
-function SignalPulseIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <circle cx="12" cy="12" r="9.8" />
+      <circle cx="12" cy="12" r="9.5" />
       <path
-        d="M6.3 12h2.2l1.7-3.5 2.5 6.5 1.9-3h3.1"
+        d="M12 6.8v10.4M9.4 9.2c0-1.2 1.1-1.9 2.6-1.9s2.6.7 2.6 1.8c0 2.6-5.2 1.4-5.2 4 0 1.2 1.1 1.9 2.6 1.9s2.6-.7 2.6-1.9"
         fill="none"
         stroke="#ffffff"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="1.9"
+        strokeWidth="1.7"
+      />
+    </svg>
+  );
+}
+
+// Gmail / inbox — One's email capability. Generic, explains a sub-app.
+function InboxCapabilityIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+      <rect x="3.2" y="5.4" width="17.6" height="13.2" rx="3" />
+      <path
+        d="m4.6 7.6 7.4 5.3 7.4-5.3"
+        fill="none"
+        stroke="#ffffff"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
       />
     </svg>
   );
@@ -58,21 +74,21 @@ const INTRO_FEATURES: Array<{
   tone: "green" | "blue" | "orange";
 }> = [
   {
-    icon: ShieldBadgeIcon,
-    title: "Verified in minutes",
-    subtitle: "Seamless KYC, no paperwork",
-    tone: "green",
-  },
-  {
-    icon: HoldingsBarsIcon,
-    title: "Top holdings, at a glance",
-    subtitle: "Your portfolio, always live",
+    icon: VaultLockIcon,
+    title: "A vault only you can open",
+    subtitle: "Encrypted end to end — even from us",
     tone: "blue",
   },
   {
-    icon: SignalPulseIcon,
-    title: "Buy, sell, hold",
-    subtitle: "Clear signals when they matter",
+    icon: FinanceCapabilityIcon,
+    title: "Finance, made personal",
+    subtitle: "Track and act on your money with Kai",
+    tone: "green",
+  },
+  {
+    icon: InboxCapabilityIcon,
+    title: "Connect Gmail and more",
+    subtitle: "One works across your apps, with consent",
     tone: "orange",
   },
 ];
@@ -113,13 +129,13 @@ export function IntroStep({
             <div
               role="heading"
               aria-level={1}
-              aria-label="Meet One, Your Personal Financial Advisor"
+              aria-label="Meet One, a memory that's only yours"
               className={`relative mt-2.5 ${kaiAppHeroTitleClassName} text-[#1d1d1f] dark:text-[#f5f5f7]`}
             >
               Meet <OneLockup />
             </div>
             <p className={`relative mt-3 ${kaiAppHeroBodyClassName} text-[rgba(0,0,0,0.56)] dark:text-[rgba(245,245,247,0.60)]`}>
-              Your personal financial advisor.
+              A memory that&apos;s only yours.
             </p>
           </section>
 

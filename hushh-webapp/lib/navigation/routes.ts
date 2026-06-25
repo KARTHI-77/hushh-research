@@ -8,6 +8,7 @@ export const ROUTES = {
   ONE_HOME: "/one",
   DEVELOPERS: "/developers",
   LOGIN: "/login",
+  GETTING_STARTED: "/getting-started",
   LOGOUT: "/logout",
   PHONE_MANDATE: "/register-phone",
   LABS_PROFILE_APPEARANCE: "/labs/profile-appearance",
@@ -233,6 +234,7 @@ export function isPublicRoute(pathname: string): boolean {
     pathname === ROUTES.HOME ||
     pathname === ROUTES.DEVELOPERS ||
     pathname === ROUTES.LOGIN ||
+    pathname === ROUTES.GETTING_STARTED ||
     pathname === ROUTES.PHONE_MANDATE ||
     pathname === ROUTES.LOGOUT ||
     pathname === ROUTES.PROFILE ||

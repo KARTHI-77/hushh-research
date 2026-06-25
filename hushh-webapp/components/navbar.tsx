@@ -26,7 +26,7 @@ import {
 
 import { useAuth } from "@/hooks/use-auth";
 import { useOptionalAgentPopover } from "@/components/agent/agent-popover-provider";
-import { ThemeToggleCompact } from "@/components/theme-toggle";
+import { ThemeToggleLean } from "@/components/theme-toggle";
 import { useConsentPendingSummaryCount } from "@/lib/consent/use-consent-pending-summary-count";
 import { useKaiSession } from "@/lib/stores/kai-session-store";
 import { getKaiChromeState } from "@/lib/navigation/kai-chrome-state";
@@ -314,7 +314,7 @@ export const Navbar = () => {
         }}
       >
         <div ref={pillRef} className="pointer-events-auto">
-          <ThemeToggleCompact />
+          <ThemeToggleLean className="w-[162px] sm:w-[240px]" />
         </div>
       </nav>
     );

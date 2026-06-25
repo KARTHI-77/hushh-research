@@ -576,7 +576,7 @@ export function AuthStep({
             Sign in to <OneLockup />
           </div>
           <p className={`mx-auto mt-3 max-w-[20rem] ${kaiAppHeroBodyClassName} text-[rgba(0,0,0,0.56)] dark:text-[rgba(245,245,247,0.60)]`}>
-            Continue to your personal financial advisor.
+            Sign in to open your private vault — only you can.
           </p>
         </header>
 
@@ -597,10 +597,6 @@ export function AuthStep({
               />
             ))}
 
-            <p className="type-footnote mx-auto max-w-[18.75rem] pt-2 text-center text-[#86868b] dark:text-[#8e8e93]">
-              A verified phone number is required before you continue.
-            </p>
-
               {(reviewModeConfig.enabled ||
                 nativeReviewerVisible ||
                 localReviewerCredentialsAvailable ||
@@ -611,12 +607,16 @@ export function AuthStep({
                   onClick={handleReviewerLogin}
                 />
               )}
+
+            <p className="type-footnote mx-auto max-w-[18.75rem] pt-2 text-center text-[#86868b] dark:text-[#8e8e93]">
+              A verified phone number is required before you continue.
+            </p>
             </div>
           </section>
 
         <footer className="absolute inset-x-6 bottom-[calc(20px+var(--app-screen-footer-pad))] flex-none">
           <p className="type-footnote mx-auto max-w-[19.5rem] text-center text-[#86868b] dark:text-[#8e8e93]">
-            By continuing, you agree to Kai&apos;s{" "}
+            By continuing, you agree to One&apos;s{" "}
             <button
               type="button"
               onClick={() => openLegalDoc("terms")}
