@@ -8,6 +8,7 @@ export const ROUTES = {
   ONE_HOME: "/one",
   DEVELOPERS: "/developers",
   LOGIN: "/login",
+  GETTING_STARTED: "/getting-started",
   LOGOUT: "/logout",
   PHONE_MANDATE: "/register-phone",
   LABS_PROFILE_APPEARANCE: "/labs/profile-appearance",
@@ -17,6 +18,7 @@ export const ROUTES = {
   PROFILE_RECEIPTS: "/profile/receipts",
   PROFILE_GMAIL_OAUTH_RETURN: "/profile/gmail/oauth/return",
   ONE_ONBOARDING: "/one/onboarding",
+  ONE_SETUP: "/one/setup",
   GMAIL: "/one/gmail",
   PKM: "/one/pkm",
   CONNECTED_SYSTEMS: "/one/connected-systems",
@@ -109,6 +111,22 @@ export function buildOneOnboardingRoute(entries?: {
 }
 
 export const buildKaiOnboardingRoute = buildOneOnboardingRoute;
+
+/**
+ * Build a `/one/setup` hub route. A specific capability can be deep-linked via
+ * the `feature` query param (e.g. `/one/setup?feature=gmail`). Query-backed
+ * (not a `[feature]` path segment) so the Capacitor static export does not need
+ * `generateStaticParams` for every capability id.
+ */
+export function buildOneSetupRoute(entries?: {
+  feature?: string | null;
+  from?: string | null;
+}) {
+  return withQuery(ROUTES.ONE_SETUP, {
+    feature: entries?.feature,
+    from: normalizeInternalRouteHref(entries?.from),
+  });
+}
 
 export function buildProfileVaultRoute(returnTo?: string | null) {
   return withQuery(ROUTES.PROFILE, {
@@ -233,6 +251,7 @@ export function isPublicRoute(pathname: string): boolean {
     pathname === ROUTES.HOME ||
     pathname === ROUTES.DEVELOPERS ||
     pathname === ROUTES.LOGIN ||
+    pathname === ROUTES.GETTING_STARTED ||
     pathname === ROUTES.PHONE_MANDATE ||
     pathname === ROUTES.LOGOUT ||
     pathname === ROUTES.PROFILE ||

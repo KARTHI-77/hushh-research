@@ -69,7 +69,7 @@ import {
 import { ProfileKaiPreferencesPanel } from "@/components/profile/profile-kai-preferences-panel";
 import { ConnectedSystemsPanel } from "@/components/profile/connected-systems-panel";
 import { RuntimeSecretSettingsCard } from "@/components/profile/runtime-secret-settings-card";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeToggleLean } from "@/components/theme-toggle";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -3327,7 +3327,7 @@ function ProfilePageContent() {
           icon={Monitor}
           title="Appearance"
           description="Light, dark, or system."
-          trailing={<ThemeToggle className="w-full min-w-0 sm:w-[228px]" />}
+          trailing={<ThemeToggleLean className="w-full min-w-0 sm:w-[244px]" />}
           stackTrailingOnMobile
         />
         <SettingsRow

@@ -9,43 +9,82 @@ import {
   kaiAppHeroTitleClassName,
 } from "@/components/kai/shared/kai-typography";
 
-function ShieldBadgeIcon(props: SVGProps<SVGSVGElement>) {
+// Inner glyph detail is "knocked out" to the icon's tinted background instead
+// of solid white, so the cutout reads as transparent against each tone and
+// matches the page aesthetic. Falls back to white if the var is unavailable.
+const INTRO_ICON_KNOCKOUT = "var(--intro-feature-bg, #ffffff)";
+
+// Vault: a private space only you can open (BYOK, encrypted even from us).
+function VaultLockIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <path d="M12 2.5 4.5 5.3v5.8c0 4.7 3.2 7.3 7.5 8.5 4.3-1.2 7.5-3.8 7.5-8.5V5.3L12 2.5Z" />
+      <rect x="4.2" y="10.2" width="15.6" height="11" rx="3.2" />
       <path
-        d="m8.4 12 2.3 2.3 4.9-4.9"
+        d="M7.6 10V7.6a4.4 4.4 0 0 1 8.8 0V10"
         fill="none"
-        stroke="#ffffff"
+        stroke="currentColor"
         strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2.2"
+        strokeWidth="2"
+      />
+      <circle cx="12" cy="15" r="1.7" fill={INTRO_ICON_KNOCKOUT} />
+      <path
+        d="M12 15.6v2.1"
+        fill="none"
+        stroke={INTRO_ICON_KNOCKOUT}
+        strokeLinecap="round"
+        strokeWidth="2"
       />
     </svg>
   );
 }
 
-function HoldingsBarsIcon(props: SVGProps<SVGSVGElement>) {
+// Finance: One's money capability (Kai). Generic, explains a sub-app.
+// Drawn as a stroked coin + dollar glyph in the tone color (not a solid
+// filled disc) so it reads the same as the lock/mail glyphs and never looks
+// inverted next to them.
+function FinanceCapabilityIcon(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <rect x="3.8" y="13.3" width="4.2" height="7.1" rx="1.3" />
-      <rect x="9.9" y="8.8" width="4.2" height="11.6" rx="1.3" />
-      <rect x="16" y="3.6" width="4.2" height="16.8" rx="1.3" />
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <circle
+        cx="12"
+        cy="12"
+        r="9"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+      {/* Correctly-oriented dollar glyph (matches lucide CircleDollarSign). */}
+      <path
+        d="M15 9.2H10.6a1.9 1.9 0 0 0 0 3.8h2.8a1.9 1.9 0 0 1 0 3.8H8.8"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M12 7.2v9.6"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.7"
+      />
     </svg>
   );
 }
 
-function SignalPulseIcon(props: SVGProps<SVGSVGElement>) {
+// Gmail / inbox: One's email capability. Generic, explains a sub-app.
+function InboxCapabilityIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <circle cx="12" cy="12" r="9.8" />
+      <rect x="3.2" y="5.4" width="17.6" height="13.2" rx="3" />
       <path
-        d="M6.3 12h2.2l1.7-3.5 2.5 6.5 1.9-3h3.1"
+        d="m4.6 7.6 7.4 5.3 7.4-5.3"
         fill="none"
-        stroke="#ffffff"
+        stroke={INTRO_ICON_KNOCKOUT}
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="1.9"
+        strokeWidth="1.8"
       />
     </svg>
   );
@@ -58,21 +97,21 @@ const INTRO_FEATURES: Array<{
   tone: "green" | "blue" | "orange";
 }> = [
   {
-    icon: ShieldBadgeIcon,
-    title: "Verified in minutes",
-    subtitle: "Seamless KYC, no paperwork",
-    tone: "green",
-  },
-  {
-    icon: HoldingsBarsIcon,
-    title: "Top holdings, at a glance",
-    subtitle: "Your portfolio, always live",
+    icon: VaultLockIcon,
+    title: "Your vault, guarded by consent",
+    subtitle: "Encrypted end to end, shared only when you say yes",
     tone: "blue",
   },
   {
-    icon: SignalPulseIcon,
-    title: "Buy, sell, hold",
-    subtitle: "Clear signals when they matter",
+    icon: FinanceCapabilityIcon,
+    title: "Finance, made personal",
+    subtitle: "Track and act on your money with Kai",
+    tone: "green",
+  },
+  {
+    icon: InboxCapabilityIcon,
+    title: "Connect Gmail and more",
+    subtitle: "One works across your apps, with consent",
     tone: "orange",
   },
 ];
@@ -113,13 +152,13 @@ export function IntroStep({
             <div
               role="heading"
               aria-level={1}
-              aria-label="Meet One, Your Personal Financial Advisor"
+              aria-label="Meet One, a memory that's only yours"
               className={`relative mt-2.5 ${kaiAppHeroTitleClassName} text-[#1d1d1f] dark:text-[#f5f5f7]`}
             >
               Meet <OneLockup />
             </div>
             <p className={`relative mt-3 ${kaiAppHeroBodyClassName} text-[rgba(0,0,0,0.56)] dark:text-[rgba(245,245,247,0.60)]`}>
-              Your personal financial advisor.
+              A memory that&apos;s only yours.
             </p>
           </section>
 
@@ -159,7 +198,7 @@ export function IntroStep({
           <div className="space-y-4">
             <p className="mx-auto max-w-[34ch] text-center text-[13.5px] leading-5 tracking-normal text-[#86868b] dark:text-[rgba(245,245,247,0.44)]">
               One is consent-first. Your knowledge and information are your
-              safewords — nothing leaves your vault without your approval.
+              safewords. Nothing leaves your vault without your approval.
             </p>
             <Button
               size="lg"

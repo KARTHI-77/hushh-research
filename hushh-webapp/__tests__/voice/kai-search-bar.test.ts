@@ -164,6 +164,7 @@ vi.mock("@/lib/navigation/kai-bottom-chrome-visibility", () => ({
 
 vi.mock("@/lib/navigation/kai-command-bar-events", () => ({
   KAI_COMMAND_BAR_OPEN_EVENT: "kai-open",
+  KAI_COMMAND_BAR_TOGGLE_EVENT: "kai-toggle",
 }));
 
 vi.mock("@/lib/utils", () => ({
@@ -472,9 +473,11 @@ describe("kai-search-bar helpers", () => {
       "true",
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Open Agent" }));
-
-    expect(mockOpenAgent).toHaveBeenCalledTimes(1);
+    // The Kai search chrome no longer renders its own Agent launcher; the
+    // persistent AgentBar (components/agent/agent-bar.tsx) is the single agent
+    // entry point, so the duplicate "Open Agent" robot must be gone.
+    expect(screen.queryByRole("button", { name: "Open Agent" })).toBeNull();
+    expect(mockOpenAgent).not.toHaveBeenCalled();
   });
 
   it("keeps Kai voice inside the compact search surface", () => {

@@ -278,6 +278,20 @@ function toStatusBucketFromStatus(
   return "network_error";
 }
 
+/**
+ * Resolve the client's IANA timezone (e.g. "America/New_York") so the backend
+ * can pick a region-appropriate market exchange. Returns null when unavailable
+ * (e.g. SSR or older runtimes), in which case the backend defaults to US.
+ */
+function resolveClientTimezone(): string | null {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return typeof tz === "string" && tz.trim() ? tz.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 export class MarketInsightsEmptyError extends Error {
   readonly status = 404;
 
@@ -3365,6 +3379,10 @@ export class ApiService {
     }
     if (typeof data.pickSource === "string" && data.pickSource.trim()) {
       query.set("pick_source", data.pickSource.trim());
+    }
+    const clientTimezone = resolveClientTimezone();
+    if (clientTimezone) {
+      query.set("tz", clientTimezone);
     }
     const suffix = query.toString() ? `?${query.toString()}` : "";
     const path = `/api/kai/market/insights/${data.userId}${suffix}`;
