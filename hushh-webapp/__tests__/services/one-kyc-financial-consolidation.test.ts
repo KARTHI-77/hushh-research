@@ -182,4 +182,29 @@ describe("consolidateFinancialPortfolio", () => {
     expect(consolidateFinancialPortfolio("nope")).toBeNull();
     expect(consolidateFinancialPortfolio(123)).toBeNull();
   });
+
+  it("keeps a ticker-only holding (no symbol field) and resolves its symbol from ticker", () => {
+    const result = consolidateFinancialPortfolio({
+      holdings: [{ ticker: "AAPL", quantity: 10, market_value: 1500 }],
+    });
+    expect(result!.holdings).toHaveLength(1);
+    expect(result!.holdings[0]!.symbol).toBe("AAPL");
+    expect(Number(result!.holdings[0]!.market_value)).toBe(1500);
+  });
+
+  it("keeps a security_symbol-only holding and resolves its symbol", () => {
+    const result = consolidateFinancialPortfolio({
+      holdings: [{ security_symbol: "MSFT", quantity: 5, market_value: 2000 }],
+    });
+    expect(result!.holdings).toHaveLength(1);
+    expect(result!.holdings[0]!.symbol).toBe("MSFT");
+  });
+
+  it("does not alter a holding that already has a symbol", () => {
+    const result = consolidateFinancialPortfolio({
+      holdings: [{ symbol: "AAPL", ticker: "IGNORED", quantity: 10, market_value: 1500 }],
+    });
+    expect(result!.holdings).toHaveLength(1);
+    expect(result!.holdings[0]!.symbol).toBe("AAPL");
+  });
 });
