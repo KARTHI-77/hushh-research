@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request
 from fastapi.responses import JSONResponse
@@ -17,8 +17,6 @@ from hushh_mcp.services.crd_scrape_proxy_service import (
 )
 
 router = APIRouter(prefix="/api/ria", tags=["RIA", "CRD Scraper"])
-
-_JobId = Annotated[str, Path(min_length=1, max_length=128)]
 
 
 class CrdScrapeJobRequest(BaseModel):
@@ -60,8 +58,8 @@ async def create_crd_scrape_job(
 @router.get("/crd-scrape-jobs/{job_id}")
 @limiter.limit("60/minute")
 async def get_crd_scrape_job(
-    job_id: _JobId,
     request: Request,
+    job_id: str = Path(..., min_length=1, max_length=128),
     service: CrdScrapeProxyService = Depends(get_crd_scrape_proxy_service),
 ) -> JSONResponse:
     result = await _call_provider(
@@ -92,8 +90,8 @@ async def create_financial_verification_job(
 @router.get("/financial-verification-jobs/{job_id}")
 @limiter.limit("60/minute")
 async def get_financial_verification_job(
-    job_id: _JobId,
     request: Request,
+    job_id: str = Path(..., min_length=1, max_length=128),
     service: CrdScrapeProxyService = Depends(get_crd_scrape_proxy_service),
 ) -> JSONResponse:
     result = await _call_provider(
