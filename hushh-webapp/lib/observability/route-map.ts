@@ -2,6 +2,8 @@ import { ROUTES } from "@/lib/navigation/routes";
 
 export const ROUTE_ID_VALUES = [
   "one_dashboard",
+  "getting_started",
+  "one_setup",
   "developers",
   "login",
   "logout",
@@ -51,6 +53,10 @@ export type RouteId = (typeof ROUTE_ID_VALUES)[number];
 
 export function resolveRouteId(pathname: string): RouteId {
   if (pathname === ROUTES.HOME || pathname === ROUTES.ONE_HOME) return "one_dashboard";
+  if (pathname === ROUTES.GETTING_STARTED) return "getting_started";
+  if (pathname === ROUTES.ONE_SETUP || pathname.startsWith(`${ROUTES.ONE_SETUP}/`)) {
+    return "one_setup";
+  }
   if (pathname === ROUTES.DEVELOPERS) return "developers";
   if (pathname === ROUTES.LOGIN) return "login";
   if (pathname === ROUTES.LOGOUT) return "logout";
