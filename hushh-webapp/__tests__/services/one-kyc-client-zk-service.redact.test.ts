@@ -293,9 +293,12 @@ describe("consolidated portfolio redaction (ZK)", () => {
       approvedValues: draft.approvedValues,
     });
 
-    // No real figure escapes: the consolidated values live inside the single
-    // portfolio token, so none of them appear verbatim in the tokenized template.
-    for (const figure of ["150,000", "100,000", "45,000", "30,000", "15,000"]) {
+    // Each figure genuinely appears in the consolidated draft body (asserted
+    // present), and must NOT survive into the tokenized template (the portfolio
+    // is one opaque token). Asserting presence-in-body first makes the
+    // absence-in-template assertion meaningful, not vacuous.
+    for (const figure of ["150,000.00", "100,000.00", "50,000.00", "45,000.00", "1,500.00"]) {
+      expect(draft.body).toContain(figure);
       expect(tokenizedTemplate).not.toContain(figure);
     }
 
