@@ -1,5 +1,7 @@
 "use client";
 
+import { consolidateHoldingsBySymbol } from "@/lib/utils/portfolio-normalize";
+
 /**
  * Deterministic, client-side financial consolidation for the KYC approved-disclosure
  * draft. Runs BEFORE tokenization (zero-knowledge): the LLM never sees real numbers.
@@ -113,4 +115,125 @@ export function dedupAccountsByFreshest(collected: CollectedAccount[]): Collecte
     if (incomingAt > existingAt) byKey.set(item.key, item);
   });
   return Array.from(byKey.values());
+}
+
+export type AllocationSlice = { bucket: string; pct: number };
+
+export type ConsolidatedPortfolio = {
+  accounts: ConsolidatedAccount[];
+  holdings: AnyRecord[];
+  totalValue: number | null;
+  holdingsSum: number;
+  cashBalance: number | null;
+  netUnrealizedGainLoss: number | null;
+  allocation: AllocationSlice[];
+  reconciliationMismatch: boolean;
+};
+
+/**
+ * Ensure every holding has a usable `symbol` so the per-symbol merge never drops a
+ * position (D2: full disclosure). Name-only holdings (e.g. some bonds) get a stable
+ * pseudo-symbol derived from the name; the name is preserved for display.
+ */
+function ensureSymbol(holding: AnyRecord): AnyRecord {
+  const symbol = toText(holding.symbol ?? holding.ticker ?? holding.security_symbol);
+  if (symbol) return holding;
+  const name = toText(
+    holding.name ?? holding.security_name ?? holding.instrument_name ?? holding.description
+  );
+  if (!name) return holding; // no identity at all — merge math will drop it (acceptable)
+  return { ...holding, symbol: name.toUpperCase().slice(0, 40), name };
+}
+
+function sumNullable(values: Array<number | null>): number | null {
+  let total: number | null = null;
+  for (const value of values) {
+    if (value === null) continue;
+    total = (total ?? 0) + value;
+  }
+  return total;
+}
+
+function buildAllocation(
+  portfolio: AnyRecord,
+  holdings: AnyRecord[],
+  holdingsSum: number
+): AllocationSlice[] {
+  const raw = Array.isArray(portfolio.asset_allocation)
+    ? portfolio.asset_allocation.filter(isRecord)
+    : [];
+  if (raw.length) {
+    return raw
+      .map((slice) => ({
+        bucket: toText(slice.bucket) ?? "other",
+        pct: toNumber(slice.pct) ?? 0,
+      }))
+      .filter((slice) => slice.pct > 0);
+  }
+  if (!holdingsSum) return [];
+  const buckets = new Map<string, number>();
+  for (const holding of holdings) {
+    const bucket =
+      toText(holding.instrument_kind) ?? toText(holding.asset_type) ?? "other";
+    buckets.set(bucket, (buckets.get(bucket) ?? 0) + (toNumber(holding.market_value) ?? 0));
+  }
+  return Array.from(buckets.entries())
+    .map(([bucket, value]) => ({ bucket, pct: (value / holdingsSum) * 100 }))
+    .filter((slice) => slice.pct > 0)
+    .sort((a, b) => b.pct - a.pct);
+}
+
+export function consolidateFinancialPortfolio(value: unknown): ConsolidatedPortfolio | null {
+  const portfolio = Array.isArray(value)
+    ? ({ holdings: value } as AnyRecord)
+    : isRecord(value)
+      ? value
+      : null;
+  if (!portfolio) return null;
+
+  const collected = dedupAccountsByFreshest(collectAccounts(portfolio));
+  const accounts = collected.map((entry) => entry.account);
+  const rawHoldings = collected.flatMap((entry) => entry.holdings).map(ensureSymbol);
+  const holdings = consolidateHoldingsBySymbol(rawHoldings) as AnyRecord[];
+
+  const holdingsSum = holdings.reduce(
+    (sum, holding) => sum + (toNumber(holding.market_value) ?? 0),
+    0
+  );
+
+  const statementTotal = sumNullable(accounts.map((account) => account.endingValue));
+  const portfolioTotal =
+    toNumber(portfolio.total_value) ??
+    toNumber(
+      isRecord(portfolio.account_summary) ? portfolio.account_summary.ending_value : undefined
+    );
+  const totalValue =
+    statementTotal ?? portfolioTotal ?? (holdings.length ? holdingsSum : null);
+
+  const cashBalance =
+    sumNullable(accounts.map((account) => account.cashBalance)) ??
+    toNumber(portfolio.cash_balance);
+
+  const netUnrealizedGainLoss = sumNullable(
+    holdings.map((holding) => toNumber(holding.unrealized_gain_loss))
+  );
+
+  const allocation = buildAllocation(portfolio, holdings, holdingsSum);
+
+  const tolerance = Math.max(1, Math.abs(totalValue ?? 0) * 0.01);
+  const reconciliationMismatch =
+    totalValue !== null &&
+    holdings.length > 0 &&
+    Math.abs(totalValue - holdingsSum) > tolerance;
+
+  return {
+    accounts,
+    holdings,
+    totalValue,
+    holdingsSum,
+    cashBalance,
+    netUnrealizedGainLoss,
+    allocation,
+    reconciliationMismatch,
+  };
 }
