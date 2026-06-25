@@ -37,27 +37,27 @@ describe("DialogContent", () => {
 
 describe("DialogHeader", () => {
   it("renders with data-slot='dialog-header'", () => {
-    const { container } = render(<DialogHeader>Header content</DialogHeader>);
+    render(<DialogHeader>Header content</DialogHeader>);
 
     expect(
-      container.querySelector('[data-slot="dialog-header"]'),
+      document.querySelector('[data-slot="dialog-header"]'),
     ).toBeTruthy();
   });
 });
 
 describe("DialogFooter", () => {
   it("renders with data-slot='dialog-footer'", () => {
-    const { container } = render(<DialogFooter>Footer content</DialogFooter>);
+    render(<DialogFooter>Footer content</DialogFooter>);
 
     expect(
-      container.querySelector('[data-slot="dialog-footer"]'),
+      document.querySelector('[data-slot="dialog-footer"]'),
     ).toBeTruthy();
   });
 });
 
 describe("DialogTitle", () => {
   it("renders with data-slot='dialog-title'", () => {
-    const { container } = render(
+    render(
       <Dialog open>
         <DialogContent>
           <DialogTitle>Title text</DialogTitle>
