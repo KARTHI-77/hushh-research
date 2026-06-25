@@ -136,8 +136,9 @@ export type ConsolidatedPortfolio = {
  * pseudo-symbol derived from the name; the name is preserved for display.
  */
 function ensureSymbol(holding: AnyRecord): AnyRecord {
-  const symbol = toText(holding.symbol ?? holding.ticker ?? holding.security_symbol);
-  if (symbol) return holding;
+  if (toText(holding.symbol)) return holding;
+  const symbol = toText(holding.ticker ?? holding.security_symbol);
+  if (symbol) return { ...holding, symbol };
   const name = toText(
     holding.name ?? holding.security_name ?? holding.instrument_name ?? holding.description
   );
