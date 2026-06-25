@@ -1027,6 +1027,83 @@ const ONE_LOCATION_TRUST_CHIPS: {
   },
 ];
 
+const ONE_LOCATION_FIRST_RUN_STEPS: {
+  icon: LucideIcon;
+  title: string;
+  detail: string;
+}[] = [
+  {
+    icon: UsersRound,
+    title: "Add the people you trust",
+    detail: "Pick from your One Network, or invite someone in a tap.",
+  },
+  {
+    icon: Clock3,
+    title: "Choose how long",
+    detail: "15 minutes to a day - it auto-stops when the timer ends.",
+  },
+  {
+    icon: Send,
+    title: "Share or request",
+    detail: "Share your live location, or ask to see theirs once they approve.",
+  },
+];
+
+const ONE_LOCATION_FIRST_RUN_GUIDE_KEY = "one_location_first_run_guide_v1";
+
+// One-time, friendly "how it works" card for first-time customers. It explains
+// the whole flow in three plain steps so a brand-new user is never confused
+// about what to do first. It is dismissible and the choice persists per user,
+// and it auto-hides once the user already has any activity.
+function OneLocationFirstRunGuide({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <section
+      aria-label="How One Location works"
+      className="relative min-w-0 max-w-full overflow-hidden rounded-[20px] border border-[#007aff]/15 bg-gradient-to-b from-[#f3f8ff] to-white p-4 shadow-sm dark:border-[#0a84ff]/20 dark:from-[#0a84ff]/10 dark:to-transparent"
+    >
+      <button
+        type="button"
+        aria-label="Dismiss the getting started guide"
+        onClick={onDismiss}
+        className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full text-[#8e8e93] transition-colors hover:bg-black/[0.05] hover:text-[#1c1c1e] dark:hover:bg-white/10 dark:hover:text-white"
+      >
+        <X className="h-4 w-4" aria-hidden="true" />
+      </button>
+      <div className="space-y-0.5 pr-8">
+        <h3 className="text-[16px] font-semibold tracking-tight text-[#1c1c1e] dark:text-white">
+          New here? It takes 3 quick steps
+        </h3>
+        <p className="text-[13px] leading-snug text-[#8e8e93] dark:text-white/55">
+          Location sharing is always your choice, and you stay in control.
+        </p>
+      </div>
+      <ol className="mt-3 grid min-w-0 gap-2 sm:grid-cols-3">
+        {ONE_LOCATION_FIRST_RUN_STEPS.map(({ icon: Icon, title, detail }, index) => (
+          <li
+            key={title}
+            className="flex min-w-0 items-start gap-2.5 rounded-[14px] border border-black/[0.04] bg-white/70 px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.06]"
+          >
+            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#007aff]/12 text-[#007aff] dark:bg-[#0a84ff]/15 dark:text-[#76b7ff]">
+              <Icon className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5 text-[13px] font-semibold leading-tight text-[#1c1c1e] dark:text-white">
+                <span className="text-[#007aff] dark:text-[#76b7ff]">
+                  {index + 1}.
+                </span>
+                {title}
+              </span>
+              <span className="mt-0.5 block text-[11.5px] leading-snug text-[#8e8e93] dark:text-white/55">
+                {detail}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 // Compact reassurance row shown above the tabs so a first-time user immediately
 // sees the three trust promises ("why this is safe") before doing anything.
 function OneLocationTrustStrip() {
@@ -1614,6 +1691,11 @@ function OneLocationAgentPageContent() {
   // Bumped whenever the recipient unwatches a share, so the memoized
   // "Shared with me" list recomputes immediately.
   const [unwatchedTick, setUnwatchedTick] = useState(0);
+  // First-run "how it works" guide for brand-new customers. Defaults to shown
+  // and is hidden once the user dismisses it (persisted per user) so it never
+  // nags returning customers.
+  const [firstRunGuideDismissed, setFirstRunGuideDismissed] = useState(true);
+
   const [focusedSection, setFocusedSection] =
     useState<OneLocationFocusTarget | null>(null);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
@@ -3723,6 +3805,48 @@ function OneLocationAgentPageContent() {
     setLocationOnboardingStep("permission");
   }, []);
 
+  const handleDismissFirstRunGuide = useCallback(() => {
+    setFirstRunGuideDismissed(true);
+    if (typeof window !== "undefined" && auth.userId) {
+      try {
+        window.localStorage.setItem(
+          `${ONE_LOCATION_FIRST_RUN_GUIDE_KEY}:${auth.userId}`,
+          "1",
+        );
+      } catch {
+        // localStorage may be unavailable (private mode); the guide will simply
+        // show again next time, which is acceptable.
+      }
+    }
+  }, [auth.userId]);
+
+  // Decide whether to show the first-run "how it works" guide. It appears only
+  // for genuinely new customers (no shares, requests, or invites yet) who have
+  // not dismissed it before. Returning/active users never see it.
+  useEffect(() => {
+    if (!auth.userId || !state) return;
+    let alreadyDismissed = false;
+    if (typeof window !== "undefined") {
+      try {
+        alreadyDismissed =
+          window.localStorage.getItem(
+            `${ONE_LOCATION_FIRST_RUN_GUIDE_KEY}:${auth.userId}`,
+          ) === "1";
+      } catch {
+        alreadyDismissed = false;
+      }
+    }
+    const hasAnyActivity = Boolean(
+      (state.ownerGrants?.length ?? 0) ||
+        (state.receivedGrants?.length ?? 0) ||
+        (state.requests?.length ?? 0) ||
+        (state.publicInvites?.length ?? 0) ||
+        (state.circleInvites?.length ?? 0),
+    );
+    setFirstRunGuideDismissed(alreadyDismissed || hasAnyActivity);
+  }, [auth.userId, state]);
+
+
 
 
   const handleSkipLocationOnboarding = useCallback(() => {
@@ -3906,6 +4030,14 @@ function OneLocationAgentPageContent() {
                 }
               />
             </div>
+
+            {!firstRunGuideDismissed ? (
+              <div className="px-1">
+                <OneLocationFirstRunGuide
+                  onDismiss={handleDismissFirstRunGuide}
+                />
+              </div>
+            ) : null}
 
             <div className="px-1">
               <OneLocationTrustStrip />
