@@ -36,6 +36,22 @@ describe("Popover", () => {
     ).toBeTruthy();
   });
 
+  it("preserves PopoverContent data-slot when className is provided", () => {
+    render(
+      <Popover defaultOpen>
+        <PopoverTrigger>Open</PopoverTrigger>
+        <PopoverContent className="custom-popover-content">
+          Content
+        </PopoverContent>
+      </Popover>,
+    );
+
+    const content = document.querySelector('[data-slot="popover-content"]');
+
+    expect(content).toBeTruthy();
+    expect(content?.classList.contains("custom-popover-content")).toBe(true);
+  });
+
   it("renders PopoverHeader with data-slot='popover-header'", () => {
     const { container } = render(<PopoverHeader />);
 
