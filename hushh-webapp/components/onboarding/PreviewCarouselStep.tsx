@@ -9,8 +9,9 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import { ChevronLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/lib/morphy-ux/button";
+import { ShellActionSurface } from "@/components/app-ui/shell-action-surface";
 import { cn } from "@/lib/utils";
 import { OnboardingLocalService } from "@/lib/services/onboarding-local-service";
 import { prefersReducedMotion, getGsap } from "@/lib/morphy-ux/gsap";
@@ -41,21 +42,21 @@ export function PreviewCarouselStep({
         title: "Unified memory,",
         accent: "only yours",
         subtitle:
-          "Your memory lives in an encrypted vault. The server only ever holds ciphertext — only you hold the key.",
+          "Your memory lives in an encrypted vault. The server only ever holds ciphertext, only you hold the key.",
         preview: <VaultPreviewCompact />,
       },
       {
         title: "Unified memory,",
         accent: "every app",
         subtitle:
-          "Finance, Gmail, and location all draw on one private memory — no silos.",
+          "Finance, Gmail, and location all draw on one private memory, no silos.",
         preview: <WorkflowsPreviewCompact />,
       },
       {
         title: "Shared only",
         accent: "with your consent",
         subtitle:
-          "Nothing is released without your yes — scoped, temporary, and audited every time.",
+          "Nothing is released without your yes: scoped, temporary, and audited every time.",
         preview: <ConsentPreviewCompact />,
       },
     ],
@@ -172,25 +173,32 @@ export function PreviewCarouselStep({
       className="min-h-[100dvh] w-full bg-transparent"
     >
       {/* Normal-flow, centered column. Scrolls naturally if a short viewport
-          can't fit it — no height-locked flex distribution, no clipping. */}
-      <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col px-6 pb-[calc(24px+var(--app-safe-area-bottom-effective,0px))] pt-[calc(16px+var(--app-safe-area-top-effective,0px))]">
-        {/* Top bar: back button. */}
-        <div className="flex h-10 shrink-0 items-center">
-          {onBack ? (
-            <button
-              type="button"
-              aria-label="Back"
+          can't fit it: no height-locked flex distribution, no clipping.
+          Top padding clears the FIXED top controls (back button + theme pill,
+          ~8px offset + 36px tall) so the title never tucks under them. */}
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col px-6 pb-[calc(24px+var(--app-safe-area-bottom-effective,0px))] pt-[calc(60px+var(--app-safe-area-top-effective,0px))]">
+        {/* Top bar: back button. Fixed + offset to sit on the exact same top
+            line as the lean theme pill (navbar uses the same fixed top + px-4).
+            Uses the shared ShellActionSurface primitive so it stays in lockstep
+            with every other top-app-bar control (size, roundness, track). */}
+        {onBack ? (
+          <div
+            className="fixed left-0 top-0 z-50 flex px-4"
+            style={{ top: "calc(max(var(--app-safe-area-top-effective), 0.5rem))" }}
+          >
+            <ShellActionSurface
+              variant="icon"
+              aria-label="Go back"
               onClick={onBack}
-              className="grid h-9 w-9 place-items-center rounded-full border border-black/10 bg-[#f5f5f7] text-[#1d1d1f] transition active:scale-90 dark:border-white/10 dark:bg-white/10 dark:text-[#f5f5f7]"
             >
-              <ChevronLeft className="h-[17px] w-[17px]" strokeWidth={2.2} />
-            </button>
-          ) : null}
-        </div>
+              <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2} />
+            </ShellActionSurface>
+          </div>
+        ) : null}
 
         {/* Center block grows to fill, keeping header+card+footer balanced.
             Uses justify-start so a tall layout on a short viewport never clips
-            the title at the top — it simply scrolls. */}
+            the title at the top, it simply scrolls. */}
         <div className="flex flex-1 flex-col items-center justify-center gap-6 py-4 max-[700px]:justify-start">
           <div ref={headerRef} className="w-full text-center">
             <h2 className="text-[clamp(24px,7vw,32px)] font-medium leading-[1.1] text-[#1d1d1f] dark:text-[#f5f5f7]">
@@ -204,8 +212,11 @@ export function PreviewCarouselStep({
           </div>
 
           {/* Gold-standard shadcn carousel: w-full + max-w, items size to content,
-              arrows as children. Padding on the items gives the card shadow room
-              inside embla's overflow-hidden viewport. */}
+              arrows as children. Embla's viewport is overflow-hidden, so the card's
+              soft drop shadow must live INSIDE the padded area or it gets clipped
+              into a hard rectangular seam. Generous symmetric padding (with extra
+              room below for the downward shadow) keeps the elevation soft on every
+              edge. */}
           <Carousel
             setApi={setApi}
             opts={{ align: "center" }}
@@ -219,7 +230,7 @@ export function PreviewCarouselStep({
                   aria-label={`Slide ${idx + 1} of ${slides.length}`}
                   aria-current={idx === selectedIndex ? "step" : undefined}
                 >
-                  <div className="p-2">{slide.preview}</div>
+                  <div className="px-5 pb-7 pt-4">{slide.preview}</div>
                 </CarouselItem>
               ))}
             </CarouselContent>

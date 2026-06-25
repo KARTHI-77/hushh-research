@@ -122,8 +122,11 @@ describe("Top app bar responsive contract", () => {
     expect(taskCenter).toContain('<TopShellDropdownContent align="end">');
     expect(consentInbox).not.toContain("TOP_SHELL_DROPDOWN_CONTENT_CLASSNAME");
     expect(taskCenter).not.toContain("TOP_SHELL_DROPDOWN_CONTENT_CLASSNAME");
-    expect(shellActionSurface).toContain("border-sky-500/28");
-    expect(shellActionSurface).toContain("hover:border-sky-500/55");
+    // Lean header treatment: icon controls have no background chip and carry
+    // the muted eyebrow tone on the stroke; only the pill variant keeps the
+    // translucent track. The blue ripple stays shared across both.
+    expect(shellActionSurface).toContain("text-muted-foreground hover:text-foreground");
+    expect(shellActionSurface).toContain("bg-black/[0.05]");
     expect(shellActionSurface).toContain('<MaterialRipple variant="blue" effect="glass"');
   });
 

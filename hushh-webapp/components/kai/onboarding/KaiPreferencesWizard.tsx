@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
-import { Progress } from "@/components/ui/progress";
+import { OnboardingStepper } from "@/components/app-ui/onboarding-stepper";
 import { RadioGroup } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { Button } from "@/lib/morphy-ux/button";
@@ -99,7 +99,6 @@ export function KaiPreferencesWizard(props: {
   const progressValue = useMemo(() => {
     return Math.round((step / total) * 100);
   }, [step, total]);
-  const currentStep = step + 1;
 
   const isLast = step === total - 1;
 
@@ -238,14 +237,10 @@ export function KaiPreferencesWizard(props: {
               </span>
             </div>
 
-            <div className="flex items-center justify-between text-[13px] text-muted-foreground">
-              <span className="font-medium tracking-normal">
-                Step {currentStep} of {total}
-              </span>
-            </div>
-            <Progress
-              value={progressValue}
-              className="h-1 rounded-full bg-black/[0.045] dark:bg-white/10"
+            <OnboardingStepper
+              steps={QUESTIONS.map((q) => ({ id: q.id, label: q.prompt }))}
+              currentIndex={step}
+              ariaLabel="Investment preferences setup"
             />
           </div>
 

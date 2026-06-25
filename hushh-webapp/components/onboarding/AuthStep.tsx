@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { getRedirectResult } from "firebase/auth";
-import { Shield } from "lucide-react";
+import { ArrowLeft, Shield } from "lucide-react";
 import { AuthService } from "@/lib/services/auth-service";
 import { ApiService } from "@/lib/services/api-service";
 import { auth } from "@/lib/firebase/config";
@@ -16,6 +16,7 @@ import { isAndroid } from "@/lib/capacitor/platform";
 import { Icon } from "@/lib/morphy-ux/ui";
 import { morphyToast } from "@/lib/morphy-ux/morphy";
 import { AuthProviderButton } from "@/components/onboarding/AuthProviderButton";
+import { ShellActionSurface } from "@/components/app-ui/shell-action-surface";
 import { PostAuthRouteService } from "@/lib/services/post-auth-route-service";
 import { AuthLegalDialog } from "@/components/onboarding/AuthLegalDialog";
 import {
@@ -105,6 +106,16 @@ export function AuthStep({
     // Defer open so the originating tap does not get interpreted as outside-interact.
     requestAnimationFrame(() => setActiveLegalDoc(docType));
   }, []);
+
+  const handleBack = useCallback(() => {
+    // Prefer real history; fall back to the marketing home when login was the
+    // first entry (deep link / fresh tab) so the control is never a dead end.
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push(ROUTES.HOME);
+  }, [router]);
 
   const resolveAndNavigate = useCallback(
     async (userId: string, idToken?: string, phoneNumber?: string | null) => {
@@ -558,6 +569,17 @@ export function AuthStep({
             : "relative mx-auto flex h-full min-h-0 w-full max-w-[27rem] flex-col justify-center px-6 pb-[calc(58px+var(--app-screen-footer-pad))] pt-[calc(32px+var(--app-safe-area-top-effective,0px))]"
         }
       >
+        {/* Back button: shares the exact lean ShellActionSurface aesthetic and
+            sits on the same fixed top line as the lean theme pill, mirroring the
+            getting-started screen so both onboarding surfaces are symmetric. */}
+        <ShellActionSurface
+          variant="icon"
+          onClick={handleBack}
+          aria-label="Go back"
+          wrapperClassName="fixed left-0 z-50 px-4 top-[calc(max(var(--app-safe-area-top-effective),0.5rem))]"
+        >
+          <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2} />
+        </ShellActionSurface>
         <header className="flex-none text-center">
           <Image
             src="/one-quiet-emoji.png"
@@ -576,7 +598,7 @@ export function AuthStep({
             Sign in to <OneLockup />
           </div>
           <p className={`mx-auto mt-3 max-w-[20rem] ${kaiAppHeroBodyClassName} text-[rgba(0,0,0,0.56)] dark:text-[rgba(245,245,247,0.60)]`}>
-            Sign in to open your private vault — only you can.
+            Sign in to open your private vault, only you can.
           </p>
         </header>
 

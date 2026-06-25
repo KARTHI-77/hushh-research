@@ -50,7 +50,7 @@ export function VaultPreviewCompact() {
           </span>
           <p className="type-headline mt-2 text-[15px]">Only you hold the key</p>
           <p className="type-footnote mt-0.5 text-muted-foreground text-[11px]">
-            No one can read it — not even us
+            No one can read it, not even us
           </p>
         </div>
 

@@ -192,7 +192,12 @@ export const Navbar = () => {
   });
   const chromeState = useMemo(() => getKaiChromeState(pathname), [pathname]);
   const useOnboardingChrome = chromeState.useOnboardingChrome;
-  const allowScrollHide = false;
+  // The bottom pill + search bubble scroll-hide in reverse of the top app bar:
+  // on scroll-down they translate off the bottom edge (max main-body viewing),
+  // on scroll-up they slide back in. Driven by the same shared visibility store
+  // as the top bar and the bottom fade glass so all chrome stays in lockstep.
+  // Disabled while onboarding chrome is active (that flow owns its own chrome).
+  const allowScrollHide = !useOnboardingChrome;
   const { hidden: hideBottomChrome, progress: hideBottomChromeProgress } =
     useKaiBottomChromeVisibility(allowScrollHide);
 
@@ -408,9 +413,11 @@ export const Navbar = () => {
           aria-label="Search"
           className={cn(
             "pointer-events-auto relative z-20 inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center overflow-hidden rounded-full",
-            "border border-white/50 bg-background/80 text-foreground/70 shadow-[0_11px_34px_0_var(--theme-color-boxShadow)] backdrop-blur-[var(--blur-standard)]",
-            "transition-[color,transform,background-color] duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]",
-            "hover:bg-background/90 hover:text-primary active:scale-[0.985] chrome-bottom-foreground",
+            // Flat surface matching the top app bar controls (ShellActionSurface):
+            // soft translucent track, no border/shadow/blur, symmetric in light + dark.
+            "bg-black/[0.05] text-[#1d1d1f] dark:bg-white/[0.07] dark:text-[#f5f5f7]",
+            "transition-[color,transform,background-color] duration-200 ease-[cubic-bezier(0.25,1,0.5,1)]",
+            "hover:bg-black/[0.08] hover:text-primary dark:hover:bg-white/[0.1] active:scale-90 chrome-bottom-foreground",
           )}
           onClick={() => {
             if (busyOperations["portfolio_save"]) {

@@ -5,7 +5,6 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   Activity,
   AlertTriangle,
-  Bell,
   Blocks,
   Bot,
   ChartColumnIncreasing,
@@ -1315,9 +1314,33 @@ function toThemeItems(payload: KaiHomeInsightsV2 | null): ThemeFocusItem[] {
     .slice(0, 3);
 }
 
+function formatStatusUpdatedLabel(asOf: unknown): string | null {
+  if (typeof asOf !== "string" || !asOf.trim()) return null;
+  const updated = new Date(asOf);
+  if (Number.isNaN(updated.getTime())) return null;
+  const diffMs = Date.now() - updated.getTime();
+  if (diffMs < 0) {
+    return "Updated just now";
+  }
+  const diffMinutes = Math.floor(diffMs / 60000);
+  if (diffMinutes < 1) return "Updated just now";
+  if (diffMinutes === 1) return "Updated 1 min ago";
+  if (diffMinutes < 60) return `Updated ${diffMinutes} min ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours === 1) return "Updated 1 hr ago";
+  if (diffHours < 24) return `Updated ${diffHours} hrs ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return "Updated 1 day ago";
+  return `Updated ${diffDays} days ago`;
+}
+
 function marketStatusBadge(payload: KaiHomeInsightsV2 | null): {
   label: string;
   className: string;
+  isOpen: boolean;
+  degraded: boolean;
+  source: string | null;
+  updatedLabel: string | null;
 } | null {
   const row = findOverviewRow(payload, (candidate) =>
     String(candidate.label || "").toLowerCase().includes("market status")
@@ -1329,17 +1352,31 @@ function marketStatusBadge(payload: KaiHomeInsightsV2 | null): {
   });
   if (!value) return null;
 
-  if (Boolean(row.degraded)) {
+  const degraded = Boolean(row.degraded);
+  const isOpen = value.toLowerCase().includes("open");
+  const source =
+    typeof row.source === "string" && row.source.trim() ? row.source.trim() : null;
+  const updatedLabel = formatStatusUpdatedLabel(row.as_of);
+
+  if (degraded) {
     return {
       label: value,
+      isOpen,
+      degraded,
+      source,
+      updatedLabel,
       className:
         "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300",
     };
   }
 
-  if (value.toLowerCase().includes("open")) {
+  if (isOpen) {
     return {
       label: value,
+      isOpen,
+      degraded,
+      source,
+      updatedLabel,
       className:
         "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
     };
@@ -1347,6 +1384,10 @@ function marketStatusBadge(payload: KaiHomeInsightsV2 | null): {
 
   return {
     label: value,
+    isOpen,
+    degraded,
+    source,
+    updatedLabel,
     className: "border-border/70 bg-background/80 text-muted-foreground",
   };
 }
@@ -2075,9 +2116,28 @@ export function KaiMarketPreviewView() {
         <header className="mx-auto w-full max-w-[1080px] px-[var(--one-gutter)] pt-4">
           <div className="flex items-start justify-between">
             <div className="flex min-w-0 flex-col gap-1.5">
-              <span className={cn("inline-flex items-center gap-[7px] text-[color:var(--one-up)]", kaiPreviewEyebrowClassName)}>
-                <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--one-up)]" />
-                {marketStatus?.label?.toLowerCase().includes("open") ? "Markets open" : "Live market"}
+              <span
+                className={cn(
+                  "inline-flex items-center gap-[7px]",
+                  marketStatus?.degraded
+                    ? "text-[color:var(--one-fg3)]"
+                    : marketStatus?.isOpen
+                      ? "text-[color:var(--one-up)]"
+                      : "text-[color:var(--one-fg2)]",
+                  kaiPreviewEyebrowClassName
+                )}
+              >
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    marketStatus?.degraded
+                      ? "bg-[color:var(--one-fg3)]"
+                      : marketStatus?.isOpen
+                        ? "bg-[color:var(--one-up)]"
+                        : "bg-[color:var(--one-fg2)]"
+                  )}
+                />
+                {marketStatus?.label ?? "Live market"}
               </span>
               <div className={kaiPreviewPageTitleClassName} role="heading" aria-level={1}>
                 Market
@@ -2085,17 +2145,13 @@ export function KaiMarketPreviewView() {
               <p className="max-w-[34ch] text-[17px] leading-[1.42] text-[color:var(--one-fg2)]">
                 Track the market and your watchlist.
               </p>
-            </div>
-            <div className="mt-0.5 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setNotificationsOpen(true)}
-                className="relative grid h-9 w-9 place-items-center rounded-full bg-[color:var(--one-surface)] text-[color:var(--one-fg)] transition-transform active:scale-90"
-                aria-label="Notifications"
-              >
-                <span className="absolute right-2 top-[7px] h-1.5 w-1.5 rounded-full bg-[color:var(--one-down)] shadow-[0_0_0_2px_var(--one-surface)]" />
-                <Bell className="h-[17px] w-[17px]" />
-              </button>
+              {marketStatus?.updatedLabel || marketStatus?.source ? (
+                <p className="text-[12px] leading-[1.3] text-[color:var(--one-fg3)]">
+                  {[marketStatus?.updatedLabel, marketStatus?.source]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              ) : null}
             </div>
           </div>
           <form

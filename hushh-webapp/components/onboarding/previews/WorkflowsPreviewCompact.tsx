@@ -10,7 +10,7 @@ import {
   type OneCapability,
 } from "@/lib/onboarding/one-capabilities";
 
-// "What lies ahead" — a representative slice of the REAL /one dashboard
+// "What lies ahead": a representative slice of the REAL /one dashboard
 // capabilities a new user will unlock. Sourced from the shared catalog so it
 // can never drift from the dashboard tiles.
 const PREVIEW_IDS = ["finance", "gmail", "location"] as const;
@@ -60,7 +60,7 @@ export function WorkflowsPreviewCompact() {
         </div>
 
         <p className="type-footnote border-t border-border/70 pt-2 text-center text-muted-foreground text-[11px]">
-          More opens up as you grow — all in one place
+          More opens up as you grow, all in one place
         </p>
       </div>
     </Card>

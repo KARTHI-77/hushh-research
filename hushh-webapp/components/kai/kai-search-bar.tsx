@@ -9,8 +9,7 @@ import {
   useState,
   type MouseEvent,
 } from "react";
-import { useRouter } from "next/navigation";
-import { Bot, Mic, Search, X } from "lucide-react";
+import { Mic, Search, X } from "lucide-react";
 
 import {
   KaiCommandPalette,
@@ -21,11 +20,9 @@ import {
 } from "@/components/kai/voice/voice-ambient-search-surface";
 import { VoiceDebugDrawer } from "@/components/kai/voice/voice-debug-drawer";
 import { ShellActionSurface } from "@/components/app-ui/shell-action-surface";
-import { useOptionalAgentPopover } from "@/components/agent/agent-popover-provider";
 import { morphyToast as toast } from "@/lib/morphy-ux/morphy";
 import { useKaiBottomChromeVisibility } from "@/lib/navigation/kai-bottom-chrome-visibility";
 import { KAI_COMMAND_BAR_OPEN_EVENT } from "@/lib/navigation/kai-command-bar-events";
-import { ROUTES } from "@/lib/navigation/routes";
 import { cn } from "@/lib/utils";
 import { useVault } from "@/lib/vault/vault-context";
 import { useAmplitudeMeter } from "@/lib/voice/use-amplitude-meter";
@@ -314,9 +311,7 @@ export function KaiSearchBar({
   surfaceVariant = "kai",
   portfolioTickers = [],
 }: KaiSearchBarProps) {
-  const router = useRouter();
   const { getVaultOwnerToken, vaultKey } = useVault();
-  const agentPopover = useOptionalAgentPopover();
   const [open, setOpen] = useState(false);
   const [voiceDebugOpen, setVoiceDebugOpen] = useState(false);
   const [voiceUiState, setVoiceUiState] = useState<VoiceUiState>("idle");
@@ -1636,9 +1631,6 @@ export function KaiSearchBar({
   const commandBarBottomOffset =
     "calc(var(--app-bottom-inset) + var(--kai-command-bottom-gap, 18px))";
   const visibleCommandBarBottomOffset = `calc(${commandBarBottomOffset} - (${hideBottomChromeProgress} * var(--app-bottom-fixed-ui, 0px)))`;
-  const dockChromeBottomOffset =
-    "calc(max(var(--app-safe-area-bottom-effective), 0.625rem) + var(--app-bottom-chrome-lift, 0px))";
-  const dockChromeTransform = `translate3d(0, calc(${hideBottomChromeProgress} * var(--bottom-chrome-hide-distance, var(--bottom-chrome-full-height))), 0)`;
   const isRiaSurface = surfaceVariant === "ria";
   const riaVoiceActive = ambientMode !== "idle";
   const riaVoiceDisabled =
@@ -1663,29 +1655,29 @@ export function KaiSearchBar({
       stableMicDisabledReason,
     ],
   );
-  const handleAgentClick = useCallback(() => {
-    if (agentPopover) {
-      agentPopover.openAgent();
-      return;
-    }
-    router.push(ROUTES.AGENT);
-  }, [agentPopover, router]);
-
   return (
     <>
       <div
         className={cn(
-          "fixed inset-x-0 z-[121] flex justify-center px-4 pointer-events-none",
+          // The RIA surface still renders its own in-page search/voice bar.
+          // Everywhere else the bottom-nav Search button (components/navbar.tsx)
+          // is the single visible command-bar launcher, so the collapsed
+          // launcher here is kept mounted (palette + open-event listener +
+          // a11y voice preview) but visually hidden to avoid a duplicate
+          // floating button overlapping the nav.
+          isRiaSurface
+            ? "fixed inset-x-0 z-[121] flex justify-center px-4 pointer-events-none"
+            : "sr-only",
         )}
-        style={{
-          bottom: isRiaSurface
-            ? visibleCommandBarBottomOffset
-            : dockChromeBottomOffset,
-          transform: isRiaSurface
-            ? `translate3d(0, ${6 * hideBottomChromeProgress}px, 0)`
-            : dockChromeTransform,
-          opacity: 1,
-        }}
+        style={
+          isRiaSurface
+            ? {
+                bottom: visibleCommandBarBottomOffset,
+                transform: `translate3d(0, ${6 * hideBottomChromeProgress}px, 0)`,
+                opacity: 1,
+              }
+            : undefined
+        }
       >
         <div
           ref={barRef}
@@ -1704,14 +1696,6 @@ export function KaiSearchBar({
         >
           {isRiaSurface ? (
             <div className="relative flex w-full items-end justify-end">
-              <button
-                type="button"
-                aria-label="Open Agent"
-                onClick={handleAgentClick}
-                className="kai-bottom-agent-action pointer-events-auto absolute -top-[54px] right-1 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/30"
-              >
-                <Bot className="h-[18px] w-[18px]" strokeWidth={1.9} />
-              </button>
               <div
                 className="grid w-full grid-cols-2 gap-1.5 rounded-full border border-[color:var(--app-shell-surface-border)] bg-[color:var(--app-shell-surface-bg)] bg-[image:var(--app-shell-surface-fill)] p-1 shadow-[var(--app-shell-surface-shadow)] backdrop-blur-[var(--app-shell-surface-blur)]"
                 data-testid="ria-action-bar"
@@ -1751,15 +1735,7 @@ export function KaiSearchBar({
               </div>
             </div>
           ) : (
-            <div className="relative ml-auto flex h-[112px] w-[58px] items-end justify-end">
-              <button
-                type="button"
-                aria-label="Open Agent"
-                onClick={handleAgentClick}
-                className="kai-bottom-agent-action pointer-events-auto absolute right-[7px] top-0 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/30"
-              >
-                <Bot className="h-[18px] w-[18px]" strokeWidth={1.9} />
-              </button>
+            <div className="relative ml-auto flex w-[58px] items-end justify-end">
               <div
                 className={cn(
                   "ml-auto flex w-[58px] items-end justify-end"

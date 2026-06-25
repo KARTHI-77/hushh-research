@@ -472,9 +472,11 @@ describe("kai-search-bar helpers", () => {
       "true",
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Open Agent" }));
-
-    expect(mockOpenAgent).toHaveBeenCalledTimes(1);
+    // The Kai search chrome no longer renders its own Agent launcher; the
+    // persistent AgentBar (components/agent/agent-bar.tsx) is the single agent
+    // entry point, so the duplicate "Open Agent" robot must be gone.
+    expect(screen.queryByRole("button", { name: "Open Agent" })).toBeNull();
+    expect(mockOpenAgent).not.toHaveBeenCalled();
   });
 
   it("keeps Kai voice inside the compact search surface", () => {

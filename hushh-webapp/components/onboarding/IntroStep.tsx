@@ -9,7 +9,12 @@ import {
   kaiAppHeroTitleClassName,
 } from "@/components/kai/shared/kai-typography";
 
-// Vault — a private space only you can open (BYOK, encrypted even from us).
+// Inner glyph detail is "knocked out" to the icon's tinted background instead
+// of solid white, so the cutout reads as transparent against each tone and
+// matches the page aesthetic. Falls back to white if the var is unavailable.
+const INTRO_ICON_KNOCKOUT = "var(--intro-feature-bg, #ffffff)";
+
+// Vault: a private space only you can open (BYOK, encrypted even from us).
 function VaultLockIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
@@ -21,11 +26,11 @@ function VaultLockIcon(props: SVGProps<SVGSVGElement>) {
         strokeLinecap="round"
         strokeWidth="2"
       />
-      <circle cx="12" cy="15" r="1.7" fill="#ffffff" />
+      <circle cx="12" cy="15" r="1.7" fill={INTRO_ICON_KNOCKOUT} />
       <path
         d="M12 15.6v2.1"
         fill="none"
-        stroke="#ffffff"
+        stroke={INTRO_ICON_KNOCKOUT}
         strokeLinecap="round"
         strokeWidth="2"
       />
@@ -33,24 +38,42 @@ function VaultLockIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-// Finance — One's money capability (Kai). Generic, explains a sub-app.
+// Finance: One's money capability (Kai). Generic, explains a sub-app.
+// Drawn as a stroked coin + dollar glyph in the tone color (not a solid
+// filled disc) so it reads the same as the lock/mail glyphs and never looks
+// inverted next to them.
 function FinanceCapabilityIcon(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <circle cx="12" cy="12" r="9.5" />
-      <path
-        d="M12 6.8v10.4M9.4 9.2c0-1.2 1.1-1.9 2.6-1.9s2.6.7 2.6 1.8c0 2.6-5.2 1.4-5.2 4 0 1.2 1.1 1.9 2.6 1.9s2.6-.7 2.6-1.9"
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <circle
+        cx="12"
+        cy="12"
+        r="9"
         fill="none"
-        stroke="#ffffff"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+      {/* Correctly-oriented dollar glyph (matches lucide CircleDollarSign). */}
+      <path
+        d="M15 9.2H10.6a1.9 1.9 0 0 0 0 3.8h2.8a1.9 1.9 0 0 1 0 3.8H8.8"
+        fill="none"
+        stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M12 7.2v9.6"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
         strokeWidth="1.7"
       />
     </svg>
   );
 }
 
-// Gmail / inbox — One's email capability. Generic, explains a sub-app.
+// Gmail / inbox: One's email capability. Generic, explains a sub-app.
 function InboxCapabilityIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
@@ -58,7 +81,7 @@ function InboxCapabilityIcon(props: SVGProps<SVGSVGElement>) {
       <path
         d="m4.6 7.6 7.4 5.3 7.4-5.3"
         fill="none"
-        stroke="#ffffff"
+        stroke={INTRO_ICON_KNOCKOUT}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="1.8"
@@ -75,8 +98,8 @@ const INTRO_FEATURES: Array<{
 }> = [
   {
     icon: VaultLockIcon,
-    title: "A vault only you can open",
-    subtitle: "Encrypted end to end — even from us",
+    title: "Your vault, guarded by consent",
+    subtitle: "Encrypted end to end, shared only when you say yes",
     tone: "blue",
   },
   {
@@ -175,7 +198,7 @@ export function IntroStep({
           <div className="space-y-4">
             <p className="mx-auto max-w-[34ch] text-center text-[13.5px] leading-5 tracking-normal text-[#86868b] dark:text-[rgba(245,245,247,0.44)]">
               One is consent-first. Your knowledge and information are your
-              safewords — nothing leaves your vault without your approval.
+              safewords. Nothing leaves your vault without your approval.
             </p>
             <Button
               size="lg"

@@ -32,12 +32,14 @@ import { resolveTopShellRouteProfile } from "@/components/app-ui/top-shell-metri
 import { resolveAppRouteLayout } from "@/lib/navigation/app-route-layout";
 import { TopAppBar } from "@/components/app-ui/top-app-bar";
 import { AgentPopoverProvider } from "@/components/agent/agent-popover-provider";
+import { AgentBar } from "@/components/agent/agent-bar";
 import { Navbar } from "@/components/navbar";
 import { Toaster } from "@/components/ui/sonner";
 import { StatusBarManager } from "@/components/status-bar-manager";
 import { usePathname, useRouter } from "next/navigation";
 import { ensureMorphyGsapReady } from "@/lib/morphy-ux/gsap-init";
 import { usePageEnterAnimation } from "@/lib/morphy-ux/hooks/use-page-enter";
+import { useRouteTransition } from "@/lib/morphy-ux/hooks/use-route-transition";
 import { PostAuthOnboardingSyncBridge } from "@/components/onboarding/PostAuthOnboardingSyncBridge";
 import { KaiCommandBarGlobal } from "@/components/kai/kai-command-bar-global";
 import { useScrollReset } from "@/lib/navigation/use-scroll-reset";
@@ -70,6 +72,16 @@ function readCustomVar(style: CSSProperties, key: string): string {
   const value = (style as Record<string, string | number | undefined>)[key];
   return value === undefined || value === null ? "" : String(value).trim();
 }
+
+// Shared bottom chrome glass vars. Mirrors the top app bar glass (same bg,
+// blur via the .bar-glass default, overscan, and fade strengths) so the bottom
+// mask fade matches the top exactly, just flipped to fade upward.
+const SHARED_BOTTOM_CHROME_GLASS_VARS = {
+  "--app-bar-glass-bg-light": "rgba(245, 245, 247, 0.76)",
+  "--app-bar-glass-bg-dark": "rgba(28, 28, 30, 0.76)",
+  "--app-bar-shadow": "none",
+  "--app-bar-mask-overscan": "14px",
+} as const;
 
 function AppShellFrame({ children }: ProvidersProps) {
   const router = useRouter();
@@ -205,6 +217,10 @@ function AppShellFrame({ children }: ProvidersProps) {
     key: pageAnimationKey,
     observeMutations: shouldObservePageMutations,
   });
+  // App-wide route crossfade: fades the outgoing page out before navigating so
+  // route loads feel continuous instead of a hard cut (pairs with the GSAP
+  // enter animation above). See globals.css → "UNIFORM ROUTE TRANSITION".
+  useRouteTransition();
   useScrollReset(pathname, { enabled: true, behavior: "auto" });
 
   useEffect(() => {
@@ -331,20 +347,7 @@ function AppShellFrame({ children }: ProvidersProps) {
                                   "--bottom-chrome-progress": String(
                                     hideBottomChromeGlassProgress,
                                   ),
-                                  "--app-bar-glass-bg-light":
-                                    "rgba(255, 255, 255, 0.16)",
-                                  "--app-bar-glass-bg-dark":
-                                    "rgba(28, 28, 30, 0.22)",
-                                  "--app-bar-glass-blur": "0px",
-                                  "--app-bar-shadow": "none",
-                                  "--app-bar-mask-overscan": "6px",
-                                  "--app-bar-bottom-fade-strong":
-                                    "color-mix(in oklab, var(--background) 6%, transparent)",
-                                  "--app-bar-bottom-fade-medium":
-                                    "color-mix(in oklab, var(--background) 4%, transparent)",
-                                  "--app-bar-bottom-fade-soft":
-                                    "color-mix(in oklab, var(--background) 1.8%, transparent)",
-                                  "--app-bar-bottom-fade-trace": "transparent",
+                                  ...SHARED_BOTTOM_CHROME_GLASS_VARS,
                                 } as CSSProperties
                               }
                             />
@@ -352,6 +355,7 @@ function AppShellFrame({ children }: ProvidersProps) {
                         ) : null
                       }
                     </VaultContext.Consumer>
+                    <AgentBar />
                     <PostAuthOnboardingSyncBridge />
                     <Suspense fallback={null}>
                       <KaiCommandBarGlobal />
@@ -425,20 +429,7 @@ function AppShellFrame({ children }: ProvidersProps) {
                                   "--bottom-chrome-progress": String(
                                     hideBottomChromeGlassProgress,
                                   ),
-                                  "--app-bar-glass-bg-light":
-                                    "rgba(255, 255, 255, 0.16)",
-                                  "--app-bar-glass-bg-dark":
-                                    "rgba(28, 28, 30, 0.22)",
-                                  "--app-bar-glass-blur": "0px",
-                                  "--app-bar-shadow": "none",
-                                  "--app-bar-mask-overscan": "6px",
-                                  "--app-bar-bottom-fade-strong":
-                                    "color-mix(in oklab, var(--background) 6%, transparent)",
-                                  "--app-bar-bottom-fade-medium":
-                                    "color-mix(in oklab, var(--background) 4%, transparent)",
-                                  "--app-bar-bottom-fade-soft":
-                                    "color-mix(in oklab, var(--background) 1.8%, transparent)",
-                                  "--app-bar-bottom-fade-trace": "transparent",
+                                  ...SHARED_BOTTOM_CHROME_GLASS_VARS,
                                 } as CSSProperties
                               }
                             />
@@ -446,6 +437,7 @@ function AppShellFrame({ children }: ProvidersProps) {
                         ) : null
                       }
                     </VaultContext.Consumer>
+                    <AgentBar />
                     <PostAuthOnboardingSyncBridge />
                     <Suspense fallback={null}>
                       <KaiCommandBarGlobal />
