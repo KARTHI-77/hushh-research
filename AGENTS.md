@@ -2,6 +2,16 @@
 
 These repo-level instructions supplement the active Codex system/developer instructions. Follow the more specific instruction when there is a conflict.
 
+## Project-Wide Runtime Telemetry Default
+
+When a coding agent runs the local server, run it IN the agent's own terminal session (in-process / background terminal) by default, so the agent streams live logs, errors, and telemetry directly and can act on them. Do NOT default to the visible-OS-terminal wrapper (`./bin/hushh terminal ...`) for agent-driven runs — that detaches the logs from the agent.
+
+- Agent default (in-session, streamable): `./bin/hushh backend --mode local --reload`, `./bin/hushh web --mode local`, or `./bin/hushh stack --mode local`. Run as a background/async terminal so the agent keeps working while tailing telemetry.
+- Native restart: rely on backend `--reload` hot-restart first; for a full restart, stop the agent-managed terminal, confirm ports are free (`lsof -ti :<port>` empty), relaunch the same in-session command, and verify health (`./bin/hushh doctor --mode local`, web origin, backend `/docs`) before claiming success.
+- Use the visible-OS-terminal wrapper only when the developer explicitly wants to watch logs themselves, or for a detached session the agent does not need to read.
+
+Full playbook in `.codex/skills/repo-operations/references/branch-runtime-ops.md` ("Runtime Terminals" / "Native restart playbook").
+
 ## Project-Wide Premise Verification Gate
 
 Before accepting a premise, drafting a reply, proposing a plan, patching code, reviewing a PR, or merging work, run a quick repo-backed premise check.

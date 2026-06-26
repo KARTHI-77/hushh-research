@@ -80,16 +80,47 @@ long-lived integration branch like `kai-voice-level3`).
 
 ## Runtime Terminals
 
-1. Default local runtime launch is visible OS terminal windows.
-2. Use inline Codex sessions only when the user explicitly asks for inline,
-   background, or in-Codex logs.
-3. Prefer separate backend and web terminals unless one combined stack terminal
-   is explicitly requested.
-4. For restarts, stop repo-launched listeners, terminate shells cleanly, verify
-   ports are free, then relaunch.
-5. Do not claim restart success until backend health and web origin respond.
-6. If frontend does not bind, verify package-local Next resolution and repair
-   through canonical bootstrap before retrying.
+Telemetry-first default: when a coding agent is driving the work, run the server
+IN the agent's own terminal session (in-process / background terminal) so the
+agent streams live logs, errors, and telemetry directly. This is the default for
+agent-run servers because direct log access is required for monitoring and fast
+fix loops. Use a visible OS terminal window only when the developer explicitly
+asks to watch logs themselves, or when the agent has no managed terminal.
+
+1. Agent default = in-session terminal. Launch the canonical command DIRECTLY
+   (not the `terminal` wrapper, which always pops a visible OS window):
+   - backend: `./bin/hushh backend --mode local --reload`
+   - web: `./bin/hushh web --mode local`
+   - combined: `./bin/hushh stack --mode local`
+   Run it as a background/async terminal in the agent so the agent keeps working
+   while tailing output for telemetry.
+2. `--reload` on the backend is the native hot-restart: code edits auto-restart
+   the worker, so most "restart" needs are already handled without a manual kill.
+3. Visible OS terminal windows (`./bin/hushh terminal backend|web|stack`) are
+   opt-in: use when the developer explicitly wants to watch logs, or for a
+   detached long-running session the agent does not need to read.
+4. Prefer separate backend and web terminals unless one combined stack terminal
+   is explicitly requested, so backend and frontend telemetry stay readable.
+
+### Native restart playbook (agent-driven)
+
+1. Prefer the built-in hot-reload first: with `--reload` running, a code change
+   restarts the backend worker automatically — no manual restart needed.
+2. For a full restart, stop the agent-managed terminal cleanly (kill the managed
+   terminal/process), then verify the ports are free before relaunching:
+   - backend default port and web default port: `lsof -ti :<port>` should be
+     empty; if a stray listener remains, terminate it before relaunch.
+3. Relaunch the same in-session command from step 1; keep the terminal in the
+   agent so telemetry resumes streaming immediately.
+4. Do not claim restart success until backend health and web origin respond
+   (probe `./bin/hushh doctor --mode local` and the web origin / backend
+   `/docs`).
+5. If the frontend does not bind, verify package-local Next resolution and
+   repair through canonical bootstrap (`./bin/hushh bootstrap --mode local`)
+   before retrying.
+6. For container-based local stacks, use `./bin/hushh compose up`,
+   `./bin/hushh compose logs <service>`, and `./bin/hushh compose health` for
+   the equivalent in-session telemetry and restart loop.
 
 ## Merge, Deploy, And UAT
 
