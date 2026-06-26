@@ -97,4 +97,16 @@ describe("Popover", () => {
     expect(el?.tagName).toBe("H2");
   });
 
+  it("renders PopoverDescription as a p element", () => {
+    const { container } = render(
+      <PopoverDescription>Details</PopoverDescription>,
+    );
+
+    const description = container.querySelector(
+      '[data-slot="popover-description"]',
+    );
+
+    expect(description?.tagName).toBe("P");
+  });
+
 });
