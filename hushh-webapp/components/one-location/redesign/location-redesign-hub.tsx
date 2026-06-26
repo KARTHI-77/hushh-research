@@ -5,7 +5,7 @@
  *
  * Figma source of truth: one_location_final_fixed_clean_navigation (node 10:1054),
  * 16 mobile screens organised as four hub tabs (Now | People | Links | Inbox)
- * plus focused, full-screen task flows (Share / Ask / Invite / Temporary link).
+ * plus focused, full-screen task flows (Share / Ask / Invite / Public location link).
  *
  * STRICTLY PRESENTATION + LOCAL VIEW-ROUTING.
  * - All data and every action handler are passed in via `vm` from the existing
@@ -262,7 +262,7 @@ export function LocationRedesignHub({ vm }: { vm: LocationHubViewModel }) {
       : tab === "people"
         ? "Circle, contacts and invites"
         : tab === "links"
-          ? "Temporary and invite links"
+          ? "Public location and invite links"
           : "Requests and shared locations";
 
   return (
@@ -447,7 +447,7 @@ function NowHub({
           <QuickPathRow
             icon={<LinkIcon className="h-4 w-4" />}
             title="Links"
-            description="Temporary public sharing"
+            description="Public location sharing"
             onClick={() => onGoTab("links")}
           />
           <QuickPathRow
@@ -591,17 +591,17 @@ function LinksHub({
           className="h-11 w-full rounded-full bg-[#0a84ff] text-sm font-semibold text-white hover:bg-[#0a84ff]/90"
         >
           <Plus className="mr-2 h-4 w-4" />
-          Create temporary link
+          Create public location link
         </Button>
         <p className="mt-2 text-xs text-muted-foreground">
           Anyone with the link can view until expiry.
         </p>
       </SectionCard>
 
-      <SectionCard title="Active temporary link">
+      <SectionCard title="Active public location link">
         {temp ? (
           <TemporaryLinkCard
-            title="Temporary link active"
+            title="Public location link active"
             statusLine="Anyone with this link can view you"
             expiryLabel={vm.expiresCountdownLabel(temp.expiresAt)}
             onCopy={vm.onCopyPublicInvite}
@@ -611,7 +611,7 @@ function LinksHub({
           />
         ) : (
           <EmptyState
-            title="No active temporary link"
+            title="No active public location link"
             description="Create one above when you need to share outside your Circle."
           />
         )}
@@ -1213,7 +1213,7 @@ function TemporaryLinkFlow({
       <div className="space-y-5">
         <TaskFlowHeader
           eyebrow="Copy, share or revoke"
-          title="Temporary link active"
+          title="Public location link active"
           onBack={onClose}
         />
         <WarningCard
@@ -1222,7 +1222,7 @@ function TemporaryLinkFlow({
         />
         {invite ? (
           <TemporaryLinkCard
-            title="Temporary link active"
+            title="Public location link active"
             statusLine="Anyone with this link can view you"
             expiryLabel={vm.expiresCountdownLabel(invite.expiresAt)}
             onCopy={vm.onCopyPublicInvite}
@@ -1275,14 +1275,14 @@ function TemporaryLinkFlow({
       </SectionCard>
       <TrustNoteCard
         title="Expires automatically"
-        description="Temporary links are safer when they expire quickly."
+        description="Public location links are safer when they expire quickly."
       />
       <Button
         onClick={vm.onCreatePublicInvite}
         isLoading={vm.busy === "publicInvite"}
         className="h-12 w-full rounded-2xl bg-[#0a84ff] text-base font-semibold text-white hover:bg-[#0a84ff]/90"
       >
-        Review temporary link
+        Review public location link
       </Button>
     </div>
   );
