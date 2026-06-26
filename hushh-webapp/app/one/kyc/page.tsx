@@ -1625,9 +1625,12 @@ function OneKycWorkspace() {
                           size="icon"
                           className="size-8"
                           aria-label="Remove request"
-                          disabled={
-                            Boolean(busy) || Boolean(archivingWorkflowId)
-                          }
+                          // Removing a request only opens the confirm dialog and is
+                          // its own action; it must not be blocked by a background
+                          // draft-prep (busy === "draft"), or a stuck/looping draft
+                          // prep would trap the user with no way to delete the
+                          // workflow. Guard only against an in-flight archive.
+                          disabled={Boolean(archivingWorkflowId)}
                           onClick={(event) => {
                             event.stopPropagation();
                             setArchiveTarget(workflow);
