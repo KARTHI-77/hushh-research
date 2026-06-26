@@ -12,13 +12,23 @@ from typing import Any
 from api.utils.fcm_messages import build_push_message
 from api.utils.firebase_admin import ensure_firebase_admin
 from db.db_client import DatabaseExecutionError, get_db
+from hushh_mcp.consent.token import issue_token, validate_token
+from hushh_mcp.constants import ConsentScope
 from hushh_mcp.operons.location.policy import (
     LOCATION_CAPABILITY_SCOPES,
     normalize_duration_hours,
     normalize_source_platform,
 )
+from hushh_mcp.types import AgentID, UserID
+from mcp_modules.log_redaction import redact_log_value
 
 logger = logging.getLogger(__name__)
+
+# Capability scope minted into the per-grant HCT consent token. Live-location
+# viewing is the authority the recipient device exercises when reading
+# ciphertext envelopes, so the grant's signed token carries this scope.
+LOCATION_GRANT_CONSENT_SCOPE = "cap.location.live.view"
+
 _NOTIFICATION_EXECUTOR = ThreadPoolExecutor(
     max_workers=max(1, int(os.getenv("ONE_LOCATION_NOTIFICATION_WORKERS", "2"))),
     thread_name_prefix="one-location-notify",
@@ -70,6 +80,49 @@ PUBLIC_INVITE_FINGERPRINT_THROTTLE_MINUTES = _bounded_int_env(
 PUBLIC_INVITE_MAX_SUBMISSIONS_PER_FINGERPRINT_WINDOW = _bounded_int_env(
     "ONE_LOCATION_PUBLIC_INVITE_MAX_SUBMISSIONS_PER_FINGERPRINT_WINDOW", 3, 1, 20
 )
+ONE_LOCATION_ACTIVITY_RANGES = {
+    "7d": 7,
+    "30d": 30,
+    "90d": 90,
+}
+ONE_LOCATION_ACTIVITY_EVENT_TYPES = {
+    "location_share_created",
+    "location_share_viewed",
+    "location_share_revoked",
+    "location_share_expired",
+    "location_access_request",
+    "location_access_approved",
+    "location_access_denied",
+    "location_referral_invite",
+    "location_public_invite_created",
+    "location_public_invite_revoked",
+    "location_public_invite_submitted",
+    "location_circle_invite_created",
+    "location_circle_invite_claimed",
+    "location_circle_invite_revoked",
+    "location_one_network_joined",
+}
+ONE_LOCATION_SHARE_ACTIVITY_TYPES = {
+    "location_share_created",
+    "location_share_viewed",
+    "location_share_revoked",
+    "location_share_expired",
+}
+ONE_LOCATION_REQUEST_ACTIVITY_TYPES = {
+    "location_access_request",
+    "location_access_approved",
+    "location_access_denied",
+    "location_referral_invite",
+}
+ONE_LOCATION_PUBLIC_ACTIVITY_TYPES = {
+    "location_public_invite_created",
+    "location_public_invite_revoked",
+    "location_public_invite_submitted",
+    "location_circle_invite_created",
+    "location_circle_invite_claimed",
+    "location_circle_invite_revoked",
+    "location_one_network_joined",
+}
 
 
 class OneLocationAgentError(RuntimeError):
@@ -90,7 +143,7 @@ def _iso(value: Any) -> str | None:
     if isinstance(value, datetime):
         if value.tzinfo is None:
             value = value.replace(tzinfo=timezone.utc)
-        return value.astimezone(timezone.utc).isoformat()
+        return str(value.astimezone(timezone.utc).isoformat())
     return str(value)
 
 
@@ -134,6 +187,10 @@ def _json_param(value: dict[str, Any] | list[Any] | None) -> str:
     return json.dumps(_redact_location_metadata(value or {}), separators=(",", ":"))
 
 
+def _json_param_with_public_location(value: dict[str, Any] | None) -> str:
+    return json.dumps(value or {}, separators=(",", ":"))
+
+
 def _contains_plaintext_location_key(value: Any) -> bool:
     if isinstance(value, dict):
         for key, item in value.items():
@@ -167,14 +224,14 @@ def _submit_notification_send(
                 logger.warning(
                     "one.location.notification_token_cleanup_failed type=%s user=%s error=%s",
                     notification_type,
-                    user_id,
+                    redact_log_value(user_id),
                     exc,
                 )
         except Exception as exc:
             logger.warning(
                 "one.location.notification_send_failed type=%s user=%s error=%s",
                 notification_type,
-                user_id,
+                redact_log_value(user_id),
                 exc,
             )
 
@@ -184,7 +241,7 @@ def _submit_notification_send(
         logger.warning(
             "one.location.notification_submit_failed type=%s user=%s error=%s",
             notification_type,
-            user_id,
+            redact_log_value(user_id),
             exc,
         )
 
@@ -207,18 +264,11 @@ def _hash_public_value(value: str) -> str:
 
 
 def _public_invite_url(token: str) -> str:
-    base = (
-        (
-            os.getenv("NEXT_PUBLIC_APP_URL")
-            or os.getenv("APP_PUBLIC_URL")
-            or os.getenv("FRONTEND_BASE_URL")
-            or ""
-        )
-        .strip()
-        .rstrip("/")
-    )
-    path = f"/one/location/request/{token}"
-    return f"{base}{path}" if base else path
+    return f"/one/location/request/{token}"
+
+
+def _circle_invite_url(token: str) -> str:
+    return f"/one/location/invite/{token}"
 
 
 def _identity_display_label(row: dict[str, Any] | None, fallback: str = "A trusted person") -> str:
@@ -266,6 +316,44 @@ def _one_location_url(**query: str | None) -> str:
     suffix = f"?{'&'.join(params)}" if params else ""
     path = f"/one/location{suffix}"
     return f"{base}{path}" if base else path
+
+
+def _activity_since(range_key: str) -> datetime | None:
+    days = ONE_LOCATION_ACTIVITY_RANGES.get(range_key)
+    if not days:
+        return None
+    start = _utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    return start - timedelta(days=days - 1)
+
+
+def _activity_kind(event_type: str) -> str:
+    if event_type in ONE_LOCATION_SHARE_ACTIVITY_TYPES:
+        return "share"
+    if event_type in ONE_LOCATION_REQUEST_ACTIVITY_TYPES:
+        return "request"
+    return "public"
+
+
+def _activity_bucket_key(value: datetime, range_key: str) -> str:
+    if range_key in {"90d", "all"}:
+        return value.strftime("%Y-%m")
+    return value.strftime("%Y-%m-%d")
+
+
+def _activity_bucket_label(value: datetime, range_key: str) -> str:
+    if range_key in {"90d", "all"}:
+        return value.strftime("%b %Y")
+    try:
+        return value.strftime("%b %-d")
+    except ValueError:
+        return value.strftime("%b %#d")
+
+
+def format_activity_time(value: datetime) -> str:
+    try:
+        return value.strftime("%b %-d, %H:%M UTC")
+    except ValueError:
+        return value.strftime("%b %#d, %H:%M UTC")
 
 
 class OneLocationAgentService:
@@ -365,7 +453,7 @@ class OneLocationAgentService:
                 logger.warning(
                     "one.location.notification_blocked_plaintext_keys type=%s user=%s",
                     notification_type,
-                    user_id,
+                    redact_log_value(user_id),
                 )
                 return
             seen: set[str] = set()
@@ -397,9 +485,31 @@ class OneLocationAgentService:
             logger.warning(
                 "one.location.notification_skipped type=%s user=%s error=%s",
                 notification_type,
-                user_id,
+                redact_log_value(user_id),
                 exc,
             )
+
+    def _send_push_notification(
+        self,
+        *,
+        user_id: str,
+        notification_type: str,
+        title: str,
+        body: str,
+        notification_tag: str | None = None,
+        request_url: str | None = None,
+        data: dict[str, str | None] | None = None,
+    ) -> None:
+        """Compatibility wrapper for metadata-only location workflow pushes."""
+        self._send_metadata_notification(
+            user_id=user_id,
+            notification_type=notification_type,
+            title=title,
+            body=body,
+            notification_tag=notification_tag or f"one-location:{notification_type}",
+            request_url=request_url or "/one/location",
+            data=data or {},
+        )
 
     def _identity_row(self, user_id: str) -> dict[str, Any] | None:
         try:
@@ -413,7 +523,11 @@ class OneLocationAgentService:
                 {"user_id": user_id},
             )
         except Exception as exc:
-            logger.debug("one.location.identity_lookup_failed user=%s error=%s", user_id, exc)
+            logger.debug(
+                "one.location.identity_lookup_failed user=%s error=%s",
+                redact_log_value(user_id),
+                exc,
+            )
             return None
 
     def _identity_row_by_phone_digits(self, phone_digits: str) -> dict[str, Any] | None:
@@ -462,6 +576,829 @@ class OneLocationAgentService:
             "keyRegisteredAt": _iso(row.get("key_created_at") or row.get("created_at")),
             "canReceiveLocation": bool(row.get("key_id")),
         }
+
+    def _optional_signal_rows(
+        self,
+        *,
+        signal_name: str,
+        sql: str,
+        params: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        try:
+            return self._execute_many(sql, params or {})
+        except Exception as exc:
+            logger.debug(
+                "one.location.kai_circle_signal_unavailable signal=%s error=%s",
+                signal_name,
+                exc,
+            )
+            return []
+
+    @staticmethod
+    def _recommendation_signal() -> dict[str, Any]:
+        return {
+            "score": 0,
+            "reasons": {},
+            "needs_action": False,
+            "trusted": False,
+            "professional": False,
+            "relationship_type": None,
+            "profile_headline": None,
+            "verification_badge": None,
+            "last_interaction_at": None,
+        }
+
+    @staticmethod
+    def _signal_time_value(value: Any) -> float:
+        if value is None:
+            return 0.0
+        if isinstance(value, datetime):
+            parsed = value
+        else:
+            raw = str(value).strip()
+            if not raw:
+                return 0.0
+            if raw.endswith("Z"):
+                raw = f"{raw[:-1]}+00:00"
+            try:
+                parsed = datetime.fromisoformat(raw)
+            except ValueError:
+                return 0.0
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc).timestamp()
+
+    @classmethod
+    def _remember_signal_time(cls, signal: dict[str, Any], *values: Any) -> None:
+        current = signal.get("last_interaction_at")
+        current_score = cls._signal_time_value(current)
+        for value in values:
+            value_score = cls._signal_time_value(value)
+            if value_score > current_score:
+                signal["last_interaction_at"] = value
+                current_score = value_score
+
+    @staticmethod
+    def _safe_recommendation_text(value: Any, *, max_length: int = 96) -> str | None:
+        text = " ".join(str(value or "").split())
+        if not text:
+            return None
+        if len(text) <= max_length:
+            return text
+        return f"{text[: max_length - 1].rstrip()}..."
+
+    @classmethod
+    def _add_recommendation_reason(
+        cls,
+        signal: dict[str, Any],
+        *,
+        code: str,
+        label: str,
+        weight: int,
+    ) -> None:
+        reasons: dict[str, dict[str, Any]] = signal.setdefault("reasons", {})
+        existing = reasons.get(code)
+        normalized_weight = max(0, int(weight))
+        if existing and int(existing.get("weight") or 0) >= normalized_weight:
+            return
+        if existing:
+            signal["score"] -= int(existing.get("weight") or 0)
+        reasons[code] = {
+            "code": code,
+            "label": cls._safe_recommendation_text(label, max_length=72) or label,
+            "weight": normalized_weight,
+        }
+        signal["score"] += normalized_weight
+
+    @classmethod
+    def _safe_metadata_terms(cls, value: Any, *, max_terms: int = 4) -> list[str]:
+        metadata = _loads_json(value)
+        if not isinstance(metadata, dict):
+            return []
+        allowed_keys = {
+            "category",
+            "categories",
+            "focus",
+            "focus_area",
+            "focus_areas",
+            "industry",
+            "industries",
+            "interest",
+            "interests",
+            "investment_style",
+            "investment_styles",
+            "marketplace_categories",
+            "sector",
+            "sectors",
+            "specialties",
+            "specialty",
+        }
+        terms: list[str] = []
+
+        def add_term(raw_value: Any) -> None:
+            if isinstance(raw_value, str):
+                candidates = raw_value.split(",") if "," in raw_value else [raw_value]
+            elif isinstance(raw_value, (list, tuple, set)):
+                candidates = list(raw_value)
+            else:
+                candidates = [raw_value]
+            for candidate in candidates:
+                term = cls._safe_recommendation_text(candidate, max_length=36)
+                if term and term.lower() not in {existing.lower() for existing in terms}:
+                    terms.append(term)
+
+        for key, item in metadata.items():
+            normalized_key = str(key or "").strip().lower()
+            if normalized_key in COORDINATE_METADATA_KEYS or normalized_key not in allowed_keys:
+                continue
+            add_term(item)
+            if len(terms) >= max_terms:
+                break
+        return terms[:max_terms]
+
+    def _add_one_location_history_signals(
+        self,
+        *,
+        owner_user_id: str,
+        recipient_ids: set[str],
+        signals: dict[str, dict[str, Any]],
+    ) -> None:
+        grant_rows = self._optional_signal_rows(
+            signal_name="one_location_grants",
+            sql="""
+            SELECT owner_user_id, recipient_user_id, status, created_at, updated_at,
+                   expires_at, revoked_at
+            FROM one_location_share_grants
+            WHERE owner_user_id = :owner_user_id OR recipient_user_id = :owner_user_id
+            ORDER BY created_at DESC
+            LIMIT 100
+            """,
+            params={"owner_user_id": owner_user_id},
+        )
+        for row in grant_rows:
+            other_user_id = (
+                str(row.get("recipient_user_id") or "")
+                if row.get("owner_user_id") == owner_user_id
+                else str(row.get("owner_user_id") or "")
+            )
+            if other_user_id not in recipient_ids:
+                continue
+            signal = signals[other_user_id]
+            status = str(row.get("status") or "").lower()
+            if status == "active":
+                self._add_recommendation_reason(
+                    signal,
+                    code="active_location_share",
+                    label="Active location share",
+                    weight=46,
+                )
+                signal["trusted"] = True
+                signal["relationship_type"] = (
+                    signal.get("relationship_type") or "Active One Location share"
+                )
+                signal["verification_badge"] = (
+                    signal.get("verification_badge") or "Location trusted"
+                )
+            elif status in {"expired", "revoked"}:
+                self._add_recommendation_reason(
+                    signal,
+                    code="prior_location_share",
+                    label="Prior location sharing history",
+                    weight=30,
+                )
+                signal["trusted"] = True
+                signal["relationship_type"] = (
+                    signal.get("relationship_type") or "Prior One Location share"
+                )
+            self._remember_signal_time(
+                signal,
+                row.get("updated_at"),
+                row.get("created_at"),
+                row.get("expires_at"),
+                row.get("revoked_at"),
+            )
+
+        request_rows = self._optional_signal_rows(
+            signal_name="one_location_requests",
+            sql="""
+            SELECT owner_user_id, requester_user_id, referred_by_user_id, status,
+                   requested_at, resolved_at
+            FROM one_location_access_requests
+            WHERE owner_user_id = :owner_user_id OR requester_user_id = :owner_user_id
+            ORDER BY requested_at DESC
+            LIMIT 100
+            """,
+            params={"owner_user_id": owner_user_id},
+        )
+        for row in request_rows:
+            current_user_is_owner = row.get("owner_user_id") == owner_user_id
+            other_user_id = (
+                str(row.get("requester_user_id") or "")
+                if current_user_is_owner
+                else str(row.get("owner_user_id") or "")
+            )
+            if other_user_id not in recipient_ids:
+                continue
+            signal = signals[other_user_id]
+            status = str(row.get("status") or "").lower()
+            if status == "pending" and current_user_is_owner:
+                self._add_recommendation_reason(
+                    signal,
+                    code="pending_location_request",
+                    label="Asked to receive your location",
+                    weight=44,
+                )
+                signal["needs_action"] = True
+                signal["relationship_type"] = (
+                    signal.get("relationship_type") or "Pending location request"
+                )
+            elif status == "pending":
+                self._add_recommendation_reason(
+                    signal,
+                    code="outbound_location_request",
+                    label="Waiting on their approval",
+                    weight=22,
+                )
+            elif status == "approved":
+                self._add_recommendation_reason(
+                    signal,
+                    code="approved_location_request",
+                    label="Approved location request history",
+                    weight=28,
+                )
+                signal["trusted"] = True
+            self._remember_signal_time(signal, row.get("resolved_at"), row.get("requested_at"))
+
+        referral_rows = self._optional_signal_rows(
+            signal_name="one_location_referrals",
+            sql="""
+            SELECT owner_user_id, referring_user_id, referred_user_id, status,
+                   created_at, resolved_at
+            FROM one_location_referrals
+            WHERE owner_user_id = :owner_user_id
+               OR referring_user_id = :owner_user_id
+               OR referred_user_id = :owner_user_id
+            ORDER BY created_at DESC
+            LIMIT 100
+            """,
+            params={"owner_user_id": owner_user_id},
+        )
+        for row in referral_rows:
+            for candidate_field in ("owner_user_id", "referring_user_id", "referred_user_id"):
+                candidate_id = str(row.get(candidate_field) or "")
+                if candidate_id == owner_user_id or candidate_id not in recipient_ids:
+                    continue
+                signal = signals[candidate_id]
+                self._add_recommendation_reason(
+                    signal,
+                    code="location_referral_signal",
+                    label="Connected through a trusted referral",
+                    weight=24,
+                )
+                signal["trusted"] = True
+                signal["relationship_type"] = signal.get("relationship_type") or "Location referral"
+                self._remember_signal_time(signal, row.get("resolved_at"), row.get("created_at"))
+
+    def _add_prior_consent_signals(
+        self,
+        *,
+        owner_user_id: str,
+        recipient_ids: set[str],
+        signals: dict[str, dict[str, Any]],
+    ) -> None:
+        rows = self._optional_signal_rows(
+            signal_name="consent_audit",
+            sql="""
+            SELECT user_id, agent_id, action, issued_at
+            FROM consent_audit
+            WHERE user_id = :owner_user_id OR agent_id = :owner_user_id
+            ORDER BY issued_at DESC
+            LIMIT 100
+            """,
+            params={"owner_user_id": owner_user_id},
+        )
+        for row in rows:
+            if row.get("user_id") == owner_user_id:
+                other_user_id = str(row.get("agent_id") or "")
+            elif row.get("agent_id") == owner_user_id:
+                other_user_id = str(row.get("user_id") or "")
+            else:
+                other_user_id = ""
+            if other_user_id not in recipient_ids:
+                continue
+            action = str(row.get("action") or "").strip().lower()
+            if action not in {"consent_granted", "approved", "granted"}:
+                continue
+            signal = signals[other_user_id]
+            self._add_recommendation_reason(
+                signal,
+                code="prior_consent_relationship",
+                label="Prior consent approval",
+                weight=26,
+            )
+            signal["trusted"] = True
+            signal["relationship_type"] = (
+                signal.get("relationship_type") or "Prior consent relationship"
+            )
+            self._remember_signal_time(signal, row.get("issued_at"))
+
+    def _add_one_network_signals(
+        self,
+        *,
+        owner_user_id: str,
+        recipient_ids: set[str],
+        signals: dict[str, dict[str, Any]],
+    ) -> None:
+        rows = self._optional_signal_rows(
+            signal_name="one_location_network_connections",
+            sql="""
+            SELECT user_a_id, user_b_id, inviter_user_id, invitee_user_id,
+                   status, connected_at, updated_at
+            FROM one_location_network_connections
+            WHERE status = 'active'
+              AND (user_a_id = :owner_user_id OR user_b_id = :owner_user_id)
+            ORDER BY connected_at DESC
+            LIMIT 200
+            """,
+            params={"owner_user_id": owner_user_id},
+        )
+        for row in rows:
+            other_user_id = (
+                str(row.get("user_b_id") or "")
+                if row.get("user_a_id") == owner_user_id
+                else str(row.get("user_a_id") or "")
+            )
+            if other_user_id not in recipient_ids:
+                continue
+            signal = signals[other_user_id]
+            self._add_recommendation_reason(
+                signal,
+                code="one_network_connection",
+                label="Accepted Invite to One",
+                weight=42,
+            )
+            signal["trusted"] = True
+            signal["relationship_type"] = signal.get("relationship_type") or "One Network"
+            signal["verification_badge"] = signal.get("verification_badge") or "One Network"
+            self._remember_signal_time(signal, row.get("updated_at"), row.get("connected_at"))
+
+    def _add_mutual_kai_relationship_signals(
+        self,
+        *,
+        owner_user_id: str,
+        recipient_ids: set[str],
+        signals: dict[str, dict[str, Any]],
+    ) -> None:
+        rows = self._optional_signal_rows(
+            signal_name="mutual_kai_relationships",
+            sql="""
+            SELECT rel.investor_user_id, rel.status, rel.created_at, rel.updated_at,
+                   rp.user_id AS ria_user_id
+            FROM advisor_investor_relationships rel
+            JOIN ria_profiles rp ON rp.id = rel.ria_profile_id
+            WHERE rel.status IN ('approved', 'request_pending', 'discovered')
+            ORDER BY COALESCE(rel.updated_at, rel.created_at) DESC
+            LIMIT 500
+            """,
+            params={"owner_user_id": owner_user_id},
+        )
+        adjacency: dict[str, set[str]] = {}
+        latest_by_pair: dict[tuple[str, str], Any] = {}
+        for row in rows:
+            investor_user_id = str(row.get("investor_user_id") or "")
+            ria_user_id = str(row.get("ria_user_id") or "")
+            if not investor_user_id or not ria_user_id:
+                continue
+            adjacency.setdefault(investor_user_id, set()).add(ria_user_id)
+            adjacency.setdefault(ria_user_id, set()).add(investor_user_id)
+            latest = row.get("updated_at") or row.get("created_at")
+            latest_by_pair[(investor_user_id, ria_user_id)] = latest
+            latest_by_pair[(ria_user_id, investor_user_id)] = latest
+
+        owner_neighbors = adjacency.get(owner_user_id, set())
+        if not owner_neighbors:
+            return
+        for recipient_id in recipient_ids:
+            if recipient_id == owner_user_id:
+                continue
+            shared_neighbors = owner_neighbors.intersection(adjacency.get(recipient_id, set()))
+            if not shared_neighbors:
+                continue
+            signal = signals[recipient_id]
+            self._add_recommendation_reason(
+                signal,
+                code="mutual_kai_relationship",
+                label="Mutual KAI relationship",
+                weight=18,
+            )
+            signal["professional"] = True
+            signal["relationship_type"] = signal.get("relationship_type") or "Mutual KAI connection"
+            for neighbor_id in shared_neighbors:
+                self._remember_signal_time(
+                    signal,
+                    latest_by_pair.get((owner_user_id, neighbor_id)),
+                    latest_by_pair.get((recipient_id, neighbor_id)),
+                )
+
+    def _add_professional_network_signals(
+        self,
+        *,
+        owner_user_id: str,
+        recipient_ids: set[str],
+        signals: dict[str, dict[str, Any]],
+    ) -> None:
+        rows = self._optional_signal_rows(
+            signal_name="advisor_investor_relationships",
+            sql="""
+            SELECT
+              rel.investor_user_id,
+              rel.status,
+              rel.granted_scope,
+              rel.consent_granted_at,
+              rel.created_at,
+              rel.updated_at,
+              rp.user_id AS ria_user_id,
+              rp.display_name AS ria_display_name,
+              rp.verification_status AS ria_verification_status,
+              share.status AS relationship_share_status,
+              share.granted_at AS relationship_share_granted_at
+            FROM advisor_investor_relationships rel
+            JOIN ria_profiles rp ON rp.id = rel.ria_profile_id
+            LEFT JOIN relationship_share_grants share
+              ON share.relationship_id = rel.id
+             AND share.status = 'active'
+            WHERE rel.investor_user_id = :owner_user_id
+               OR rp.user_id = :owner_user_id
+            ORDER BY COALESCE(rel.consent_granted_at, rel.updated_at, rel.created_at) DESC
+            LIMIT 100
+            """,
+            params={"owner_user_id": owner_user_id},
+        )
+        for row in rows:
+            if row.get("investor_user_id") == owner_user_id:
+                other_user_id = str(row.get("ria_user_id") or "")
+                relationship_label = "Advisor relationship"
+            else:
+                other_user_id = str(row.get("investor_user_id") or "")
+                relationship_label = "Investor relationship"
+            if other_user_id not in recipient_ids:
+                continue
+            signal = signals[other_user_id]
+            status = str(row.get("status") or "").lower()
+            share_status = str(row.get("relationship_share_status") or "").lower()
+            if status == "approved" or share_status == "active":
+                self._add_recommendation_reason(
+                    signal,
+                    code="approved_professional_relationship",
+                    label="Approved advisor/investor relationship",
+                    weight=38,
+                )
+                signal["trusted"] = True
+            elif status == "request_pending":
+                self._add_recommendation_reason(
+                    signal,
+                    code="pending_professional_relationship",
+                    label="Pending advisor/investor relationship",
+                    weight=20,
+                )
+            else:
+                self._add_recommendation_reason(
+                    signal,
+                    code="professional_graph_proximity",
+                    label="Advisor/investor network connection",
+                    weight=16,
+                )
+            signal["professional"] = True
+            signal["relationship_type"] = signal.get("relationship_type") or relationship_label
+            if str(row.get("ria_verification_status") or "").lower() in {"verified", "active"}:
+                signal["verification_badge"] = signal.get("verification_badge") or "RIA verified"
+            self._remember_signal_time(
+                signal,
+                row.get("relationship_share_granted_at"),
+                row.get("consent_granted_at"),
+                row.get("updated_at"),
+                row.get("created_at"),
+            )
+
+    def _add_organization_membership_signals(
+        self,
+        *,
+        owner_user_id: str,
+        recipient_ids: set[str],
+        signals: dict[str, dict[str, Any]],
+    ) -> None:
+        rows = self._optional_signal_rows(
+            signal_name="ria_firm_memberships",
+            sql="""
+            SELECT
+              peer_rp.user_id AS peer_user_id,
+              firm.legal_name AS firm_name,
+              peer_membership.role_title AS peer_role_title,
+              owner_membership.updated_at AS owner_membership_updated_at,
+              peer_membership.updated_at AS peer_membership_updated_at
+            FROM ria_profiles owner_rp
+            JOIN ria_firm_memberships owner_membership
+              ON owner_membership.ria_profile_id = owner_rp.id
+             AND owner_membership.membership_status = 'active'
+            JOIN ria_firm_memberships peer_membership
+              ON peer_membership.firm_id = owner_membership.firm_id
+             AND peer_membership.membership_status = 'active'
+            JOIN ria_profiles peer_rp ON peer_rp.id = peer_membership.ria_profile_id
+            JOIN ria_firms firm ON firm.id = owner_membership.firm_id
+            WHERE owner_rp.user_id = :owner_user_id
+              AND peer_rp.user_id <> :owner_user_id
+            ORDER BY COALESCE(peer_membership.updated_at, owner_membership.updated_at) DESC
+            LIMIT 100
+            """,
+            params={"owner_user_id": owner_user_id},
+        )
+        for row in rows:
+            peer_user_id = str(row.get("peer_user_id") or "")
+            if peer_user_id not in recipient_ids:
+                continue
+            signal = signals[peer_user_id]
+            firm_label = self._safe_recommendation_text(row.get("firm_name"), max_length=48)
+            reason_label = f"Same organization: {firm_label}" if firm_label else "Same organization"
+            self._add_recommendation_reason(
+                signal,
+                code="organization_membership",
+                label=reason_label,
+                weight=20,
+            )
+            signal["professional"] = True
+            signal["relationship_type"] = signal.get("relationship_type") or "Same organization"
+            if not signal.get("profile_headline"):
+                signal["profile_headline"] = self._safe_recommendation_text(
+                    row.get("peer_role_title"),
+                    max_length=80,
+                )
+            self._remember_signal_time(
+                signal,
+                row.get("peer_membership_updated_at"),
+                row.get("owner_membership_updated_at"),
+            )
+
+    def _add_marketplace_profile_signals(
+        self,
+        *,
+        owner_user_id: str,
+        recipient_ids: set[str],
+        signals: dict[str, dict[str, Any]],
+    ) -> None:
+        rows = self._optional_signal_rows(
+            signal_name="marketplace_public_profiles",
+            sql="""
+            SELECT user_id, profile_type, headline, strategy_summary,
+                   verification_badge, metadata, updated_at, created_at
+            FROM marketplace_public_profiles
+            WHERE is_discoverable = TRUE
+            ORDER BY updated_at DESC
+            LIMIT 200
+            """,
+            params={"owner_user_id": owner_user_id},
+        )
+        owner_terms: set[str] = set()
+        for row in rows:
+            if str(row.get("user_id") or "") == owner_user_id:
+                owner_terms = {
+                    term.lower()
+                    for term in self._safe_metadata_terms(row.get("metadata"), max_terms=6)
+                }
+                break
+        for row in rows:
+            user_id = str(row.get("user_id") or "")
+            if user_id not in recipient_ids:
+                continue
+            signal = signals[user_id]
+            recipient_terms = self._safe_metadata_terms(row.get("metadata"), max_terms=6)
+            shared_terms = [term for term in recipient_terms if term.lower() in owner_terms][:2]
+            profile_type = str(row.get("profile_type") or "").strip().lower()
+            profile_label = (
+                "RIA marketplace profile"
+                if profile_type == "ria"
+                else "Investor marketplace profile"
+            )
+            self._add_recommendation_reason(
+                signal,
+                code="marketplace_public_profile",
+                label=profile_label,
+                weight=24,
+            )
+            signal["professional"] = True
+            signal["relationship_type"] = signal.get("relationship_type") or "Marketplace profile"
+            signal["profile_headline"] = signal.get(
+                "profile_headline"
+            ) or self._safe_recommendation_text(
+                row.get("headline") or row.get("strategy_summary"),
+                max_length=112,
+            )
+            signal["verification_badge"] = signal.get(
+                "verification_badge"
+            ) or self._safe_recommendation_text(
+                row.get("verification_badge") or "Marketplace discoverable",
+                max_length=48,
+            )
+            if shared_terms:
+                self._add_recommendation_reason(
+                    signal,
+                    code="shared_marketplace_categories",
+                    label=f"Shared marketplace focus: {', '.join(shared_terms)}",
+                    weight=18,
+                )
+            self._remember_signal_time(signal, row.get("updated_at"), row.get("created_at"))
+
+    def _add_persona_signals(
+        self,
+        *,
+        owner_user_id: str,
+        recipient_ids: set[str],
+        signals: dict[str, dict[str, Any]],
+    ) -> None:
+        rows = self._optional_signal_rows(
+            signal_name="runtime_persona_state",
+            sql="""
+            SELECT user_id, last_active_persona, updated_at
+            FROM runtime_persona_state
+            WHERE user_id <> :owner_user_id
+            ORDER BY updated_at DESC
+            LIMIT 200
+            """,
+            params={"owner_user_id": owner_user_id},
+        )
+        for row in rows:
+            user_id = str(row.get("user_id") or "")
+            if user_id not in recipient_ids:
+                continue
+            persona = str(row.get("last_active_persona") or "").lower()
+            if persona not in {"ria", "investor"}:
+                continue
+            signal = signals[user_id]
+            self._add_recommendation_reason(
+                signal,
+                code=f"{persona}_persona",
+                label="KAI advisor persona" if persona == "ria" else "KAI investor persona",
+                weight=12,
+            )
+            signal["professional"] = True
+            self._remember_signal_time(signal, row.get("updated_at"))
+
+    def _apply_kai_circle_recommendations(
+        self,
+        *,
+        owner_user_id: str,
+        recipients: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        if not recipients:
+            return []
+        recipient_ids = {str(recipient.get("userId") or "") for recipient in recipients}
+        recipient_ids.discard("")
+        signals = {recipient_id: self._recommendation_signal() for recipient_id in recipient_ids}
+
+        for recipient in recipients:
+            recipient_id = str(recipient.get("userId") or "")
+            signal = signals.get(recipient_id)
+            if not signal:
+                continue
+            if recipient.get("canReceiveLocation"):
+                self._add_recommendation_reason(
+                    signal,
+                    code="location_key_ready",
+                    label="Ready for location sharing",
+                    weight=28,
+                )
+            else:
+                self._add_recommendation_reason(
+                    signal,
+                    code="recipient_key_missing",
+                    label="Needs to open One Location once",
+                    weight=4,
+                )
+
+        self._add_one_location_history_signals(
+            owner_user_id=owner_user_id,
+            recipient_ids=recipient_ids,
+            signals=signals,
+        )
+        self._add_prior_consent_signals(
+            owner_user_id=owner_user_id,
+            recipient_ids=recipient_ids,
+            signals=signals,
+        )
+        self._add_one_network_signals(
+            owner_user_id=owner_user_id,
+            recipient_ids=recipient_ids,
+            signals=signals,
+        )
+        self._add_mutual_kai_relationship_signals(
+            owner_user_id=owner_user_id,
+            recipient_ids=recipient_ids,
+            signals=signals,
+        )
+        self._add_professional_network_signals(
+            owner_user_id=owner_user_id,
+            recipient_ids=recipient_ids,
+            signals=signals,
+        )
+        self._add_organization_membership_signals(
+            owner_user_id=owner_user_id,
+            recipient_ids=recipient_ids,
+            signals=signals,
+        )
+        self._add_marketplace_profile_signals(
+            owner_user_id=owner_user_id,
+            recipient_ids=recipient_ids,
+            signals=signals,
+        )
+        self._add_persona_signals(
+            owner_user_id=owner_user_id,
+            recipient_ids=recipient_ids,
+            signals=signals,
+        )
+
+        enriched: list[dict[str, Any]] = []
+        for recipient in recipients:
+            recipient_id = str(recipient.get("userId") or "")
+            signal = signals.get(recipient_id) or self._recommendation_signal()
+            reasons = sorted(
+                signal.get("reasons", {}).values(),
+                key=lambda item: (-int(item.get("weight") or 0), str(item.get("code") or "")),
+            )[:4]
+            score = max(0, min(100, int(signal.get("score") or 0)))
+            can_receive = bool(recipient.get("canReceiveLocation"))
+            if not can_receive and signal.get("trusted"):
+                category = "trusted_circle"
+                tier = "setup_needed"
+                trust_level = "high"
+                category_label = "Trusted Circle"
+                summary = (
+                    "They are connected on One and need to open One Location once before sharing."
+                )
+            elif not can_receive and signal.get("professional"):
+                category = "professional_network"
+                tier = "setup_needed"
+                trust_level = "medium"
+                category_label = "Professional Network"
+                summary = "A KAI network signal matched, but they need to open One Location once before sharing."
+            elif not can_receive:
+                category = "needs_setup"
+                tier = "setup_needed"
+                trust_level = "setup_needed"
+                category_label = "Needs setup"
+                summary = "They need to open One Location once before sharing."
+            elif signal.get("needs_action"):
+                category = "needs_action"
+                tier = "needs_action"
+                trust_level = "medium"
+                category_label = "Needs action"
+                summary = "They are waiting on your location-sharing decision."
+            elif signal.get("trusted"):
+                category = "trusted_circle"
+                tier = "trusted_circle"
+                trust_level = "high"
+                category_label = "Trusted Circle"
+                summary = "Existing trust or sharing history makes this a strong match."
+            elif signal.get("professional"):
+                category = "professional_network"
+                tier = "kai_network"
+                trust_level = "medium"
+                category_label = "Professional Network"
+                summary = "KAI marketplace, advisor, investor, or persona signals matched."
+            else:
+                category = "location_ready"
+                tier = "available"
+                trust_level = "new"
+                category_label = "Location ready"
+                summary = "Verified One member ready for location sharing."
+
+            enriched.append(
+                {
+                    **recipient,
+                    "recommendationScore": score,
+                    "recommendationTier": tier,
+                    "recommendationCategory": category,
+                    "recommendationCategoryLabel": category_label,
+                    "recommendationReasons": reasons,
+                    "recommendationSummary": summary,
+                    "trustLevel": trust_level,
+                    "relationshipType": signal.get("relationship_type"),
+                    "profileHeadline": signal.get("profile_headline"),
+                    "verificationBadge": signal.get("verification_badge")
+                    or ("Location ready" if can_receive else None),
+                    "lastInteractionAt": _iso(signal.get("last_interaction_at")),
+                }
+            )
+
+        enriched.sort(
+            key=lambda item: (
+                -int(item.get("recommendationScore") or 0),
+                0 if item.get("canReceiveLocation") else 1,
+                str(item.get("displayName") or "").lower(),
+                str(item.get("userId") or ""),
+            )
+        )
+        for index, recipient in enumerate(enriched, start=1):
+            recipient["recommendationRank"] = index
+        return enriched
 
     @staticmethod
     def _grant_payload(row: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -552,12 +1489,15 @@ class OneLocationAgentService:
         if isinstance(metadata, dict):
             safe_label = str(metadata.get("owner_safe_label") or "").strip()
         if public:
-            return {
+            payload = {
                 "status": str(row.get("status") or "active"),
                 "durationHours": float(row.get("duration_hours") or 0),
                 "expiresAt": _iso(row.get("expires_at")),
                 "ownerLabel": safe_label or PUBLIC_INVITE_DEFAULT_OWNER_LABEL,
             }
+            if isinstance(metadata, dict) and isinstance(metadata.get("publicLocation"), dict):
+                payload["locationAvailable"] = True
+            return payload
         payload = {
             "id": str(row.get("id") or ""),
             "ownerUserId": str(row.get("owner_user_id") or ""),
@@ -571,6 +1511,130 @@ class OneLocationAgentService:
         if safe_label:
             payload["ownerLabel"] = safe_label
         return payload
+
+    @staticmethod
+    def _circle_invite_payload(
+        row: dict[str, Any] | None, *, public: bool = False
+    ) -> dict[str, Any] | None:
+        if not row:
+            return None
+        metadata = _loads_json(row.get("metadata")) or {}
+        safe_label = ""
+        if isinstance(metadata, dict):
+            safe_label = str(metadata.get("owner_safe_label") or "").strip()
+        message = str(row.get("message") or "").strip() or None
+        if public:
+            payload = {
+                "status": str(row.get("status") or "active"),
+                "durationHours": float(row.get("duration_hours") or 0),
+                "expiresAt": _iso(row.get("expires_at")),
+                "ownerLabel": safe_label or PUBLIC_INVITE_DEFAULT_OWNER_LABEL,
+            }
+            if message:
+                payload["message"] = message
+            return payload
+        payload = {
+            "id": str(row.get("id") or ""),
+            "ownerUserId": str(row.get("owner_user_id") or ""),
+            "status": str(row.get("status") or "active"),
+            "durationHours": float(row.get("duration_hours") or 0),
+            "expiresAt": _iso(row.get("expires_at")),
+            "createdAt": _iso(row.get("created_at")),
+            "updatedAt": _iso(row.get("updated_at")),
+            "revokedAt": _iso(row.get("revoked_at")),
+            "claimedAt": _iso(row.get("claimed_at")),
+            "claimedByUserId": str(row.get("claimed_by_user_id") or "") or None,
+            "requestId": str(row.get("request_id") or "") or None,
+            "message": message,
+        }
+        if safe_label:
+            payload["ownerLabel"] = safe_label
+        return payload
+
+    @staticmethod
+    def _network_pair(user_id: str, other_user_id: str) -> tuple[str, str]:
+        if not user_id or not other_user_id or user_id == other_user_id:
+            raise OneLocationAgentError(
+                "LOCATION_NETWORK_CONNECTION_INVALID",
+                "Choose a different One user.",
+                status_code=422,
+            )
+        first, second = sorted((user_id, other_user_id))
+        return first, second
+
+    @staticmethod
+    def _one_network_connection_payload(row: dict[str, Any] | None) -> dict[str, Any] | None:
+        if not row:
+            return None
+        return {
+            "id": str(row.get("id") or ""),
+            "userAId": str(row.get("user_a_id") or ""),
+            "userBId": str(row.get("user_b_id") or ""),
+            "inviterUserId": str(row.get("inviter_user_id") or ""),
+            "inviteeUserId": str(row.get("invitee_user_id") or ""),
+            "inviteId": str(row.get("invite_id") or "") or None,
+            "status": str(row.get("status") or "active"),
+            "connectedAt": _iso(row.get("connected_at")),
+            "createdAt": _iso(row.get("created_at")),
+            "updatedAt": _iso(row.get("updated_at")),
+            "revokedAt": _iso(row.get("revoked_at")),
+        }
+
+    @staticmethod
+    def _public_location_snapshot_payload(value: Any) -> dict[str, Any] | None:
+        if value is None:
+            return None
+        if not isinstance(value, dict):
+            raise OneLocationAgentError(
+                "LOCATION_PUBLIC_LOCATION_INVALID",
+                "Public location links need a valid captured location.",
+                status_code=422,
+            )
+        latitude_raw = value.get("latitude")
+        longitude_raw = value.get("longitude")
+        if latitude_raw is None or longitude_raw is None:
+            raise OneLocationAgentError(
+                "LOCATION_PUBLIC_LOCATION_INVALID",
+                "Public location links need valid latitude and longitude.",
+                status_code=422,
+            )
+        try:
+            latitude = float(latitude_raw)
+            longitude = float(longitude_raw)
+        except (TypeError, ValueError) as exc:
+            raise OneLocationAgentError(
+                "LOCATION_PUBLIC_LOCATION_INVALID",
+                "Public location links need valid latitude and longitude.",
+                status_code=422,
+            ) from exc
+        if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
+            raise OneLocationAgentError(
+                "LOCATION_PUBLIC_LOCATION_INVALID",
+                "Public location coordinates are outside the valid range.",
+                status_code=422,
+            )
+        accuracy_raw = value.get("accuracyM", value.get("accuracy_m"))
+        accuracy_m: float | None = None
+        if accuracy_raw is not None:
+            try:
+                parsed_accuracy = float(accuracy_raw)
+                if parsed_accuracy > 0:
+                    accuracy_m = round(parsed_accuracy, 2)
+            except (TypeError, ValueError):
+                accuracy_m = None
+        captured_at = _parse_datetime(
+            value.get("capturedAt") or value.get("captured_at"),
+            field_name="capturedAt",
+        )
+        return {
+            "latitude": round(latitude, 7),
+            "longitude": round(longitude, 7),
+            "accuracyM": accuracy_m,
+            "capturedAt": _iso(captured_at),
+            "sourcePlatform": normalize_source_platform(
+                value.get("sourcePlatform") or value.get("source_platform")
+            ),
+        }
 
     @staticmethod
     def _public_submission_payload(
@@ -596,6 +1660,280 @@ class OneLocationAgentService:
             "message": str(row.get("message") or "") or None,
             "submittedAt": _iso(row.get("submitted_at")),
             "resolvedAt": _iso(row.get("resolved_at")),
+        }
+
+    @staticmethod
+    def _activity_display_label(
+        value: Any,
+        *,
+        fallback: str = "KAI member",
+    ) -> str:
+        label = str(value or "").strip()
+        return label or fallback
+
+    @classmethod
+    def _activity_event_payload(
+        cls,
+        row: dict[str, Any],
+        *,
+        user_id: str,
+        range_key: str,
+    ) -> dict[str, Any] | None:
+        event_type = str(row.get("event_type") or "")
+        if event_type not in ONE_LOCATION_ACTIVITY_EVENT_TYPES:
+            return None
+        occurred_at = _parse_datetime(row.get("created_at"), field_name="created_at")
+        owner_user_id = str(row.get("owner_user_id") or "")
+        owner_label = cls._activity_display_label(
+            row.get("owner_display_name"),
+            fallback="A trusted person",
+        )
+        actor_label = cls._activity_display_label(
+            row.get("actor_display_name"),
+            fallback="KAI member",
+        )
+        recipient_label = cls._activity_display_label(
+            row.get("recipient_display_name"),
+            fallback="KAI member",
+        )
+        visitor_label = cls._activity_display_label(
+            row.get("visitor_display_name"),
+            fallback="Public request",
+        )
+        event_id = str(row.get("id") or f"{event_type}:{_iso(occurred_at)}")
+        kind = _activity_kind(event_type)
+        detail = {
+            "share": "Private sharing",
+            "request": "Approval workflow",
+            "public": "Request link",
+        }[kind]
+
+        title = "One Location activity"
+        if event_type == "location_share_created":
+            title = (
+                f"Shared with {recipient_label}"
+                if owner_user_id == user_id
+                else f"{owner_label} shared with you"
+            )
+        elif event_type == "location_share_viewed":
+            title = (
+                f"Viewed by {actor_label}"
+                if owner_user_id == user_id
+                else f"You viewed {owner_label}'s update"
+            )
+        elif event_type == "location_share_revoked":
+            title = (
+                f"Sharing stopped with {recipient_label}"
+                if owner_user_id == user_id
+                else f"{owner_label} stopped sharing"
+            )
+        elif event_type == "location_share_expired":
+            title = (
+                f"Share expired for {recipient_label}"
+                if owner_user_id == user_id
+                else f"{owner_label}'s share expired"
+            )
+        elif event_type == "location_access_request":
+            title = (
+                f"Request from {actor_label}"
+                if owner_user_id == user_id
+                else f"Request sent to {owner_label}"
+            )
+        elif event_type == "location_access_approved":
+            title = (
+                f"Approved request for {recipient_label}"
+                if owner_user_id == user_id
+                else f"{owner_label} approved your request"
+            )
+        elif event_type == "location_access_denied":
+            title = (
+                f"Denied request from {recipient_label or actor_label}"
+                if owner_user_id == user_id
+                else f"{owner_label} denied your request"
+            )
+        elif event_type == "location_referral_invite":
+            title = f"Referral added for {recipient_label}"
+        elif event_type == "location_public_invite_created":
+            title = "Request link created"
+        elif event_type == "location_public_invite_revoked":
+            title = "Request link closed"
+        elif event_type == "location_public_invite_submitted":
+            title = f"Response from {visitor_label}"
+        elif event_type == "location_circle_invite_created":
+            title = "Invite to One created"
+        elif event_type == "location_circle_invite_claimed":
+            title = (
+                f"{actor_label} accepted your Invite to One"
+                if owner_user_id == user_id
+                else f"You joined {owner_label} on One"
+            )
+        elif event_type == "location_circle_invite_revoked":
+            title = "Invite to One closed"
+        elif event_type == "location_one_network_joined":
+            title = (
+                f"{actor_label} joined your One Network"
+                if owner_user_id == user_id
+                else f"You joined {owner_label}'s One Network"
+            )
+
+        return {
+            "id": event_id,
+            "kind": kind,
+            "eventType": event_type,
+            "occurredAt": _iso(occurred_at),
+            "bucketKey": _activity_bucket_key(occurred_at, range_key),
+            "bucketLabel": _activity_bucket_label(occurred_at, range_key),
+            "title": title,
+            "detail": f"{detail} - {format_activity_time(occurred_at)}",
+        }
+
+    def list_activity(
+        self,
+        *,
+        user_id: str,
+        range_key: str = "30d",
+        limit: int = 40,
+    ) -> dict[str, Any]:
+        if not user_id:
+            raise OneLocationAgentError(
+                "LOCATION_AUTH_REQUIRED", "A user is required.", status_code=401
+            )
+        normalized_range = range_key if range_key in {"7d", "30d", "90d", "all"} else "30d"
+        since_at = _activity_since(normalized_range)
+        bounded_limit = max(1, min(int(limit or 40), 100))
+        rows = self._execute_many(
+            """
+            SELECT
+              e.id,
+              e.owner_user_id,
+              e.actor_user_id,
+              e.recipient_user_id,
+              e.event_type,
+              e.metadata,
+              e.created_at,
+              owner.display_name AS owner_display_name,
+              actor.display_name AS actor_display_name,
+              recipient.display_name AS recipient_display_name,
+              submission.visitor_display_name AS visitor_display_name
+            FROM one_location_events e
+            LEFT JOIN actor_identity_cache owner ON owner.user_id = e.owner_user_id
+            LEFT JOIN actor_identity_cache actor ON actor.user_id = e.actor_user_id
+            LEFT JOIN actor_identity_cache recipient ON recipient.user_id = e.recipient_user_id
+            LEFT JOIN one_location_public_invite_submissions submission
+              ON submission.id::text = e.metadata->>'submission_id'
+            WHERE e.event_type = ANY(:event_types)
+              AND (:since_at IS NULL OR e.created_at >= :since_at)
+              AND (
+                e.owner_user_id = :user_id
+                OR e.actor_user_id = :user_id
+                OR e.recipient_user_id = :user_id
+              )
+            ORDER BY e.created_at DESC
+            LIMIT :limit
+            """,
+            {
+                "user_id": user_id,
+                "since_at": since_at,
+                "limit": bounded_limit,
+                "event_types": sorted(ONE_LOCATION_ACTIVITY_EVENT_TYPES),
+            },
+        )
+        active_row = (
+            self._execute_one(
+                """
+            SELECT COUNT(*)::int AS active_share_count
+            FROM one_location_share_grants
+            WHERE owner_user_id = :user_id
+              AND status = 'active'
+            """,
+                {"user_id": user_id},
+            )
+            or {}
+        )
+
+        events = [
+            payload
+            for row in rows
+            if (
+                payload := self._activity_event_payload(
+                    row,
+                    user_id=user_id,
+                    range_key=normalized_range,
+                )
+            )
+        ]
+        bucket_map: dict[str, dict[str, Any]] = {}
+        for event in events:
+            key = str(event["bucketKey"])
+            bucket = bucket_map.setdefault(
+                key,
+                {
+                    "key": key,
+                    "label": event["bucketLabel"],
+                    "shares": 0,
+                    "requests": 0,
+                    "views": 0,
+                    "publicActivity": 0,
+                    "total": 0,
+                },
+            )
+            event_type = str(event.get("eventType") or "")
+            if event["kind"] == "share":
+                bucket["shares"] += 1
+            if event["kind"] == "request":
+                bucket["requests"] += 1
+            if event_type == "location_share_viewed":
+                bucket["views"] += 1
+            if event["kind"] == "public":
+                bucket["publicActivity"] += 1
+            bucket["total"] += 1
+
+        shared_with = {
+            str(row.get("recipient_user_id") or "")
+            for row in rows
+            if str(row.get("event_type") or "") == "location_share_created"
+            and str(row.get("owner_user_id") or "") == user_id
+            and str(row.get("recipient_user_id") or "")
+        }
+        summary = {
+            "sharedWithCount": len(shared_with),
+            "activeShareCount": int(active_row.get("active_share_count") or 0),
+            "requestsReceivedCount": sum(
+                1
+                for row in rows
+                if str(row.get("event_type") or "") == "location_access_request"
+                and str(row.get("owner_user_id") or "") == user_id
+            ),
+            "requestsSentCount": sum(
+                1
+                for row in rows
+                if str(row.get("event_type") or "") == "location_access_request"
+                and str(row.get("actor_user_id") or "") == user_id
+                and str(row.get("owner_user_id") or "") != user_id
+            ),
+            "viewsCount": sum(
+                1 for row in rows if str(row.get("event_type") or "") == "location_share_viewed"
+            ),
+            "publicLinkCount": sum(
+                1
+                for row in rows
+                if str(row.get("event_type") or "") == "location_public_invite_created"
+                and str(row.get("owner_user_id") or "") == user_id
+            ),
+            "publicResponseCount": sum(
+                1
+                for row in rows
+                if str(row.get("event_type") or "") == "location_public_invite_submitted"
+                and str(row.get("owner_user_id") or "") == user_id
+            ),
+            "totalEvents": len(events),
+        }
+
+        return {
+            "range": normalized_range,
+            "summary": summary,
+            "buckets": [bucket_map[key] for key in sorted(bucket_map.keys())][-8:],
+            "events": events[:bounded_limit],
         }
 
     def _expire_stale_grants(self, user_id: str) -> None:
@@ -634,7 +1972,7 @@ class OneLocationAgentService:
                     title="Location access expired",
                     body="A location share reached its expiry time.",
                     notification_tag=f"one-location-expired:{grant_id}",
-                    request_url=_one_location_url(grantId=grant_id),
+                    request_url=_one_location_url(grantId=grant_id, section="shared"),
                     data={
                         "grant_id": grant_id,
                         "owner_user_id": owner_user_id,
@@ -742,6 +2080,28 @@ class OneLocationAgentService:
                 )
               LIMIT 500
             ),
+            stale_circle_invites AS (
+              SELECT id
+              FROM one_location_circle_invites
+              WHERE (
+                (
+                  status IN ('claimed', 'expired')
+                  AND COALESCE(claimed_at, updated_at, expires_at, created_at)
+                    <= NOW() - (:hours * INTERVAL '1 hour')
+                )
+                OR (
+                  status = 'revoked'
+                  AND COALESCE(revoked_at, updated_at, expires_at, created_at)
+                    <= NOW() - (:hours * INTERVAL '1 hour')
+                )
+              )
+              AND (
+                :user_id IS NULL
+                OR owner_user_id = :user_id
+                OR claimed_by_user_id = :user_id
+              )
+              LIMIT 500
+            ),
             deleted_events AS (
               DELETE FROM one_location_events e
               WHERE e.grant_id IN (SELECT id FROM stale_grants)
@@ -760,6 +2120,17 @@ class OneLocationAgentService:
                      OR e.metadata->>'submission_id' IN (
                        SELECT id::text FROM stale_public_submissions
                      )
+                   )
+                 )
+                 OR (
+                   e.event_type IN (
+                     'location_circle_invite_created',
+                     'location_circle_invite_claimed',
+                     'location_circle_invite_revoked',
+                     'location_one_network_joined'
+                   )
+                   AND e.metadata->>'invite_id' IN (
+                     SELECT id::text FROM stale_circle_invites
                    )
                  )
               RETURNING id
@@ -803,6 +2174,12 @@ class OneLocationAgentService:
               WHERE i.id IN (SELECT id FROM stale_public_invites)
                 AND (SELECT COUNT(*) FROM deleted_grants) >= 0
               RETURNING id
+            ),
+            deleted_circle_invites AS (
+              DELETE FROM one_location_circle_invites i
+              WHERE i.id IN (SELECT id FROM stale_circle_invites)
+                AND (SELECT COUNT(*) FROM deleted_public_invites) >= 0
+              RETURNING id
             )
             SELECT
               (SELECT COUNT(*) FROM deleted_grants) AS deleted_grants,
@@ -810,6 +2187,7 @@ class OneLocationAgentService:
               (SELECT COUNT(*) FROM deleted_requests) AS deleted_requests,
               (SELECT COUNT(*) FROM deleted_referrals) AS deleted_referrals,
               (SELECT COUNT(*) FROM deleted_public_invites) AS deleted_public_invites,
+              (SELECT COUNT(*) FROM deleted_circle_invites) AS deleted_circle_invites,
               (SELECT COUNT(*) FROM deleted_public_submissions) AS deleted_public_submissions,
               (SELECT COUNT(*) FROM deleted_events) AS deleted_events
             """,
@@ -823,6 +2201,7 @@ class OneLocationAgentService:
             "deleted_requests": int(row.get("deleted_requests") or 0),
             "deleted_referrals": int(row.get("deleted_referrals") or 0),
             "deleted_public_invites": int(row.get("deleted_public_invites") or 0),
+            "deleted_circle_invites": int(row.get("deleted_circle_invites") or 0),
             "deleted_public_submissions": int(row.get("deleted_public_submissions") or 0),
             "deleted_events": int(row.get("deleted_events") or 0),
             "retention_hours": hours,
@@ -922,17 +2301,37 @@ class OneLocationAgentService:
               ORDER BY created_at DESC
               LIMIT 1
             ) k ON TRUE
-            WHERE a.phone_verified = TRUE
-              AND a.user_id <> :owner_user_id
+            WHERE a.user_id <> :owner_user_id
+              AND (
+                a.phone_verified = TRUE
+                OR EXISTS (
+                  SELECT 1
+                  FROM one_location_network_connections nc
+                  WHERE nc.status = 'active'
+                    AND (
+                      (nc.user_a_id = :owner_user_id AND nc.user_b_id = a.user_id)
+                      OR (nc.user_b_id = :owner_user_id AND nc.user_a_id = a.user_id)
+                    )
+                )
+              )
             ORDER BY COALESCE(a.display_name, a.phone_number, a.user_id), a.user_id
             LIMIT :limit
             """,
             {"owner_user_id": owner_user_id, "limit": max(1, min(int(limit), 100))},
         )
-        return [payload for row in rows if (payload := self._recipient_payload(row))]
+        recipients = [payload for row in rows if (payload := self._recipient_payload(row))]
+        return self._apply_kai_circle_recommendations(
+            owner_user_id=owner_user_id,
+            recipients=recipients,
+        )
 
     def _recipient_key_row(
-        self, *, recipient_user_id: str, recipient_key_id: str | None = None
+        self,
+        *,
+        recipient_user_id: str,
+        recipient_key_id: str | None = None,
+        require_phone_verified: bool = True,
+        unavailable_message: str | None = None,
     ) -> dict[str, Any]:
         row = self._execute_one(
             """
@@ -942,21 +2341,86 @@ class OneLocationAgentService:
             FROM actor_identity_cache a
             JOIN one_location_recipient_keys k ON k.user_id = a.user_id
             WHERE a.user_id = :recipient_user_id
-              AND a.phone_verified = TRUE
+              AND (:require_phone_verified IS FALSE OR a.phone_verified = TRUE)
               AND k.status = 'active'
               AND (:recipient_key_id IS NULL OR k.key_id = :recipient_key_id)
             ORDER BY k.created_at DESC
             LIMIT 1
             """,
-            {"recipient_user_id": recipient_user_id, "recipient_key_id": recipient_key_id},
+            {
+                "recipient_user_id": recipient_user_id,
+                "recipient_key_id": recipient_key_id,
+                "require_phone_verified": require_phone_verified,
+            },
         )
         if not row:
             raise OneLocationAgentError(
                 "LOCATION_RECIPIENT_UNAVAILABLE",
-                "Choose a verified recipient who has location key material ready.",
+                unavailable_message
+                or (
+                    "They are in your One Network but their secure location key "
+                    "isn't ready yet. Ask them to open One Location and unlock "
+                    "their vault once, then try again."
+                ),
                 status_code=409,
             )
         return row
+
+    def _mint_grant_capability_token(
+        self,
+        *,
+        owner_user_id: str,
+        recipient_user_id: str,
+        duration_hours: float,
+    ) -> dict[str, str]:
+        """Mint a signed HCT capability token for a device-to-device grant.
+
+        The token is the cryptographic capability that authorizes the recipient
+        device to read live-location ciphertext for this grant. Scope is
+        cap.location.live.view; the agent identity binds the token to the
+        recipient device principal. Expiry mirrors the grant duration so the
+        capability and the row expire together.
+        """
+        expires_in_ms = max(1, int(round(duration_hours * 60 * 60 * 1000)))
+        token = issue_token(
+            user_id=UserID(owner_user_id),
+            agent_id=AgentID(f"device:{recipient_user_id}"),
+            scope=ConsentScope.CAP_LOCATION_LIVE_VIEW,
+            expires_in_ms=expires_in_ms,
+        )
+        return {"token": token.token, "token_id": token.token}
+
+    def _assert_grant_capability_token(self, grant_row: dict[str, Any]) -> None:
+        """Cryptographically validate a grant's capability token before use.
+
+        Older grants created before per-grant HCT minting carry no token in
+        metadata; those fall back to the DB status/expiry checks already
+        performed by the caller. When a token is present it must validate:
+        signature, expiry, and cap.location.live.view scope. This makes the
+        grant's authority a verifiable capability rather than a descriptive
+        string column.
+        """
+        metadata = grant_row.get("metadata")
+        if isinstance(metadata, str):
+            try:
+                metadata = json.loads(metadata)
+            except (TypeError, ValueError):
+                metadata = {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+        capability = metadata.get("capability_token")
+        if not capability:
+            return
+        valid, reason, _token = validate_token(
+            capability,
+            expected_scope=LOCATION_GRANT_CONSENT_SCOPE,
+        )
+        if not valid:
+            raise OneLocationAgentError(
+                "LOCATION_GRANT_CAPABILITY_INVALID",
+                "Location share capability is no longer valid.",
+                status_code=403,
+            )
 
     def create_grant(
         self,
@@ -966,6 +2430,7 @@ class OneLocationAgentService:
         recipient_key_id: str | None,
         duration_hours: float,
         reason: str | None = None,
+        require_recipient_phone_verified: bool = True,
     ) -> dict[str, Any]:
         if owner_user_id == recipient_user_id:
             raise OneLocationAgentError(
@@ -982,12 +2447,19 @@ class OneLocationAgentService:
                 status_code=422,
             ) from exc
         recipient = self._recipient_key_row(
-            recipient_user_id=recipient_user_id, recipient_key_id=recipient_key_id
+            recipient_user_id=recipient_user_id,
+            recipient_key_id=recipient_key_id,
+            require_phone_verified=require_recipient_phone_verified,
         )
         owner_identity = self._identity_row(owner_user_id)
         owner_label = _identity_display_label(owner_identity)
         key_id = str(recipient.get("key_id") or "")
         expires_at = _utcnow() + timedelta(hours=duration)
+        capability = self._mint_grant_capability_token(
+            owner_user_id=owner_user_id,
+            recipient_user_id=recipient_user_id,
+            duration_hours=duration,
+        )
         self._execute_many(
             """
             UPDATE one_location_share_grants
@@ -1022,7 +2494,13 @@ class OneLocationAgentService:
                 "capability_scopes": _json_param(LOCATION_CAPABILITY_SCOPES),
                 "duration_hours": duration,
                 "expires_at": expires_at,
-                "metadata_json": _json_param({"reason": reason or "owner_approved"}),
+                "metadata_json": _json_param(
+                    {
+                        "reason": reason or "owner_approved",
+                        "capability_token": capability["token"],
+                        "capability_scope": LOCATION_GRANT_CONSENT_SCOPE,
+                    }
+                ),
                 "recipient_display_name": recipient.get("display_name"),
                 "recipient_phone_number": recipient.get("phone_number"),
             },
@@ -1048,7 +2526,11 @@ class OneLocationAgentService:
             title="Location shared",
             body=f"{owner_label} shared location access with you.",
             notification_tag=f"one-location-share:{grant['id']}",
-            request_url=_one_location_url(grantId=grant["id"], locationNotification="opened"),
+            request_url=_one_location_url(
+                grantId=grant["id"],
+                locationNotification="opened",
+                section="shared",
+            ),
             data={
                 "grant_id": grant["id"],
                 "owner_user_id": owner_user_id,
@@ -1106,6 +2588,10 @@ class OneLocationAgentService:
             raise OneLocationAgentError(
                 "LOCATION_GRANT_EXPIRED", "Location share has expired.", status_code=410
             )
+        # Cryptographically verify the grant's HCT capability token (signature,
+        # expiry, cap.location.live.view scope) before accepting ciphertext.
+        # Grants minted before per-grant tokens fall back to the DB checks above.
+        self._assert_grant_capability_token(grant_row)
         recipient_key_id = str(grant_row.get("recipient_key_id") or "")
         if str(envelope.get("recipientKeyId") or recipient_key_id) != recipient_key_id:
             raise OneLocationAgentError(
@@ -1248,11 +2734,30 @@ class OneLocationAgentService:
         )
         return updated or {**row, "status": "expired"}
 
+    def _expire_circle_invite(self, row: dict[str, Any] | None) -> dict[str, Any] | None:
+        if not row or str(row.get("status") or "") != "active":
+            return row
+        expires_at = _parse_datetime(row.get("expires_at"), field_name="expires_at")
+        if expires_at > _utcnow():
+            return row
+        updated = self._execute_one(
+            """
+            UPDATE one_location_circle_invites
+            SET status = 'expired', updated_at = NOW()
+            WHERE id = CAST(:invite_id AS UUID)
+              AND status = 'active'
+            RETURNING *
+            """,
+            {"invite_id": str(row.get("id") or "")},
+        )
+        return updated or {**row, "status": "expired"}
+
     def create_public_invite(
         self,
         *,
         owner_user_id: str,
         duration_hours: float,
+        location_snapshot: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if not owner_user_id:
             raise OneLocationAgentError(
@@ -1269,6 +2774,10 @@ class OneLocationAgentService:
         raw_token = secrets.token_urlsafe(32)
         token_hash = _hash_public_value(raw_token)
         expires_at = _utcnow() + timedelta(hours=duration)
+        public_location = self._public_location_snapshot_payload(location_snapshot)
+        metadata: dict[str, Any] = {}
+        if public_location:
+            metadata["publicLocation"] = public_location
         row = self._execute_one(
             """
             INSERT INTO one_location_public_invites (
@@ -1277,7 +2786,7 @@ class OneLocationAgentService:
             )
             VALUES (
               :owner_user_id, :public_code_hash, 'active', :duration_hours,
-              :expires_at, NOW(), NOW(), '{}'::jsonb
+              :expires_at, NOW(), NOW(), CAST(:metadata_json AS JSONB)
             )
             RETURNING *
             """,
@@ -1286,6 +2795,7 @@ class OneLocationAgentService:
                 "public_code_hash": token_hash,
                 "duration_hours": duration,
                 "expires_at": expires_at,
+                "metadata_json": _json_param_with_public_location(metadata),
             },
         )
         invite = self._public_invite_payload(row)
@@ -1299,7 +2809,11 @@ class OneLocationAgentService:
             owner_user_id=owner_user_id,
             actor_user_id=owner_user_id,
             event_type="location_public_invite_created",
-            metadata={"invite_id": invite["id"], "duration_hours": duration},
+            metadata={
+                "invite_id": invite["id"],
+                "duration_hours": duration,
+                "location_snapshot": "attached" if public_location else "none",
+            },
         )
         return {
             "invite": invite,
@@ -1336,7 +2850,12 @@ class OneLocationAgentService:
     def resolve_public_invite(self, *, public_token: str) -> dict[str, Any]:
         row = self._public_invite_row_for_token(public_token=public_token)
         invite = self._public_invite_payload(row, public=True)
-        return {"invite": invite}
+        result = {"invite": invite}
+        metadata = _loads_json(row.get("metadata")) or {}
+        public_location = metadata.get("publicLocation") if isinstance(metadata, dict) else None
+        if isinstance(public_location, dict):
+            result["publicLocation"] = self._public_location_snapshot_payload(public_location)
+        return result
 
     def _check_public_submission_limits(
         self,
@@ -1416,6 +2935,11 @@ class OneLocationAgentService:
     ) -> dict[str, Any]:
         invite_row = self._public_invite_row_for_token(public_token=public_token)
         invite = self._public_invite_payload(invite_row) or {}
+        invite_metadata = _loads_json(invite_row.get("metadata")) or {}
+        public_location = (
+            invite_metadata.get("publicLocation") if isinstance(invite_metadata, dict) else None
+        )
+        has_public_location = isinstance(public_location, dict)
         display_name = str(visitor_display_name or "").strip()
         if len(display_name) < 2:
             raise OneLocationAgentError(
@@ -1440,17 +2964,18 @@ class OneLocationAgentService:
         owner_user_id = invite["ownerUserId"]
         matched_identity = self._identity_row_by_phone_digits(phone_digits)
         matched_user_id = str(matched_identity.get("user_id") or "") if matched_identity else None
-        status_value = "pending_identity"
+        status_value = "approved" if has_public_location else "pending_identity"
         request: dict[str, Any] | None = None
         if matched_user_id == owner_user_id:
             matched_user_id = None
-        if matched_user_id:
+        if matched_user_id and not has_public_location:
             try:
                 request = self.request_access(
                     requester_user_id=matched_user_id,
                     owner_user_id=owner_user_id,
                     message=message_value or f"Public request from {display_name}",
                     notify_owner=False,
+                    require_requester_key_material=True,
                 )
                 status_value = "matched_request_pending"
             except OneLocationAgentError as exc:
@@ -1484,7 +3009,8 @@ class OneLocationAgentService:
                 "message": message_value,
                 "metadata_json": _json_param(
                     {
-                        "intake_only": True,
+                        "intake_only": not has_public_location,
+                        "public_location_view": has_public_location,
                         "submitter_fingerprint_hash": submitter_fingerprint_hash,
                     }
                 ),
@@ -1508,16 +3034,25 @@ class OneLocationAgentService:
                 "submission_id": submission["id"],
                 "matched": bool(matched_user_id),
                 "request_created": bool(request),
-                "intake_only": True,
+                "intake_only": not has_public_location,
+                "public_location_view": has_public_location,
             },
         )
         self._send_metadata_notification(
             user_id=owner_user_id,
             notification_type="location_public_invite_submitted",
-            title="Public location request",
-            body=f"{display_name[:80]} requested location access from your link.",
+            title="Public location viewed" if has_public_location else "Public location request",
+            body=(
+                f"{display_name[:80]} opened your public location link."
+                if has_public_location
+                else f"{display_name[:80]} requested location access from your link."
+            ),
             notification_tag=f"one-location-public-request:{submission['id']}",
-            request_url=_one_location_url(requestId=request["id"] if request else None),
+            request_url=_one_location_url(
+                requestId=request["id"] if request else None,
+                submissionId=submission["id"],
+                section="public_responses",
+            ),
             data={
                 "submission_id": submission["id"],
                 "invite_id": invite["id"],
@@ -1528,7 +3063,10 @@ class OneLocationAgentService:
                 "status": status_value,
             },
         )
-        return {"submission": self._public_submission_payload(row, public=True)}
+        result = {"submission": self._public_submission_payload(row, public=True)}
+        if has_public_location:
+            result["publicLocation"] = public_location
+        return result
 
     def revoke_public_invite(self, *, owner_user_id: str, invite_id: str) -> dict[str, Any]:
         row = self._execute_one(
@@ -1557,10 +3095,319 @@ class OneLocationAgentService:
         )
         return invite
 
+    def create_circle_invite(
+        self,
+        *,
+        owner_user_id: str,
+        duration_hours: float,
+        message: str | None = None,
+    ) -> dict[str, Any]:
+        if not owner_user_id:
+            raise OneLocationAgentError(
+                "LOCATION_AUTH_REQUIRED", "A user is required.", status_code=401
+            )
+        try:
+            duration = normalize_duration_hours(duration_hours)
+        except ValueError as exc:
+            raise OneLocationAgentError(
+                "LOCATION_DURATION_INVALID",
+                str(exc),
+                status_code=422,
+            ) from exc
+        raw_token = secrets.token_urlsafe(32)
+        token_hash = _hash_public_value(raw_token)
+        owner_identity = self._identity_row(owner_user_id)
+        owner_label = _identity_display_label(owner_identity)
+        message_value = (message or "").strip()[:500] or None
+        row = self._execute_one(
+            """
+            INSERT INTO one_location_circle_invites (
+              owner_user_id, invite_code_hash, status, duration_hours,
+              expires_at, message, created_at, updated_at, metadata
+            )
+            VALUES (
+              :owner_user_id, :invite_code_hash, 'active', :duration_hours,
+              :expires_at, :message, NOW(), NOW(), CAST(:metadata_json AS JSONB)
+            )
+            RETURNING *
+            """,
+            {
+                "owner_user_id": owner_user_id,
+                "invite_code_hash": token_hash,
+                "duration_hours": duration,
+                "expires_at": _utcnow() + timedelta(hours=duration),
+                "message": message_value,
+                "metadata_json": _json_param({"owner_safe_label": owner_label}),
+            },
+        )
+        invite = self._circle_invite_payload(row)
+        if not invite:
+            raise OneLocationAgentError(
+                "LOCATION_CIRCLE_INVITE_CREATE_FAILED",
+                "Could not create the Invite to One link.",
+                status_code=500,
+            )
+        self._insert_event(
+            owner_user_id=owner_user_id,
+            actor_user_id=owner_user_id,
+            event_type="location_circle_invite_created",
+            metadata={"invite_id": invite["id"], "duration_hours": duration},
+        )
+        return {
+            "invite": invite,
+            "inviteToken": raw_token,
+            "inviteUrl": _circle_invite_url(raw_token),
+        }
+
+    def _circle_invite_row_for_token(self, *, invite_token: str) -> dict[str, Any]:
+        normalized_token = str(invite_token or "").strip()
+        if len(normalized_token) < 16:
+            raise OneLocationAgentError(
+                "LOCATION_CIRCLE_INVITE_INVALID",
+                "This Invite to One link is invalid.",
+                status_code=404,
+            )
+        row = self._execute_one(
+            """
+            SELECT i.*
+            FROM one_location_circle_invites i
+            WHERE i.invite_code_hash = :invite_code_hash
+            LIMIT 1
+            """,
+            {"invite_code_hash": _hash_public_value(normalized_token)},
+        )
+        row = self._expire_circle_invite(row)
+        if not row or str(row.get("status") or "") != "active":
+            raise OneLocationAgentError(
+                "LOCATION_CIRCLE_INVITE_NOT_ACTIVE",
+                "This Invite to One link is no longer active.",
+                status_code=410 if row else 404,
+            )
+        return row
+
+    def resolve_circle_invite(self, *, invite_token: str) -> dict[str, Any]:
+        row = self._circle_invite_row_for_token(invite_token=invite_token)
+        return {"invite": self._circle_invite_payload(row, public=True)}
+
+    def claim_circle_invite(
+        self,
+        *,
+        invite_token: str,
+        claimant_user_id: str,
+        message: str | None = None,
+    ) -> dict[str, Any]:
+        if not claimant_user_id:
+            raise OneLocationAgentError(
+                "LOCATION_AUTH_REQUIRED",
+                "Sign in before accepting this Invite to One link.",
+                status_code=401,
+            )
+        invite_row = self._circle_invite_row_for_token(invite_token=invite_token)
+        owner_user_id = str(invite_row.get("owner_user_id") or "")
+        if owner_user_id == claimant_user_id:
+            raise OneLocationAgentError(
+                "LOCATION_CIRCLE_INVITE_SELF",
+                "Open One Location instead of accepting your own Invite to One link.",
+                status_code=422,
+            )
+        invite_id = str(invite_row.get("id") or "")
+        invite_message = str(invite_row.get("message") or "").strip()
+        message_value = (message or "").strip()[:500] or None
+        claimant_identity = self._identity_row(claimant_user_id)
+        if not claimant_identity or not bool(claimant_identity.get("phone_verified")):
+            raise OneLocationAgentError(
+                "LOCATION_PHONE_VERIFICATION_REQUIRED",
+                "Verify your phone number before joining One Network.",
+                status_code=409,
+            )
+        owner_identity = self._identity_row(owner_user_id)
+        user_a_id, user_b_id = self._network_pair(owner_user_id, claimant_user_id)
+        connection_row = self._execute_one(
+            """
+            INSERT INTO one_location_network_connections (
+              user_a_id, user_b_id, inviter_user_id, invitee_user_id,
+              invite_id, status, connected_at, created_at, updated_at, metadata
+            )
+            VALUES (
+              LEAST(CAST(:user_a_id AS TEXT), CAST(:user_b_id AS TEXT)), 
+              GREATEST(CAST(:user_a_id AS TEXT), CAST(:user_b_id AS TEXT)), 
+              :inviter_user_id, :invitee_user_id,
+              CAST(:invite_id AS UUID), 'active', NOW(), NOW(), NOW(),
+              CAST(:metadata_json AS JSONB)
+            )
+            ON CONFLICT (user_a_id, user_b_id) DO UPDATE SET
+              inviter_user_id = EXCLUDED.inviter_user_id,
+              invitee_user_id = EXCLUDED.invitee_user_id,
+              invite_id = EXCLUDED.invite_id,
+              status = 'active',
+              connected_at = CASE
+                WHEN one_location_network_connections.status = 'active'
+                  THEN one_location_network_connections.connected_at
+                ELSE NOW()
+              END,
+              updated_at = NOW(),
+              revoked_at = NULL,
+              metadata = EXCLUDED.metadata
+            RETURNING *
+            """,
+            {
+                "user_a_id": user_a_id,
+                "user_b_id": user_b_id,
+                "inviter_user_id": owner_user_id,
+                "invitee_user_id": claimant_user_id,
+                "invite_id": invite_id,
+                "metadata_json": _json_param(
+                    {
+                        "source": "invite_to_one",
+                        "message_present": bool(message_value or invite_message),
+                    }
+                ),
+            },
+        )
+        connection = self._one_network_connection_payload(connection_row)
+        if not connection:
+            raise OneLocationAgentError(
+                "LOCATION_NETWORK_CONNECTION_FAILED",
+                "Could not connect this One Network invite.",
+                status_code=500,
+            )
+        row = self._execute_one(
+            """
+            UPDATE one_location_circle_invites
+            SET status = 'claimed',
+                claimed_by_user_id = :claimant_user_id,
+                claimed_at = NOW(),
+                updated_at = NOW()
+            WHERE id = CAST(:invite_id AS UUID)
+              AND owner_user_id = :owner_user_id
+              AND status = 'active'
+            RETURNING *
+            """,
+            {
+                "invite_id": invite_id,
+                "owner_user_id": owner_user_id,
+                "claimant_user_id": claimant_user_id,
+            },
+        )
+        if not row:
+            raise OneLocationAgentError(
+                "LOCATION_CIRCLE_INVITE_NOT_ACTIVE",
+                "This Invite to One link is no longer active.",
+                status_code=410,
+            )
+        invite = self._circle_invite_payload(row) or {}
+        self._insert_event(
+            owner_user_id=owner_user_id,
+            actor_user_id=claimant_user_id,
+            recipient_user_id=claimant_user_id,
+            event_type="location_circle_invite_claimed",
+            metadata={"invite_id": invite_id, "connection_id": connection["id"]},
+        )
+        self._insert_event(
+            owner_user_id=owner_user_id,
+            actor_user_id=claimant_user_id,
+            recipient_user_id=claimant_user_id,
+            event_type="location_one_network_joined",
+            metadata={"invite_id": invite_id, "connection_id": connection["id"]},
+        )
+        claimant_label = _identity_display_label(claimant_identity, fallback="Someone")
+        owner_label = _identity_display_label(owner_identity)
+        self._send_metadata_notification(
+            user_id=owner_user_id,
+            notification_type="location_one_network_joined",
+            title="Invite to One accepted",
+            body=f"{claimant_label} joined your One Network.",
+            notification_tag=f"one-location-network:{connection['id']}",
+            request_url=_one_location_url(section="circle"),
+            data={
+                "connection_id": connection["id"],
+                "invite_id": invite_id,
+                "invitee_user_id": claimant_user_id,
+                "invitee_display_label": claimant_label,
+            },
+        )
+        self._send_metadata_notification(
+            user_id=claimant_user_id,
+            notification_type="location_one_network_joined",
+            title="You're connected on One",
+            body=f"You and {owner_label} can now use One Location together.",
+            notification_tag=f"one-location-network:{connection['id']}",
+            request_url=_one_location_url(section="circle"),
+            data={
+                "connection_id": connection["id"],
+                "invite_id": invite_id,
+                "inviter_user_id": owner_user_id,
+                "inviter_display_label": owner_label,
+            },
+        )
+        return {"invite": invite, "connection": connection}
+
+    def revoke_circle_invite(self, *, owner_user_id: str, invite_id: str) -> dict[str, Any]:
+        row = self._execute_one(
+            """
+            UPDATE one_location_circle_invites
+            SET status = 'revoked', revoked_at = NOW(), updated_at = NOW()
+            WHERE id = CAST(:invite_id AS UUID)
+              AND owner_user_id = :owner_user_id
+              AND status = 'active'
+            RETURNING *
+            """,
+            {"owner_user_id": owner_user_id, "invite_id": invite_id},
+        )
+        if not row:
+            raise OneLocationAgentError(
+                "LOCATION_CIRCLE_INVITE_NOT_FOUND",
+                "Active Invite to One link was not found.",
+                status_code=404,
+            )
+        invite = self._circle_invite_payload(row) or {}
+        self._insert_event(
+            owner_user_id=owner_user_id,
+            actor_user_id=owner_user_id,
+            event_type="location_circle_invite_revoked",
+            metadata={"invite_id": invite_id},
+        )
+        return invite
+
     def list_state(self, *, user_id: str) -> dict[str, Any]:
-        self._expire_stale_grants(user_id)
-        recipients = self.list_verified_recipients(owner_user_id=user_id)
-        owner_grants = self._execute_many(
+        # Resilience: one failing auxiliary section (e.g. schema drift on a
+        # rarely-used table) must NOT 500 the whole endpoint. A 500 here cascades
+        # into the consent-center contributor (which then returns empty buckets)
+        # AND breaks the One Location page on every load. Each section is wrapped
+        # so a partial failure degrades to an empty list, logged for triage,
+        # while the rest of the state still loads. The backend still enforces
+        # real access on every read/write path.
+        def _safe_many(label: str, sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+            try:
+                return self._execute_many(sql, params)
+            except Exception as exc:  # noqa: BLE001 - degrade, never 500 the page
+                logger.warning(
+                    "one_location.list_state.section_failed section=%s user=%s error=%s",
+                    label,
+                    user_id,
+                    exc,
+                )
+                return []
+
+        try:
+            self._expire_stale_grants(user_id)
+        except Exception as exc:  # noqa: BLE001 - housekeeping must not block reads
+            logger.warning(
+                "one_location.list_state.expire_stale_failed user=%s error=%s",
+                user_id,
+                exc,
+            )
+        try:
+            recipients = self.list_verified_recipients(owner_user_id=user_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "one_location.list_state.recipients_failed user=%s error=%s",
+                user_id,
+                exc,
+            )
+            recipients = []
+        owner_grants = _safe_many(
+            "owner_grants",
             """
             SELECT
               g.*,
@@ -1574,7 +3421,8 @@ class OneLocationAgentService:
             """,
             {"user_id": user_id},
         )
-        received_grants = self._execute_many(
+        received_grants = _safe_many(
+            "received_grants",
             """
             SELECT
               g.*,
@@ -1588,7 +3436,8 @@ class OneLocationAgentService:
             """,
             {"user_id": user_id},
         )
-        requests = self._execute_many(
+        requests = _safe_many(
+            "requests",
             """
             SELECT
               req.*,
@@ -1602,7 +3451,8 @@ class OneLocationAgentService:
             """,
             {"user_id": user_id},
         )
-        referrals = self._execute_many(
+        referrals = _safe_many(
+            "referrals",
             """
             SELECT *
             FROM one_location_referrals
@@ -1614,7 +3464,8 @@ class OneLocationAgentService:
             """,
             {"user_id": user_id},
         )
-        public_invites = self._execute_many(
+        public_invites = _safe_many(
+            "public_invites",
             """
             SELECT *
             FROM one_location_public_invites
@@ -1624,7 +3475,32 @@ class OneLocationAgentService:
             """,
             {"user_id": user_id},
         )
-        public_submissions = self._execute_many(
+        circle_invites = _safe_many(
+            "circle_invites",
+            """
+            SELECT *
+            FROM one_location_circle_invites
+            WHERE owner_user_id = :user_id
+               OR claimed_by_user_id = :user_id
+            ORDER BY created_at DESC
+            LIMIT 20
+            """,
+            {"user_id": user_id},
+        )
+        network_connections = _safe_many(
+            "network_connections",
+            """
+            SELECT *
+            FROM one_location_network_connections
+            WHERE status = 'active'
+              AND (user_a_id = :user_id OR user_b_id = :user_id)
+            ORDER BY connected_at DESC
+            LIMIT 50
+            """,
+            {"user_id": user_id},
+        )
+        public_submissions = _safe_many(
+            "public_submissions",
             """
             SELECT
               submission.*,
@@ -1652,6 +3528,16 @@ class OneLocationAgentService:
                 payload
                 for row in public_invites
                 if (payload := self._public_invite_payload(self._expire_public_invite(row)))
+            ],
+            "circleInvites": [
+                payload
+                for row in circle_invites
+                if (payload := self._circle_invite_payload(self._expire_circle_invite(row)))
+            ],
+            "networkConnections": [
+                payload
+                for row in network_connections
+                if (payload := self._one_network_connection_payload(row))
             ],
             "publicInviteSubmissions": [
                 payload
@@ -1693,7 +3579,7 @@ class OneLocationAgentService:
             title="Location access revoked",
             body=f"{owner_label} removed your location access.",
             notification_tag=f"one-location-revoked:{grant_id}",
-            request_url=_one_location_url(grantId=grant_id),
+            request_url=_one_location_url(grantId=grant_id, section="shared"),
             data={
                 "grant_id": grant_id,
                 "owner_user_id": owner_user_id,
@@ -1713,12 +3599,17 @@ class OneLocationAgentService:
         message: str | None = None,
         referred_by_user_id: str | None = None,
         notify_owner: bool = True,
+        require_requester_key_material: bool = False,
     ) -> dict[str, Any]:
         if requester_user_id == owner_user_id:
             raise OneLocationAgentError(
                 "LOCATION_REQUEST_SELF", "Request a different person's location.", status_code=422
             )
-        self._recipient_key_row(recipient_user_id=requester_user_id)
+        if require_requester_key_material:
+            self._recipient_key_row(
+                recipient_user_id=requester_user_id,
+                require_phone_verified=False,
+            )
         message_value = (message or "").strip()[:500] or None
         row = self._execute_one(
             """
@@ -1794,7 +3685,7 @@ class OneLocationAgentService:
                 title="Location access request",
                 body=f"{requester_label} is asking to view your location.",
                 notification_tag=f"one-location-request:{request['id']}",
-                request_url=_one_location_url(requestId=request["id"]),
+                request_url=_one_location_url(requestId=request["id"], section="approvals"),
                 data={
                     "request_id": request["id"],
                     "requester_user_id": requester_user_id,
@@ -1838,6 +3729,7 @@ class OneLocationAgentService:
             recipient_key_id=None,
             duration_hours=duration_hours,
             reason="request_approved",
+            require_recipient_phone_verified=False,
         )
         resolved = self._execute_one(
             """
@@ -1867,7 +3759,12 @@ class OneLocationAgentService:
             title="Location request approved",
             body=f"{owner_label} approved your location request.",
             notification_tag=f"one-location-approved:{request_id}",
-            request_url=_one_location_url(requestId=request_id, grantId=grant["id"]),
+            request_url=_one_location_url(
+                requestId=request_id,
+                grantId=grant["id"],
+                locationNotification="opened",
+                section="shared",
+            ),
             data={
                 "request_id": request_id,
                 "grant_id": grant["id"],
@@ -1914,7 +3811,7 @@ class OneLocationAgentService:
             title="Location request denied",
             body=f"{owner_label} denied your location request.",
             notification_tag=f"one-location-denied:{request_id}",
-            request_url=_one_location_url(requestId=request_id),
+            request_url=_one_location_url(requestId=request_id, section="my_requests"),
             data={
                 "request_id": request_id,
                 "owner_user_id": owner_user_id,
@@ -2002,7 +3899,9 @@ class OneLocationAgentService:
                 body=f"{referring_label} referred you into a location request.",
                 notification_tag=f"one-location-referral:{referral_payload['id']}",
                 request_url=_one_location_url(
-                    requestId=request["id"], referralId=referral_payload["id"]
+                    requestId=request["id"],
+                    referralId=referral_payload["id"],
+                    section="my_requests",
                 ),
                 data={
                     "request_id": request["id"],
