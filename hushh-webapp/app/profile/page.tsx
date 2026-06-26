@@ -40,7 +40,6 @@ import { toast } from "sonner";
 import {
   SettingsGroup,
   SettingsRow,
-  SettingsSegmentedTabs,
 } from "@/components/profile/settings-ui";
 import {
   AppPageContentRegion,
@@ -711,8 +710,6 @@ function ProfilePageContent() {
     "profile_data" | "delete_account"
   >("profile_data");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteTarget, setDeleteTarget] =
-    useState<AccountDeletionTarget>("both");
   const [isDeleting, setIsDeleting] = useState(false);
   const [pendingProfileTarget, setPendingProfileTarget] = useState<{
     panel: ProfilePanel;
@@ -858,12 +855,10 @@ function ProfilePageContent() {
   const gmailActionsBusy =
     gmail.refreshingStatus || gmail.syncingRun || gmailActionBusy !== null;
   const personaList = personaState?.personas ?? ["investor"];
-  const hasInvestorPersona = personaList.includes("investor");
   const hasRiaPersona = personaList.includes("ria");
-  const hasDualPersona = hasInvestorPersona && hasRiaPersona;
-  const effectiveDeleteTarget: AccountDeletionTarget = hasDualPersona
-    ? deleteTarget
-    : "both";
+  // One account model: deletion always removes the whole One account. Persona-scoped
+  // deletes are retired from the UX; the backend still accepts "both" as the full wipe.
+  const effectiveDeleteTarget: AccountDeletionTarget = "both";
   const vaultAccess = useMemo(
     () =>
       resolveVaultAvailabilityState({
@@ -1494,41 +1489,20 @@ function ProfilePageContent() {
 
       setHasVault(resolution.hasVault);
 
-      const result = await AccountService.deleteAccount(
-        resolution.token,
-        effectiveDeleteTarget,
-      );
+      await AccountService.deleteAccount(resolution.token, effectiveDeleteTarget);
 
       CacheSyncService.onAccountDeleted(user.uid);
       await UserLocalStateService.clearForUser(user.uid);
 
-      if (result.account_deleted) {
-        setOnboardingRequiredCookie(false);
-        setOnboardingFlowActiveCookie(false);
-        toast.success("Account deleted successfully. Redirecting...", {
-          duration: 3000,
-        });
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        await signOut();
-        return;
-      }
-
-      CacheSyncService.onPersonaStateChanged(user.uid);
-      CacheSyncService.onConsentMutated(user.uid);
-      await refreshPersonaState({ force: true });
-
-      const deletedTarget = result.deleted_target ?? effectiveDeleteTarget;
-      toast.success(
-        deletedTarget === "ria"
-          ? "RIA workspace deleted. Your investor account is still active."
-          : "Investor profile deleted. Your RIA workspace is still active.",
-      );
-
-      if (result.remaining_personas?.includes("ria")) {
-        router.push(ROUTES.RIA_HOME);
-      } else {
-        router.push(ROUTES.KAI_DASHBOARD);
-      }
+      // One account model: deletion is always a full account removal.
+      setOnboardingRequiredCookie(false);
+      setOnboardingFlowActiveCookie(false);
+      toast.success("Account deleted successfully. Redirecting...", {
+        duration: 3000,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await signOut();
+      return;
     } catch (error) {
       console.error("Delete account error:", error);
       toast.error("Failed to delete account. Please try again.");
@@ -1540,7 +1514,6 @@ function ProfilePageContent() {
 
   const handleDeleteClick = async () => {
     if (!user) return;
-    setDeleteTarget("both");
 
     let nextHasVault = hasVault;
     if (nextHasVault === null) {
@@ -1940,26 +1913,14 @@ function ProfilePageContent() {
   }
 
   const deleteButtonLabel = vaultAccess.needsUnlock
-    ? hasDualPersona
-      ? "Unlock to manage deletion"
-      : "Unlock to delete account"
-    : hasDualPersona
-      ? "Delete account or persona"
-      : "Delete account";
+    ? "Unlock to delete account"
+    : "Delete account";
   const deleteRowDescription = vaultAccess.needsVaultCreation
     ? "No vault exists yet. This deletes cloud-linked account records."
-    : hasDualPersona
-      ? "Choose whether to remove Investor, RIA, or the full account."
-      : "This action cannot be undone.";
-  const deleteDialogTitle = hasDualPersona
-    ? "Delete Investor, RIA, or everything?"
-    : "Delete Account?";
+    : "This permanently deletes your One account.";
+  const deleteDialogTitle = "Delete your One account?";
   const deleteDialogDescription =
-    effectiveDeleteTarget === "investor"
-      ? "This removes Kai profile data, portfolio imports, investor marketplace visibility, and advisor relationships. Your RIA workspace stays."
-      : effectiveDeleteTarget === "ria"
-        ? "This removes your advisor profile, client requests, picks uploads, and RIA marketplace presence. Your investor account stays."
-        : "This action cannot be undone. This permanently deletes your account, both personas, encrypted vault records, and cloud-linked user records.";
+    "This action cannot be undone. This permanently deletes your One account, your encrypted vault and personal data, every connected service, and your cloud-linked identity.";
 
   const handleVaultUnlockOpenChange = (open: boolean) => {
     setShowVaultUnlock(open);
@@ -3409,7 +3370,7 @@ function ProfilePageContent() {
         <SettingsRow
           icon={Trash2}
           title="Danger zone"
-          description="Delete Investor, RIA, or the full account."
+          description="Permanently delete your One account."
           chevron
           tone="destructive"
           onClick={() =>
@@ -4642,28 +4603,6 @@ function ProfilePageContent() {
               {deleteDialogDescription}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {hasDualPersona ? (
-            <div className="space-y-3">
-              <SettingsSegmentedTabs
-                value={deleteTarget}
-                onValueChange={(value) =>
-                  setDeleteTarget(value as AccountDeletionTarget)
-                }
-                options={[
-                  { value: "investor", label: "Investor" },
-                  { value: "ria", label: "RIA" },
-                  { value: "both", label: "Both" },
-                ]}
-              />
-              <p className="text-sm leading-6 text-muted-foreground">
-                {effectiveDeleteTarget === "investor"
-                  ? "Investor deletion keeps your advisor-side workspace and signs you into the RIA shell afterwards."
-                  : effectiveDeleteTarget === "ria"
-                    ? "RIA deletion keeps your Kai investor account and takes you back to the investor shell afterwards."
-                    : "Deleting both signs you out and removes the entire account."}
-              </p>
-            </div>
-          ) : null}
           <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row">
             <AlertDialogCancel
               className="w-full sm:w-auto"
@@ -4680,13 +4619,7 @@ function ProfilePageContent() {
               }}
               disabled={isDeleting}
             >
-              {isDeleting
-                ? "Deleting..."
-                : effectiveDeleteTarget === "investor"
-                  ? "Yes, Delete Investor"
-                  : effectiveDeleteTarget === "ria"
-                    ? "Yes, Delete RIA"
-                    : "Yes, Delete Everything"}
+              {isDeleting ? "Deleting..." : "Yes, delete my account"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
