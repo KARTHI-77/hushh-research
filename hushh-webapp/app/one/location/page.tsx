@@ -111,6 +111,11 @@ import {
   type OneLocationContactSignalResult,
 } from "@/lib/one-location/contact-signals";
 import { OneLocationActivityDashboard } from "@/components/one-location/activity-dashboard";
+import {
+  LocationRedesignHub,
+  type LocationHubViewModel,
+} from "@/components/one-location/redesign/location-redesign-hub";
+import { LocationRedesignSkeleton } from "@/components/one-location/redesign/location-redesign-skeleton";
 import { buildOneLocationActivityFallback } from "@/lib/one-location/activity";
 import type {
   OneLocationAccessRequest,
@@ -143,6 +148,15 @@ const DURATION_OPTIONS = [
 const LIVE_LOCATION_UPDATE_INTERVAL_MS = 20_000;
 const LIVE_LOCATION_STALE_THRESHOLD_MS = LIVE_LOCATION_UPDATE_INTERVAL_MS * 3;
 const FOREGROUND_RETRY_DELAYS_MS = [450, 900] as const;
+// True live tracking: while a share is active and the app is foregrounded, the
+// owner subscribes to a continuous geolocation watch and publishes a fresh
+// encrypted envelope as soon as they MOVE at least this far. The min publish
+// interval prevents flooding the network when GPS jitters or the user moves
+// fast; the 20s interval above stays as a stationary heartbeat so a standing
+// user's point never goes stale.
+const LIVE_LOCATION_MIN_MOVE_METERS = 25;
+const LIVE_LOCATION_MIN_PUBLISH_INTERVAL_MS = 8_000;
+
 const ONE_NETWORK_PREVIEW_LIMIT = 3;
 const REQUEST_MESSAGE_MAX_LENGTH = 80;
 
@@ -677,6 +691,27 @@ function isLocationPointStale(point: PlainLocationPoint): boolean {
   return Date.now() - capturedAt > LIVE_LOCATION_STALE_THRESHOLD_MS;
 }
 
+// Great-circle distance in metres between two points (Haversine). Used to decide
+// whether the owner has actually MOVED enough to warrant publishing a fresh
+// encrypted live-location update, so the watch stream doesn't flood the network
+// on GPS jitter while standing still.
+function locationDistanceMeters(
+  from: PlainLocationPoint,
+  to: PlainLocationPoint,
+): number {
+  const earthRadiusM = 6_371_000;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(to.latitude - from.latitude);
+  const dLon = toRad(to.longitude - from.longitude);
+  const lat1 = toRad(from.latitude);
+  const lat2 = toRad(to.latitude);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * earthRadiusM * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
+
 function formatLocationCoordinate(value: number): string {
   return Number.isFinite(value) ? value.toFixed(6) : "0.000000";
 }
@@ -1026,6 +1061,83 @@ const ONE_LOCATION_TRUST_CHIPS: {
     detail: "One tap ends sharing instantly - no waiting.",
   },
 ];
+
+const ONE_LOCATION_FIRST_RUN_STEPS: {
+  icon: LucideIcon;
+  title: string;
+  detail: string;
+}[] = [
+  {
+    icon: UsersRound,
+    title: "Add the people you trust",
+    detail: "Pick from your One Network, or invite someone in a tap.",
+  },
+  {
+    icon: Clock3,
+    title: "Choose how long",
+    detail: "15 minutes to a day - it auto-stops when the timer ends.",
+  },
+  {
+    icon: Send,
+    title: "Share or request",
+    detail: "Share your live location, or ask to see theirs once they approve.",
+  },
+];
+
+const ONE_LOCATION_FIRST_RUN_GUIDE_KEY = "one_location_first_run_guide_v1";
+
+// One-time, friendly "how it works" card for first-time customers. It explains
+// the whole flow in three plain steps so a brand-new user is never confused
+// about what to do first. It is dismissible and the choice persists per user,
+// and it auto-hides once the user already has any activity.
+function OneLocationFirstRunGuide({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <section
+      aria-label="How One Location works"
+      className="relative min-w-0 max-w-full overflow-hidden rounded-[20px] border border-[#007aff]/15 bg-gradient-to-b from-[#f3f8ff] to-white p-4 shadow-sm dark:border-[#0a84ff]/20 dark:from-[#0a84ff]/10 dark:to-transparent"
+    >
+      <button
+        type="button"
+        aria-label="Dismiss the getting started guide"
+        onClick={onDismiss}
+        className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full text-[#8e8e93] transition-colors hover:bg-black/[0.05] hover:text-[#1c1c1e] dark:hover:bg-white/10 dark:hover:text-white"
+      >
+        <X className="h-4 w-4" aria-hidden="true" />
+      </button>
+      <div className="space-y-0.5 pr-8">
+        <h3 className="text-[16px] font-semibold tracking-tight text-[#1c1c1e] dark:text-white">
+          New here? It takes 3 quick steps
+        </h3>
+        <p className="text-[13px] leading-snug text-[#8e8e93] dark:text-white/55">
+          Location sharing is always your choice, and you stay in control.
+        </p>
+      </div>
+      <ol className="mt-3 grid min-w-0 gap-2 sm:grid-cols-3">
+        {ONE_LOCATION_FIRST_RUN_STEPS.map(({ icon: Icon, title, detail }, index) => (
+          <li
+            key={title}
+            className="flex min-w-0 items-start gap-2.5 rounded-[14px] border border-black/[0.04] bg-white/70 px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.06]"
+          >
+            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#007aff]/12 text-[#007aff] dark:bg-[#0a84ff]/15 dark:text-[#76b7ff]">
+              <Icon className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5 text-[13px] font-semibold leading-tight text-[#1c1c1e] dark:text-white">
+                <span className="text-[#007aff] dark:text-[#76b7ff]">
+                  {index + 1}.
+                </span>
+                {title}
+              </span>
+              <span className="mt-0.5 block text-[11.5px] leading-snug text-[#8e8e93] dark:text-white/55">
+                {detail}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
 
 // Compact reassurance row shown above the tabs so a first-time user immediately
 // sees the three trust promises ("why this is safe") before doing anything.
@@ -1614,6 +1726,11 @@ function OneLocationAgentPageContent() {
   // Bumped whenever the recipient unwatches a share, so the memoized
   // "Shared with me" list recomputes immediately.
   const [unwatchedTick, setUnwatchedTick] = useState(0);
+  // First-run "how it works" guide for brand-new customers. Defaults to shown
+  // and is hidden once the user dismisses it (persisted per user) so it never
+  // nags returning customers.
+  const [firstRunGuideDismissed, setFirstRunGuideDismissed] = useState(true);
+
   const [focusedSection, setFocusedSection] =
     useState<OneLocationFocusTarget | null>(null);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
@@ -1627,6 +1744,13 @@ function OneLocationAgentPageContent() {
   const livePublishInFlightRef = useRef(false);
   const liveViewInFlightRef = useRef(false);
   const suppressAutoRecipientSelectionRef = useRef(false);
+  // Continuous movement-driven live tracking (owner side). Holds the active
+  // geolocation watch id, the last point we actually published (to measure
+  // movement), and the timestamp of that publish (to throttle bursts).
+  const liveWatchIdRef = useRef<string | null>(null);
+  const lastPublishedPointRef = useRef<PlainLocationPoint | null>(null);
+  const lastWatchPublishAtRef = useRef(0);
+
 
   const recipients = useMemo(
     () => state?.recipients ?? [],
@@ -2905,9 +3029,119 @@ function OneLocationAgentPageContent() {
     vaultOwnerToken,
   ]);
 
+  // True LIVE tracking (owner side): while a share is active and the app is in
+  // the foreground, subscribe to a continuous geolocation watch and re-publish
+  // an encrypted envelope to every active grant as soon as the owner MOVES
+  // (>= LIVE_LOCATION_MIN_MOVE_METERS), throttled so GPS jitter / fast motion
+  // can't flood the network. This complements the 20s heartbeat above: standing
+  // still keeps the point fresh via the interval, while walking/driving streams
+  // movement updates so recipients watch the dot move in near real time. The
+  // watch is foreground-only and cleans up on unmount or when sharing stops.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!vaultOwnerToken || !activeOwnerGrants.length) return;
+    if (
+      permission?.state === "denied" ||
+      permission?.state === "restricted" ||
+      permission?.state === "unavailable"
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    lastPublishedPointRef.current = null;
+    lastWatchPublishAtRef.current = 0;
+
+    const publishMovement = async (point: PlainLocationPoint) => {
+      if (cancelled) return;
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState === "hidden"
+      ) {
+        return;
+      }
+      if (livePublishInFlightRef.current) return;
+
+      const now = Date.now();
+      const previous = lastPublishedPointRef.current;
+      const movedMeters = previous
+        ? locationDistanceMeters(previous, point)
+        : Number.POSITIVE_INFINITY;
+      const sincePublishMs = now - lastWatchPublishAtRef.current;
+
+      // Always reflect movement in the owner's own live preview immediately.
+      setMyLocationPoint(point);
+
+      if (
+        previous &&
+        (movedMeters < LIVE_LOCATION_MIN_MOVE_METERS ||
+          sincePublishMs < LIVE_LOCATION_MIN_PUBLISH_INTERVAL_MS)
+      ) {
+        return;
+      }
+
+      livePublishInFlightRef.current = true;
+      try {
+        for (const grant of activeOwnerGrants) {
+          const recipient = recipientForGrant(grant);
+          if (!recipient?.keyId || !recipient.publicKeyJwk) continue;
+          await publishEnvelopeWithRetry(
+            grant,
+            recipient,
+            "foreground_interval",
+            point,
+          );
+        }
+        lastPublishedPointRef.current = point;
+        lastWatchPublishAtRef.current = Date.now();
+      } catch (error) {
+        console.warn(
+          "[OneLocationAgent] Live movement update skipped:",
+          error,
+        );
+      } finally {
+        livePublishInFlightRef.current = false;
+      }
+    };
+
+    void (async () => {
+      try {
+        const watchId = await OneLocationService.watchCurrentPosition(
+          (point) => void publishMovement(point),
+          (error) => {
+            console.warn("[OneLocationAgent] Live watch error:", error.message);
+          },
+        );
+        if (cancelled) {
+          void OneLocationService.clearLocationWatch(watchId).catch(() => null);
+          return;
+        }
+        liveWatchIdRef.current = watchId;
+      } catch (error) {
+        console.warn("[OneLocationAgent] Could not start live watch:", error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      const watchId = liveWatchIdRef.current;
+      liveWatchIdRef.current = null;
+      if (watchId) {
+        void OneLocationService.clearLocationWatch(watchId).catch(() => null);
+      }
+    };
+  }, [
+    activeOwnerGrants,
+    permission?.state,
+    publishEnvelopeWithRetry,
+    recipientForGrant,
+    vaultOwnerToken,
+  ]);
+
   useEffect(() => {
     if (!activeVisibleReceivedGrants.length) return;
     if (busy && busy !== "load") return;
+
 
     const refreshVisibleGrants = async () => {
       if (liveViewInFlightRef.current) return;
@@ -3723,6 +3957,48 @@ function OneLocationAgentPageContent() {
     setLocationOnboardingStep("permission");
   }, []);
 
+  const handleDismissFirstRunGuide = useCallback(() => {
+    setFirstRunGuideDismissed(true);
+    if (typeof window !== "undefined" && auth.userId) {
+      try {
+        window.localStorage.setItem(
+          `${ONE_LOCATION_FIRST_RUN_GUIDE_KEY}:${auth.userId}`,
+          "1",
+        );
+      } catch {
+        // localStorage may be unavailable (private mode); the guide will simply
+        // show again next time, which is acceptable.
+      }
+    }
+  }, [auth.userId]);
+
+  // Decide whether to show the first-run "how it works" guide. It appears only
+  // for genuinely new customers (no shares, requests, or invites yet) who have
+  // not dismissed it before. Returning/active users never see it.
+  useEffect(() => {
+    if (!auth.userId || !state) return;
+    let alreadyDismissed = false;
+    if (typeof window !== "undefined") {
+      try {
+        alreadyDismissed =
+          window.localStorage.getItem(
+            `${ONE_LOCATION_FIRST_RUN_GUIDE_KEY}:${auth.userId}`,
+          ) === "1";
+      } catch {
+        alreadyDismissed = false;
+      }
+    }
+    const hasAnyActivity = Boolean(
+      (state.ownerGrants?.length ?? 0) ||
+        (state.receivedGrants?.length ?? 0) ||
+        (state.requests?.length ?? 0) ||
+        (state.publicInvites?.length ?? 0) ||
+        (state.circleInvites?.length ?? 0),
+    );
+    setFirstRunGuideDismissed(alreadyDismissed || hasAnyActivity);
+  }, [auth.userId, state]);
+
+
 
 
   const handleSkipLocationOnboarding = useCallback(() => {
@@ -3836,6 +4112,109 @@ function OneLocationAgentPageContent() {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Mobile-first redesign (Figma: one_location_final_fixed_clean_navigation).
+  // PRESENTATION ONLY: the view-model below wires the redesigned hub to the
+  // EXACT existing state + handlers, so consent gating, crypto, analytics, and
+  // routing are unchanged. The full original UI remains intact below and is
+  // used for the loading/error states (and as a guaranteed fallback). The
+  // global app footer is never touched.
+  // ---------------------------------------------------------------------------
+  const USE_LOCATION_REDESIGN = true;
+
+  const locationHubVm: LocationHubViewModel = {
+    userId: auth.userId ?? null,
+    canShare,
+    busy,
+    readiness: {
+      tone: locationReadiness.tone,
+      title: locationReadiness.title,
+      description: locationReadiness.description,
+      actionLabel: locationReadiness.actionLabel ?? null,
+    },
+    permissionIsPrompt: permission?.state === "prompt",
+    myLocationPoint,
+    myLocationError,
+    recipients: rankedRecipients,
+    visibleRecipients,
+    activeOwnerGrants,
+    receivedGrants: visibleReceivedGrants,
+    pendingOwnerRequests,
+    requestedByMe,
+    latestActivePublicInvite,
+    latestActiveCircleInvite,
+    activityReceipts: (locationActivity?.events ?? []).map((event) => ({
+      id: event.id,
+      title: event.title,
+      detail: event.detail,
+    })),
+    recipientSearch,
+    selectedRecipientIds,
+    selectedRequestOwnerIds,
+    durationHours,
+    requestMessage,
+    shareReviewOpen,
+    publicInviteUrl,
+    circleInviteUrl,
+    setRecipientSearch,
+    setDurationHours,
+    setRequestMessage,
+    setShareReviewOpen,
+    toggleShareRecipient: (id) => toggleShareRecipient(id, "section_list"),
+    toggleRequestOwner: (id) => toggleRequestOwner(id, "section_list"),
+    onRefresh: () => void refresh(),
+    onShowMyLocation: () => void handleShowMyLiveLocation(),
+    onRequestPermission: () => void handleRequestLocationPermission(),
+    onOpenLocationSettings: () => void handleOpenLocationSettings(),
+    onSyncContacts: () => void handleSyncContactSignal(),
+    onShareToContacts: () => void handleShareContactInvite(),
+    onOpenShareReview: () => void handleOpenShareReview(),
+    onConfirmShare: () => void handleShare(),
+    onSendRequest: () => void handleRequestAccess(),
+    onApprove: (request) => void handleApprove(request),
+    onDeny: (requestId) => void handleDeny(requestId),
+    onViewGrant: (grant) => void handleView(grant),
+    onUnwatchGrant: (grant) => handleUnwatch(grant),
+    onStopGrant: (grantId) => void handleRevoke(grantId),
+    onCreatePublicInvite: () => void handleCreatePublicInvite(),
+    onCopyPublicInvite: () => void handleCopyPublicInvite(),
+    onSharePublicInvite: () => void handleSharePublicInvite(),
+    onRevokePublicInvite: (invite) => void handleRevokePublicInvite(invite),
+    onCreateCircleInvite: () => void handleCreateCircleInvite(),
+    onCopyCircleInvite: () => void handleCopyCircleInvite(),
+    onShareCircleInvite: () => void handleShareCircleInvite(),
+    onRevokeCircleInvite: (invite) => void handleRevokeCircleInvite(invite),
+    recipientLabel,
+    recipientSubtitle: recipientRecommendationLine,
+    isRecipientShareReady: isShareReadyRecipient,
+    requestOwnerLabel: (request) => requestOwnerLabel(request, recipients),
+    requesterLabel: requestLabel,
+    grantRecipientLabel: grantCounterpartyLabel,
+    grantOwnerLabel: receivedGrantOwnerLabel,
+    formatDateTime,
+    expiresLabel: (value) =>
+      value ? `Live until ${formatDateTime(value)}` : "Live now",
+    expiresCountdownLabel: (value) => expiresCountdownLabel(value) ?? "Active",
+    renderMapPreview: (point, showNavigation) => (
+      <LocalMapPreview point={point} showNavigation={showNavigation} />
+    ),
+    decryptedPoints,
+  };
+
+  if (USE_LOCATION_REDESIGN && !loadError) {
+    return (
+      <AppPageShell width="standard" nativeTest={nativeTestConfig}>
+        <AppPageContentRegion className="mx-auto w-full max-w-[480px] min-w-0 space-y-6 overflow-x-hidden px-3 pb-12 pt-4">
+          {showInitialSkeleton ? (
+            <LocationRedesignSkeleton />
+          ) : (
+            <LocationRedesignHub vm={locationHubVm} />
+          )}
+        </AppPageContentRegion>
+      </AppPageShell>
+    );
+  }
+
   return (
     <AppPageShell
       width="standard"
@@ -3906,6 +4285,14 @@ function OneLocationAgentPageContent() {
                 }
               />
             </div>
+
+            {!firstRunGuideDismissed ? (
+              <div className="px-1">
+                <OneLocationFirstRunGuide
+                  onDismiss={handleDismissFirstRunGuide}
+                />
+              </div>
+            ) : null}
 
             <div className="px-1">
               <OneLocationTrustStrip />
