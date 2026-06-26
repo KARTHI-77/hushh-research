@@ -4,7 +4,7 @@
 "use client";
 
 import React, { useEffect, useMemo, type CSSProperties } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   BriefcaseBusiness,
   ChartSpline,
@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 import { morphyToast as toast } from "@/lib/morphy-ux/morphy";
 import { usePersonaState } from "@/lib/persona/persona-context";
 import { useVault } from "@/lib/vault/vault-context";
+import { requestInternalAppNavigation } from "@/lib/utils/browser-navigation";
 import {
   normalizeBottomNavPathname,
   resolveBottomNavActiveKey,
@@ -185,7 +186,6 @@ function navOptionForKey(
 
 export const Navbar = () => {
   const pathname = usePathname();
-  const router = useRouter();
   const { isAuthenticated } = useAuth();
   const { isVaultUnlocked } = useVault();
   const agentPopover = useOptionalAgentPopover();
@@ -377,7 +377,11 @@ export const Navbar = () => {
       openKaiCommandBar();
       return;
     }
-    if (action.type === "route") router.push(action.href);
+    if (action.type === "route") {
+      // Route through the shared exit -> enter envelope so bottom-nav switches
+      // crossfade like /one -> /one/* instead of hard-cutting.
+      requestInternalAppNavigation({ href: action.href, scroll: false });
+    }
   };
 
   return (

@@ -65,24 +65,38 @@ export function AgentBar() {
 
   const hint = useMemo(() => resolveAgentBarHint(pathname), [pathname]);
 
-  const agentWindowOpen =
-    agentPopover?.expanded || agentPopover?.motionState === "opening";
+  // The agent window owns its own open/close animation. Keep the bar visually
+  // hidden across the FULL lifecycle (opening, expanded, and the closing
+  // animation) so it never remounts abruptly mid-close. Crucially, "closing"
+  // must be treated as hidden too: on minimize the provider sets
+  // expanded=false + motionState="closing" simultaneously, so checking only
+  // `expanded || opening` would flip the bar back on instantly and make it
+  // snap above the bottom bar before the popover finished animating out.
+  const agentWindowActive =
+    agentPopover?.expanded ||
+    agentPopover?.motionState === "opening" ||
+    agentPopover?.motionState === "closing";
 
-  const hideBar =
+  // Hard unmount gates: route/auth contexts where the bar must not exist at all.
+  const unmountBar =
     !isAuthenticated ||
     useOnboardingChrome ||
-    agentWindowOpen ||
     !agentPopover ||
     pathname?.startsWith(ROUTES.PHONE_MANDATE) ||
     pathname?.startsWith(ROUTES.LABS_PROFILE_APPEARANCE) ||
     pathname === ROUTES.DEVELOPERS ||
     pathname === ROUTES.AGENT;
 
-  if (hideBar) {
+  if (unmountBar) {
     return null;
   }
 
   const openAgent = () => agentPopover.openAgent();
+
+  // While the agent window is active, keep the bar mounted but visually faded
+  // and non-interactive. When the window finishes closing it eases back in over
+  // the same envelope instead of popping in from a fresh mount.
+  const barHidden = Boolean(agentWindowActive);
 
   return (
     <div
@@ -102,6 +116,7 @@ export function AgentBar() {
           "--bottom-chrome-progress": String(hideBottomChromeProgress),
         } as CSSProperties
       }
+      aria-hidden={barHidden}
     >
       <div
         className={cn(
@@ -109,7 +124,13 @@ export function AgentBar() {
           "h-11 rounded-full pl-3 pr-1.5",
           // Flat surface matching the top app bar controls and bottom nav.
           "bg-black/[0.05] text-[#1d1d1f] dark:bg-white/[0.07] dark:text-[#f5f5f7]",
-          "transition-[background-color,transform] duration-200",
+          // Single, consolidated transition covering surface color plus the
+          // open/close fade+lift. Smoothly eases the bar in/out with the agent
+          // window lifecycle so it never snaps back into place after closing.
+          "transition-[opacity,transform,background-color] duration-300 ease-[cubic-bezier(0.16,0.84,0.28,1)] will-change-[opacity,transform]",
+          barHidden
+            ? "pointer-events-none translate-y-1 scale-[0.98] opacity-0"
+            : "translate-y-0 scale-100 opacity-100",
         )}
       >
         <button

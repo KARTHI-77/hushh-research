@@ -1302,7 +1302,7 @@ export function ConsentCenterPage() {
 
   const summaryResource = useStaleResource({
     cacheKey: summaryCacheKey,
-    refreshKey: `${consentScopeKey}:${mode}:${mutationTick}`,
+    refreshKey: `${consentScopeKey}:${mode}`,
     enabled: Boolean(user?.uid),
     load: async (options) => {
       const idToken = await idTokenLoader();
@@ -1314,7 +1314,7 @@ export function ConsentCenterPage() {
         userId: user.uid,
         actor: apiActor,
         mode,
-        force: Boolean(options?.force) || mutationTick > 0,
+        force: Boolean(options?.force),
       });
     },
   });
@@ -1323,7 +1323,7 @@ export function ConsentCenterPage() {
     cacheKey: user?.uid
       ? CACHE_KEYS.CONSENT_CENTER(user.uid, `${actor}:${managerView}`)
       : "consent_center_guest",
-    refreshKey: `${actor}:${managerView}:${mutationTick}`,
+    refreshKey: `${actor}:${managerView}`,
     enabled: Boolean(user?.uid && tab === "relationships"),
     load: async (options) => {
       const idToken = await idTokenLoader();
@@ -1335,14 +1335,14 @@ export function ConsentCenterPage() {
         userId: user.uid,
         actor,
         view: managerView,
-        force: Boolean(options?.force) || mutationTick > 0,
+        force: Boolean(options?.force),
       });
     },
   });
 
   const listResource = useStaleResource({
     cacheKey: listCacheKey,
-    refreshKey: `${consentScopeKey}:${mode}:${listSurface}:${deferredQuery}:${page}:${mutationTick}`,
+    refreshKey: `${consentScopeKey}:${mode}:${listSurface}:${deferredQuery}:${page}`,
     enabled: Boolean(user?.uid && tab !== "relationships"),
     load: async (options) => {
       const idToken = await idTokenLoader();
@@ -1358,7 +1358,7 @@ export function ConsentCenterPage() {
         q: deferredQuery,
         page,
         limit: CONSENT_CENTER_PAGE_SIZE,
-        force: Boolean(options?.force) || mutationTick > 0,
+        force: Boolean(options?.force),
       });
     },
   });
