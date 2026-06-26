@@ -707,10 +707,12 @@ function ProfilePageContent() {
     () => readAgentVoiceSettings().ttsVoice,
   );
   const [vaultUnlockReason, setVaultUnlockReason] = useState<
-    "profile_data" | "delete_account"
+    "profile_data" | "delete_account" | "reset_account"
   >("profile_data");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [pendingProfileTarget, setPendingProfileTarget] = useState<{
     panel: ProfilePanel;
     detail: ProfileDetail | null;
@@ -1538,6 +1540,77 @@ function ProfilePageContent() {
     }
   };
 
+  const handleResetAccount = async () => {
+    if (!user) return;
+
+    setIsResetting(true);
+    try {
+      const resolution = await resolveDeleteAccountAuth({
+        userId: user.uid,
+        existingVaultOwnerToken: vaultOwnerToken ?? null,
+      });
+
+      if (resolution.kind === "needs_unlock") {
+        toast.error("Please unlock your vault first to reset your account.");
+        setShowResetConfirm(false);
+        setVaultUnlockReason("reset_account");
+        setShowVaultUnlock(true);
+        return;
+      }
+
+      setHasVault(resolution.hasVault);
+
+      await AccountService.resetAccount(resolution.token);
+
+      CacheSyncService.onAccountDeleted(user.uid);
+      await UserLocalStateService.clearForUser(user.uid);
+      await refreshPersonaState({ force: true });
+
+      // Reset returns the account to a fresh, just-onboarded state: keep the
+      // identity and vault, but re-run onboarding on the next visit.
+      setOnboardingRequiredCookie(true);
+      setOnboardingFlowActiveCookie(true);
+      toast.success("Account reset. Restarting onboarding...", {
+        duration: 3000,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      router.replace(ROUTES.ONE_ONBOARDING);
+      return;
+    } catch (error) {
+      console.error("Reset account error:", error);
+      toast.error("Failed to reset account. Please try again.");
+    } finally {
+      setIsResetting(false);
+      setShowResetConfirm(false);
+    }
+  };
+
+  const handleResetClick = async () => {
+    if (!user) return;
+
+    let nextHasVault = hasVault;
+    if (nextHasVault === null) {
+      try {
+        nextHasVault = await VaultService.checkVault(user.uid);
+        setHasVault(nextHasVault);
+      } catch (error) {
+        console.warn("[ProfilePage] Failed to check vault existence:", error);
+        nextHasVault = true;
+      }
+    }
+
+    if (!nextHasVault) {
+      setShowResetConfirm(true);
+      return;
+    }
+
+    if (vaultAccess.canMutateSecureData) {
+      setShowResetConfirm(true);
+    } else {
+      requestVaultUnlock("reset_account");
+    }
+  };
+
   const handleMarketplaceOptInToggle = async () => {
     if (!user) return;
     try {
@@ -1580,7 +1653,7 @@ function ProfilePageContent() {
   }
 
   function requestVaultUnlock(
-    reason: "profile_data" | "delete_account" = "profile_data",
+    reason: "profile_data" | "delete_account" | "reset_account" = "profile_data",
   ) {
     setVaultUnlockReason(reason);
     setShowVaultUnlock(true);
@@ -1922,6 +1995,12 @@ function ProfilePageContent() {
   const deleteDialogDescription =
     "This action cannot be undone. This permanently deletes your One account, your encrypted vault and personal data, every connected service, and your cloud-linked identity.";
 
+  const resetRowDescription =
+    "Clear your data and start onboarding fresh. Keeps your account and sign-in.";
+  const resetDialogTitle = "Reset your One account?";
+  const resetDialogDescription =
+    "This clears all your personal data: connected services, finance and Gmail, your knowledge base, consents, and saved preferences. It keeps your account, your sign-in, and your vault. You will start onboarding again.";
+
   const handleVaultUnlockOpenChange = (open: boolean) => {
     setShowVaultUnlock(open);
     if (open) {
@@ -1940,11 +2019,15 @@ function ProfilePageContent() {
   const unlockDialogTitle =
     vaultUnlockReason === "delete_account"
       ? "Unlock Vault to Delete Account"
-      : "Unlock Vault";
+      : vaultUnlockReason === "reset_account"
+        ? "Unlock Vault to Reset Account"
+        : "Unlock Vault";
   const unlockDialogDescription =
     vaultUnlockReason === "delete_account"
       ? "Unlock your vault to confirm deletion. This is permanent and removes all encrypted records."
-      : "Unlock your vault to access profile settings.";
+      : vaultUnlockReason === "reset_account"
+        ? "Unlock your vault to confirm reset. This clears your data but keeps your account and vault."
+        : "Unlock your vault to access profile settings.";
 
   const displayedUnlockMethod = effectiveVaultMethod ?? vaultMethod;
   const recommendedQuickMethod =
@@ -3266,6 +3349,14 @@ function ProfilePageContent() {
           }
         />
         <SettingsRow
+          icon={RefreshCw}
+          title="Reset account"
+          description={resetRowDescription}
+          tone="destructive"
+          chevron
+          onClick={() => void handleResetClick()}
+        />
+        <SettingsRow
           icon={Trash2}
           title={deleteButtonLabel}
           description={deleteRowDescription}
@@ -3370,7 +3461,7 @@ function ProfilePageContent() {
         <SettingsRow
           icon={Trash2}
           title="Danger zone"
-          description="Permanently delete your One account."
+          description="Reset your data or delete your One account."
           chevron
           tone="destructive"
           onClick={() =>
@@ -4110,9 +4201,17 @@ function ProfilePageContent() {
       profileStackEntries.push({
         key: "detail:danger",
         title: "Danger zone",
-        description: "Delete persona or account data.",
+        description: "Reset your data or delete your account.",
         content: (
           <SettingsGroup title="Danger zone">
+            <SettingsRow
+              icon={RefreshCw}
+              title="Reset account"
+              description={resetRowDescription}
+              tone="destructive"
+              onClick={() => void handleResetClick()}
+              chevron
+            />
             <SettingsRow
               icon={Trash2}
               title={deleteButtonLabel}
@@ -4349,6 +4448,13 @@ function ProfilePageContent() {
             setShowVaultUnlock(false);
             if (vaultUnlockReason === "delete_account") {
               setTimeout(() => setShowDeleteConfirm(true), 300);
+              setTimeout(() => {
+                vaultUnlockCompletingRef.current = false;
+              }, 0);
+              return;
+            }
+            if (vaultUnlockReason === "reset_account") {
+              setTimeout(() => setShowResetConfirm(true), 300);
               setTimeout(() => {
                 vaultUnlockCompletingRef.current = false;
               }, 0);
@@ -4620,6 +4726,39 @@ function ProfilePageContent() {
               disabled={isDeleting}
             >
               {isDeleting ? "Deleting..." : "Yes, delete my account"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
+        <AlertDialogContent className="w-[calc(100%-1rem)] sm:max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Icon icon={RefreshCw} size="md" />
+              {resetDialogTitle}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {resetDialogDescription}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <AlertDialogCancel
+              className="w-full sm:w-auto"
+              disabled={isResetting}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="default"
+              className="min-h-10 w-full !whitespace-normal px-4 py-2 text-center leading-tight sm:w-auto sm:min-w-[12rem]"
+              onClick={(event) => {
+                event.preventDefault();
+                void handleResetAccount();
+              }}
+              disabled={isResetting}
+            >
+              {isResetting ? "Resetting..." : "Yes, reset my account"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
