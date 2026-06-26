@@ -94,6 +94,7 @@ import {
 import {
   effectiveOneKycRequiredFields,
   OneKycClientZkService,
+  runLlmRedraft,
   type KycDraftBuildResult,
 } from "@/lib/services/one-kyc-client-zk-service";
 import {
@@ -989,51 +990,32 @@ function OneKycWorkspace() {
             setError("Prepare the email draft before revising it.");
             return;
           }
-          const next = await OneKycService.redraft({
-            ...input,
-            instructions: redraftInstructions.trim(),
-            source: "text",
+          const exportPayloads = localExportPayloads[workflow.workflow_id] || [];
+          const result = await runLlmRedraft({
+            localDraft,
+            instruction: redraftInstructions.trim(),
+            workflow,
+            exportPayloads,
+            llmRewrite: (tokenizedTemplate, instruction) =>
+              OneKycService.redraftWithLlm({
+                ...input,
+                tokenizedTemplate,
+                instruction,
+              }).then((response) => response.rewritten_template),
           });
-          updateWorkflow(next);
-          if (next.status === "waiting_on_user") {
-            let exportPayloads = localExportPayloads[workflow.workflow_id] || [];
-            if (exportPayloads.length === 0) {
-              const connector = await OneKycClientZkService.ensureConnector({
-                userId: auth.userId,
-                vaultKey,
-                vaultOwnerToken,
-              });
-              const exportResponse = await OneKycService.getWorkflowConsentExports({
-                userId: auth.userId,
-                vaultOwnerToken,
-                workflowId: next.workflow_id,
-              });
-              exportPayloads = await Promise.all(
-                exportResponse.exports.map(async (exportPackage) => ({
-                  scope: exportPackage.scope,
-                  payload: await OneKycClientZkService.decryptScopedExport({
-                    exportPackage,
-                    connector,
-                  }),
-                })),
-              );
-              setLocalExportPayloads((current) => ({
-                ...current,
-                [workflow.workflow_id]: exportPayloads,
-              }));
-            }
-            const draft = await OneKycClientZkService.buildDraft({
-              workflow: next,
-              exportPayloads,
-              instructions: redraftInstructions.trim(),
-            });
-            setLocalDrafts((current) => ({
-              ...current,
-              [workflow.workflow_id]: draft,
-            }));
-          } else {
-            clearLocalWorkflowState(workflow.workflow_id);
+          if (!result.ok) {
+            setError(
+              result.errorCode === "TOKEN_INTEGRITY"
+                ? "AI output failed token integrity check — using original draft. Try again or use a simpler instruction."
+                : "AI output altered the consented field set — using original draft. Try again.",
+            );
+            setRedraftInstructions("");
+            return;
           }
+          setLocalDrafts((current) => ({
+            ...current,
+            [workflow.workflow_id]: result.draft,
+          }));
           setRedraftInstructions("");
           return;
         }
