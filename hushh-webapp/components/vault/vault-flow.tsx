@@ -1044,7 +1044,7 @@ export function VaultFlow({
                       {showRecoveryAlternative ? (
                         <Button
                           variant="none"
-                          effect="glass"
+                          effect="fade"
                           size="default"
                           fullWidth
                           className="h-10 rounded-full px-2 text-[13px] font-medium sm:h-11 sm:text-[14px]"
@@ -1119,7 +1119,7 @@ export function VaultFlow({
                   <div className="grid grid-cols-2 gap-2">
                     <Button
                       variant="none"
-                      effect="glass"
+                      effect="fade"
                       size="default"
                       fullWidth
                       className="h-10 rounded-full px-2 text-[13px] font-medium sm:h-11 sm:text-[14px]"
@@ -1135,7 +1135,7 @@ export function VaultFlow({
                     {availableGeneratedMethod && !webPasskeyUnsupported ? (
                       <Button
                         variant="none"
-                        effect="glass"
+                        effect="fade"
                         size="default"
                         fullWidth
                         className="h-10 rounded-full px-2 text-[13px] font-medium sm:h-11 sm:text-[14px]"

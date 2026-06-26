@@ -11,6 +11,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useTransition,
 } from "react";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -1205,6 +1206,14 @@ export function ConsentCenterPage() {
   const notificationAction = normalizeNotificationAction(
     searchParams.get("notificationAction"),
   );
+  // Decouple the detail panel's visible open/close from the URL navigation.
+  // Closing via setParam() -> router.replace() forces an App Router re-render of
+  // this heavy route, which made the close button (and approve/deny dismissal)
+  // feel laggy. We close the panel locally first, then sync the URL in a
+  // transition so the navigation never blocks the close animation.
+  const [panelCloseRequested, setPanelCloseRequested] = useState(false);
+  const [, startPanelUrlSync] = useTransition();
+  const isPanelOpen = Boolean(selectedId) && !panelCloseRequested;
   const [searchValue, setSearchValue] = useState(searchParams.get("q") || "");
   const deferredQuery = useDeferredValue(searchValue.trim());
   const [mutationTick, setMutationTick] = useState(0);
@@ -1851,6 +1860,29 @@ export function ConsentCenterPage() {
     });
   };
 
+  // Close the detail panel instantly, then clear its URL params in a transition
+  // so the route navigation never blocks the panel's close animation.
+  const closeDetailPanel = useCallback(() => {
+    setPanelCloseRequested(true);
+    startPanelUrlSync(() => {
+      setParam({
+        requestId: null,
+        selected: null,
+        notificationAction: null,
+      });
+    });
+    // setParam intentionally excluded; it is recreated each render and only
+    // reads current searchParams/router refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startPanelUrlSync]);
+
+  // When the selected request changes (deep link, list selection, or after the
+  // URL finishes clearing), drop the local close override so the panel can open
+  // again and stays in sync with the URL.
+  useEffect(() => {
+    setPanelCloseRequested(false);
+  }, [selectedId]);
+
   const pageEyebrow = "Access / Consent";
   const pageTitle = "Access manager";
   const relationshipCount = relationshipItems.length;
@@ -1874,34 +1906,6 @@ export function ConsentCenterPage() {
           description={pageDescription}
           icon={ShieldCheck}
           accent="consent"
-          actions={
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="none"
-                effect="fade"
-                size="sm"
-                onClick={retryConsentCenter}
-                aria-label="Refresh consent entries"
-                disabled={isConsentActionRefreshing}
-              >
-                <RefreshCcw
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    isConsentActionRefreshing && "animate-spin",
-                  )}
-                />
-                Refresh
-              </Button>
-              <Badge
-                className={cn(
-                  "border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-300",
-                )}
-              >
-                {summaryData?.counts.pending ?? 0} pending
-              </Badge>
-            </div>
-          }
         />
       </AppPageHeaderRegion>
 
@@ -1933,6 +1937,34 @@ export function ConsentCenterPage() {
               ]}
             />
 
+            <div className="flex items-center justify-between gap-3">
+              {visibleSnapshot ? (
+                <StaleCacheTimestamp
+                  updatedAt={visibleSnapshot.timestamp}
+                  stale={Boolean(activeListError && items.length > 0)}
+                />
+              ) : (
+                <span />
+              )}
+              <Button
+                type="button"
+                variant="none"
+                effect="fade"
+                size="sm"
+                onClick={retryConsentCenter}
+                aria-label="Refresh consent entries"
+                disabled={isConsentActionRefreshing}
+              >
+                <RefreshCcw
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    isConsentActionRefreshing && "animate-spin",
+                  )}
+                />
+                Refresh
+              </Button>
+            </div>
+
             <SettingsGroup embedded>
               <div className="px-4 py-4">
                 <div className="relative">
@@ -1949,14 +1981,6 @@ export function ConsentCenterPage() {
                     data-voice-control-id="consent_search"
                   />
                 </div>
-                {visibleSnapshot ? (
-                  <div className="mt-3">
-                    <StaleCacheTimestamp
-                      updatedAt={visibleSnapshot.timestamp}
-                      stale={Boolean(activeListError && items.length > 0)}
-                    />
-                  </div>
-                ) : null}
                 {(tab === "relationships"
                   ? centerResource.loading || centerResource.refreshing
                   : listResource.loading || listResource.refreshing) &&
@@ -2071,14 +2095,10 @@ export function ConsentCenterPage() {
       </AppPageContentRegion>
 
       <SettingsDetailPanel
-        open={Boolean(selectedId)}
+        open={isPanelOpen}
         onOpenChange={(open) => {
           if (!open) {
-            setParam({
-              requestId: null,
-              selected: null,
-              notificationAction: null,
-            });
+            closeDetailPanel();
           }
         }}
         title={
@@ -2130,7 +2150,7 @@ export function ConsentCenterPage() {
                       disabled={isRequestBusy(selectedPendingConsent.id)}
                       onClick={() => {
                         void handleApprove(selectedPendingConsent);
-                        setParam({ notificationAction: null });
+                        closeDetailPanel();
                       }}
                     >
                       {activeAction?.kind === "approve" &&
@@ -2151,7 +2171,7 @@ export function ConsentCenterPage() {
                         void handleDeny(
                           selectedEntry.request_id || selectedEntry.id,
                         );
-                        setParam({ notificationAction: null });
+                        closeDetailPanel();
                       }}
                     >
                       {activeAction?.kind === "deny" &&
@@ -2205,13 +2225,7 @@ export function ConsentCenterPage() {
                     variant="none"
                     effect="fade"
                     size="sm"
-                    onClick={() =>
-                      setParam({
-                        requestId: null,
-                        selected: null,
-                        notificationAction: null,
-                      })
-                    }
+                    onClick={closeDetailPanel}
                   >
                     View list
                   </Button>
@@ -2229,10 +2243,16 @@ export function ConsentCenterPage() {
           <ConsentEntryDetail
             actor={actor}
             entry={selectedEntry}
-            onApprove={(entry, durationHours) =>
-              void handleApprove(toPendingConsent(entry, durationHours))
-            }
-            onDeny={(entry) => void handleDeny(entry.request_id || entry.id)}
+            onApprove={(entry, durationHours) => {
+              void handleApprove(toPendingConsent(entry, durationHours));
+              // Dismiss the panel immediately; the list already optimistically
+              // removes the row and any failure surfaces via toast.
+              closeDetailPanel();
+            }}
+            onDeny={(entry) => {
+              void handleDeny(entry.request_id || entry.id);
+              closeDetailPanel();
+            }}
             onRevoke={(entry) => {
               if (!entry.scope) return;
               void handleRevoke(entry.scope);

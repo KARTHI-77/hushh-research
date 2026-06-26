@@ -65,6 +65,8 @@ Non-owned surfaces:
 12. Profile sharing controls must present the three visibility postures as plain language: `Private`, `Ask first`, and `Available by default`. Do not show `visibility_posture`, `default_available`, `scope`, `manifest`, `registry`, or `non-consented export` in consumer copy.
 13. Review composition, hierarchy, responsive layout, interaction, form geometry, copy, and contrast through `design-review-kernel.md`.
 14. Challenge incomplete, vague, asymmetric, or noisy UI before shipping the obvious weaker version.
+15. Match all standalone buttons, pill triggers, and icon controls to the gold-standard flat-control recipe owned by the agent bar, bottom nav, and top-app-bar buttons. Reuse `ShellActionSurface` (`SHELL_ICON_BUTTON_CLASSNAME` / `SHELL_PILL_TRIGGER_CLASSNAME`) rather than re-deriving `rounded-full` + `bg-black/[0.05] dark:bg-white/[0.07]` + flat hover/press per surface. Sibling controls in one group must share one `morphy-ux` effect (do not mix `glass` and `fade`). See the Control Surface Contract in `app-surface-design-system.md`.
+16. Give every modal floating surface the shared backdrop thump. Dialogs/sheets/drawers/command palette/vault dialog inherit it from `DialogOverlay`; modal popovers opt in with `PopoverContent withBackdrop` (renders `data-slot="popover-scrim"` animated by the shared `overlay-scrim-*` keyframes). Do not hand-roll per-surface scrim opacity, blur, or duration. Bottom navigation is a FIXED per-scope set: subroutes collapse onto their parent top-level tab (finance is the reference) through `lib/navigation/app-bottom-nav.ts`; never inject a per-subroute tab into the bar. See the Overlay Backdrop Contract and Bottom Navigation Contract in `app-surface-design-system.md`.
 
 ## Handoff Rules
 

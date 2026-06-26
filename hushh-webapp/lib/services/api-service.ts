@@ -1494,7 +1494,10 @@ export class ApiService {
     });
   }
 
-  static async refreshAccountIdentityShadow(idToken?: string): Promise<Response> {
+  static async refreshAccountIdentityShadow(
+    idToken?: string,
+    options?: { force?: boolean }
+  ): Promise<Response> {
     const firebaseIdToken = idToken || (await this.getFirebaseToken());
     if (!firebaseIdToken) {
       return new Response(JSON.stringify({ error: "Missing Firebase ID token" }), {
@@ -1502,7 +1505,12 @@ export class ApiService {
       });
     }
 
-    return apiFetch("/api/account/identity/refresh", {
+    const force = options?.force ?? true;
+    const path = force
+      ? "/api/account/identity/refresh"
+      : "/api/account/identity/refresh?force=false";
+
+    return apiFetch(path, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${firebaseIdToken}`,

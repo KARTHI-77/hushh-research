@@ -171,10 +171,13 @@ function navOptionForKey(
   pendingConsents: number,
 ): SegmentedPillOption {
   const option = BOTTOM_NAV_OPTION_META[key];
+  // Pending-consent badge home: the dedicated "guardian" tab when it exists
+  // (investor / ria scopes), otherwise the One "dashboard" tab, since consent
+  // now lives as a subroute of the One dashboard.
   return {
     ...option,
     badge:
-      (key === "guardian" || key === "profile") && pendingConsents > 0
+      (key === "guardian" || key === "dashboard") && pendingConsents > 0
         ? pendingConsents
         : undefined,
   };
@@ -386,7 +389,7 @@ export const Navbar = () => {
     >
       <div
         className={cn(
-          "relative flex items-end justify-center gap-2",
+          "relative flex items-stretch justify-center gap-2",
           "pointer-events-none",
           hideBottomChrome && "pointer-events-none",
         )}
@@ -421,7 +424,9 @@ export const Navbar = () => {
           type="button"
           aria-label="Search"
           className={cn(
-            "pointer-events-auto relative z-20 inline-flex h-[58px] w-[58px] shrink-0 items-center justify-center overflow-hidden rounded-full",
+            // Stretch to the pill height and stay a perfect circle so the search
+            // bubble and the bottom-nav pill read as one symmetric row.
+            "pointer-events-auto relative z-20 inline-flex aspect-square h-auto w-auto self-stretch shrink-0 items-center justify-center overflow-hidden rounded-full",
             // Flat surface matching the top app bar controls (ShellActionSurface):
             // soft translucent track, no border/shadow/blur, symmetric in light + dark.
             "bg-black/[0.05] text-[#1d1d1f] dark:bg-white/[0.07] dark:text-[#f5f5f7]",

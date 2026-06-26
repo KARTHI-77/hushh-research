@@ -2411,7 +2411,8 @@ html.dark .morphy-app-bg {
 [data-slot="dialog-scrim"],
 [data-slot="sheet-scrim"],
 [data-slot="drawer-scrim"],
-[data-slot="alert-dialog-scrim"] {
+[data-slot="alert-dialog-scrim"],
+[data-slot="popover-scrim"] {
   animation: overlay-scrim-in var(--motion-overlay-enter-duration)
     var(--motion-overlay-enter-ease) both;
 }
@@ -2419,7 +2420,8 @@ html.dark .morphy-app-bg {
 [data-slot="dialog-scrim"][data-state="closed"],
 [data-slot="sheet-scrim"][data-state="closed"],
 [data-slot="drawer-scrim"][data-state="closed"],
-[data-slot="alert-dialog-scrim"][data-state="closed"] {
+[data-slot="alert-dialog-scrim"][data-state="closed"],
+[data-slot="popover-scrim"][data-state="closed"] {
   animation: overlay-scrim-out var(--motion-overlay-exit-duration)
     var(--motion-overlay-exit-ease) both;
 }
