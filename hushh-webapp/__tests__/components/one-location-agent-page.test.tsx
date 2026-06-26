@@ -405,7 +405,7 @@ async function openAskFlow() {
 async function openTemporaryLinkFlow() {
   await switchLocationTab("Links", "Links");
   fireEvent.click(
-    screen.getByRole("button", { name: /Create temporary link/i }),
+    screen.getByRole("button", { name: /Create public location link/i }),
   );
   expect(
     await screen.findByRole("heading", { name: "Share outside your Circle" }),
@@ -773,8 +773,8 @@ describe("OneLocationAgentPage", () => {
     expect(screen.getByRole("button", { name: /Sync contacts/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Share to contacts/i })).toBeTruthy();
     await switchLocationTab("Links", "Links");
-    expect(screen.getByRole("button", { name: /Create temporary link/i })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Active temporary link" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Create public location link/i })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Active public location link" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Invite link" })).toBeTruthy();
     expect(screen.queryByText("Public link responses")).toBeNull();
     expect(screen.queryByText(/Share a public location link/i)).toBeNull();
@@ -897,7 +897,7 @@ describe("OneLocationAgentPage", () => {
 
     await waitFor(() => expect(mockGetState).toHaveBeenCalled());
     await openTemporaryLinkFlow();
-    fireEvent.click(screen.getByRole("button", { name: /Review temporary link/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Review public location link/i }));
 
     await waitFor(() => expect(mockCreatePublicInvite).toHaveBeenCalledTimes(1));
     expect(mockCaptureCurrentPosition).toHaveBeenCalledTimes(1);
@@ -921,7 +921,7 @@ describe("OneLocationAgentPage", () => {
     );
     expect(screen.queryByText(longPublicUrl)).toBeNull();
     expect(
-      await screen.findByRole("heading", { name: "Temporary link active" }),
+      await screen.findByRole("heading", { name: "Public location link active" }),
     ).toBeTruthy();
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
       /8012|9911|latitude|longitude|28\.6139|77\.209/u,
@@ -1470,7 +1470,7 @@ describe("OneLocationAgentPage", () => {
     expect(screen.queryByText(/No setup blockers/)).toBeNull();
     await switchLocationTab("Links", "Links");
     expect(
-      screen.getByRole("button", { name: /Create temporary link/i }),
+      screen.getByRole("button", { name: /Create public location link/i }),
     ).toBeTruthy();
   });
 
