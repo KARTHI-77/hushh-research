@@ -29,9 +29,11 @@ import {
   UsersRound,
 } from "lucide-react";
 
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type {
   OneLocationAccessRequest,
+
   OneLocationCircleInvite,
   OneLocationGrant,
   OneLocationPublicInvite,
@@ -330,20 +332,21 @@ function NowHub({
       <div className="grid grid-cols-2 gap-3">
         <Button
           onClick={onStartShare}
-          className="h-12 rounded-2xl bg-[#0a84ff] text-base font-semibold text-white hover:bg-[#0a84ff]/90"
+          className="h-12 whitespace-normal rounded-2xl bg-[#0a84ff] px-2 text-center text-[13px] font-semibold leading-tight text-white hover:bg-[#0a84ff]/90 sm:text-base"
         >
-          <MapPin className="mr-2 h-4 w-4" />
+          <MapPin className="mr-1.5 h-4 w-4 shrink-0" />
           Share my location
         </Button>
         <Button
           variant="outline"
           onClick={onAsk}
-          className="h-12 rounded-2xl text-base font-semibold"
+          className="h-12 whitespace-normal rounded-2xl px-2 text-center text-[13px] font-semibold leading-tight sm:text-base"
         >
-          <Send className="mr-2 h-4 w-4" />
+          <Send className="mr-1.5 h-4 w-4 shrink-0" />
           Ask someone
         </Button>
       </div>
+
 
       {/* Active shares */}
       <SectionCard title="Active shares">
@@ -852,9 +855,9 @@ function ShareFlow({
         value={vm.recipientSearch}
         onChange={vm.setRecipientSearch}
       />
-      <div className="space-y-2.5">
-        {filtered.length ? (
-          filtered.map((r) => {
+      {filtered.length ? (
+        <div className={PEOPLE_LIST_SCROLL_CLASS}>
+          {filtered.map((r) => {
             const selected = vm.selectedRecipientIds.includes(r.userId);
             const ready = vm.isRecipientShareReady(r);
             return (
@@ -883,14 +886,14 @@ function ShareFlow({
                 selected={selected}
               />
             );
-          })
-        ) : (
-          <EmptyState
-            title="No trusted people yet"
-            description="Invite someone to your Circle to start sharing."
-          />
-        )}
-      </div>
+          })}
+        </div>
+      ) : (
+        <EmptyState
+          title="No trusted people yet"
+          description="Invite someone to your Circle to start sharing."
+        />
+      )}
       <Button
         onClick={() => setStep("details")}
         disabled={!selectedReady.length}
@@ -898,6 +901,7 @@ function ShareFlow({
       >
         Continue
       </Button>
+
     </div>
   );
 }
@@ -957,25 +961,35 @@ function AskFlow({
           value={vm.recipientSearch}
           onChange={vm.setRecipientSearch}
         />
-        <div className="mt-3 space-y-2.5">
-          {filtered.slice(0, 5).map((r) => {
-            const selected = vm.selectedRequestOwnerIds.includes(r.userId);
-            return (
-              <TrustedPersonCard
-                key={r.userId}
-                name={vm.recipientLabel(r)}
-                subtitle="Ready for private sharing"
-                tone="ready"
-                actionLabel={selected ? "Selected" : "Select"}
-                actionAriaLabel={`${
-                  selected ? "Deselect" : "Select"
-                } ${vm.recipientLabel(r)} for location request`}
-                onAction={() => vm.toggleRequestOwner(r.userId, "ask_flow")}
-                selected={selected}
-              />
-            );
-          })}
-        </div>
+        {filtered.length ? (
+          <div className={cn("mt-3", PEOPLE_LIST_SCROLL_CLASS)}>
+            {filtered.map((r) => {
+              const selected = vm.selectedRequestOwnerIds.includes(r.userId);
+              return (
+                <TrustedPersonCard
+                  key={r.userId}
+                  name={vm.recipientLabel(r)}
+                  subtitle="Ready for private sharing"
+                  tone="ready"
+                  actionLabel={selected ? "Selected" : "Select"}
+                  actionAriaLabel={`${
+                    selected ? "Deselect" : "Select"
+                  } ${vm.recipientLabel(r)} for location request`}
+                  onAction={() => vm.toggleRequestOwner(r.userId, "ask_flow")}
+                  selected={selected}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <div className="mt-3">
+            <EmptyState
+              title="No one to request from yet"
+              description="Invite someone to your Circle, then ask them to share."
+            />
+          </div>
+        )}
+
       </SectionCard>
 
       <SectionCard title="Duration requested">
