@@ -24,6 +24,7 @@ vi.mock("@/lib/services/one-kyc-service", () => ({
 
 import {
   isKeywordOnlyInstruction,
+  OneKycClientZkService,
   reassembleDraftTemplate,
   redactDraftForLlm,
   resubstituteDraft,
@@ -32,6 +33,7 @@ import {
 } from "@/lib/services/one-kyc-client-zk-service";
 import type { KycDraftRenderModel } from "@/lib/services/one-kyc-client-zk-service";
 import { APPROVED_DISCLOSURE_FORMATTER_CONTRACT_ID } from "@/lib/services/one-kyc-approved-disclosure-renderer";
+import type { OneKycWorkflow } from "@/lib/services/one-kyc-service";
 
 // Minimal render-model fixture: splitDraftTemplate only reads style.formal and
 // accountHolder to recompute the deterministic opening line.
@@ -251,6 +253,58 @@ describe("redraft routing override (useAiRedraft)", () => {
     expect(
       routesToRegex("rephrase the intro to sound warmer", false),
     ).toBe(true);
+  });
+});
+
+describe("consolidated portfolio redaction (ZK)", () => {
+  const workflow = {
+    id: "wf-zk-1",
+    required_fields: ["portfolio"],
+    requested_scope: "attr.financial.portfolio.*",
+    subject: "Portfolio information",
+    metadata: { account_holder_name: "Kushal Trivedi" },
+  } as unknown as OneKycWorkflow;
+
+  it("redacts every real figure in a multi-account consolidated portfolio", async () => {
+    const draft = await OneKycClientZkService.buildDraft({
+      workflow,
+      exportPayload: {
+        financial: {
+          portfolio: {
+            accounts: [
+              {
+                account_info: { brokerage_name: "Fidelity", account_type: "Individual" },
+                account_summary: { ending_value: 100000, cash_balance: 1000 },
+                holdings: [{ symbol: "AAPL", quantity: 100, market_value: 15000 }],
+              },
+              {
+                account_info: { brokerage_name: "Schwab", account_type: "IRA" },
+                account_summary: { ending_value: 50000, cash_balance: 500 },
+                holdings: [{ symbol: "AAPL", quantity: 200, market_value: 30000 }],
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    const { tokenizedTemplate, tokenMap } = redactDraftForLlm({
+      body: draft.body,
+      approvedValues: draft.approvedValues,
+    });
+
+    // Each figure genuinely appears in the consolidated draft body (asserted
+    // present), and must NOT survive into the tokenized template (the portfolio
+    // is one opaque token). Asserting presence-in-body first makes the
+    // absence-in-template assertion meaningful, not vacuous.
+    for (const figure of ["150,000.00", "100,000.00", "50,000.00", "45,000.00", "1,500.00"]) {
+      expect(draft.body).toContain(figure);
+      expect(tokenizedTemplate).not.toContain(figure);
+    }
+
+    // Round-trip is exact and integrity holds.
+    expect(validateTokenIntegrity(tokenizedTemplate, tokenizedTemplate, tokenMap)).toBe(true);
+    expect(resubstituteDraft(tokenizedTemplate, tokenMap)).toBe(draft.body);
   });
 });
 

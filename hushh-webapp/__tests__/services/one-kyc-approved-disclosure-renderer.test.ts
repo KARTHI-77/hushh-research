@@ -213,3 +213,46 @@ describe("renderLlmRedraftHtml — sanitized markdown in the shared shell", () =
     expect(html).toContain(`background:#18181b`);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Golden snapshot: consolidated multi-account portfolio rendering
+// Locks the exact sent-email HTML for a consolidated portfolio across changes.
+// ---------------------------------------------------------------------------
+it("renders a consolidated multi-account portfolio to stable themed HTML", () => {
+  const html = buildApprovedDisclosureHtml({
+    contractId: APPROVED_DISCLOSURE_FORMATTER_CONTRACT_ID,
+    contractVersion: "1.0.0",
+    accountHolder: "Kushal Trivedi",
+    style: {
+      compact: false,
+      formal: false,
+      bulletList: false,
+      structured: false,
+      table: false,
+      fullDetail: false,
+      human: false,
+      cleanHeaders: false,
+    },
+    sections: [
+      {
+        scope: "attr.financial.portfolio.*",
+        title: "Portfolio",
+        entries: [
+          {
+            field: "portfolio",
+            label: "portfolio",
+            scope: "attr.financial.portfolio.*",
+            value:
+              "Portfolio summary\n- Accounts: 2\n- Total value: $150,000.00\n- Fidelity Individual: $100,000.00\n- Schwab IRA: $50,000.00\n- Cash balance: $1,500.00\n\nHoldings\n- AAPL: 300 shares; $45,000.00 value",
+          },
+        ],
+        missingFields: [],
+      },
+    ],
+    missingFields: [],
+  });
+  expect(html).toContain("<table");
+  expect(html).toContain("Portfolio summary");
+  expect(html).toContain("AAPL");
+  expect(html).toMatchSnapshot();
+});

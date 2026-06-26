@@ -15,6 +15,10 @@ import {
   type RenderFact,
   type RenderSection,
 } from "@/lib/services/one-kyc-approved-disclosure-renderer";
+import {
+  consolidateFinancialPortfolio,
+  type AllocationSlice,
+} from "@/lib/services/one-kyc-financial-consolidation";
 import { bytesToBase64 } from "@/lib/vault/base64";
 
 export { APPROVED_DISCLOSURE_FORMATTER_CONTRACT_ID };
@@ -446,53 +450,101 @@ function formatApprovedValue(value: unknown): string | null {
   return null;
 }
 
-function formatPortfolioApprovedValue(value: unknown): string | null {
-  const portfolio = Array.isArray(value) ? { holdings: value } : isRecord(value) ? value : null;
-  if (!portfolio) return formatApprovedValue(value);
+function humanizeAllocationBucket(bucket: string): string {
+  return bucket.replaceAll("_", " ");
+}
 
+function formatAllocationSummary(allocation: AllocationSlice[]): string | null {
+  if (!allocation.length) return null;
+  return allocation
+    .map((slice) => `${Math.round(slice.pct)}% ${humanizeAllocationBucket(slice.bucket)}`)
+    .join(", ");
+}
+
+function formatPortfolioApprovedValue(value: unknown): string | null {
+  const consolidated = consolidateFinancialPortfolio(value);
+  if (!consolidated) return formatApprovedValue(value);
+
+  const portfolio = Array.isArray(value) ? { holdings: value } : isRecord(value) ? value : {};
   const accountInfo = isRecord(portfolio.account_info)
     ? portfolio.account_info
     : isRecord(portfolio.accountInfo)
       ? portfolio.accountInfo
       : {};
-  const accountSummary = isRecord(portfolio.account_summary)
-    ? portfolio.account_summary
-    : {};
-  const holderName = truncate(getRecordValue(accountInfo, ["holder_name", "account_holder_name"]), 120);
-  const beginningValue = formatCurrencyValue(getRecordValue(accountSummary, ["beginning_value"]));
-  const totalValue =
-    formatCurrencyValue(getRecordValue(portfolio, ["total_value", "market_value"])) ||
-    formatCurrencyValue(getRecordValue(accountSummary, ["ending_value", "total_value"]));
-  const cashBalance =
-    formatCurrencyValue(getRecordValue(portfolio, ["cash_balance"])) ||
-    formatCurrencyValue(getRecordValue(accountSummary, ["cash_balance"]));
-  const changeInValue = formatCurrencyValue(getRecordValue(accountSummary, ["change_in_value"]));
-  const netDepositsWithdrawals = formatCurrencyValue(
-    getRecordValue(accountSummary, ["net_deposits_withdrawals"])
-  );
-  const investmentGainLoss = formatCurrencyValue(
-    getRecordValue(accountSummary, ["investment_gain_loss", "gain_loss", "change_in_value"])
-  );
-  const totalFees = formatCurrencyValue(getRecordValue(accountSummary, ["total_fees", "fees"]));
-  const totalIncomePeriod = formatCurrencyValue(getRecordValue(accountSummary, ["total_income_period"]));
-  const totalIncomeYtd = formatCurrencyValue(getRecordValue(accountSummary, ["total_income_ytd"]));
+  const accountSummary = isRecord(portfolio.account_summary) ? portfolio.account_summary : {};
+  const multiAccount = consolidated.accounts.length > 1;
 
   const summaryLines: string[] = [];
-  if (holderName) summaryLines.push(`- Account name: ${holderName}`);
-  if (beginningValue) summaryLines.push(`- Beginning value: ${beginningValue}`);
-  if (totalValue) summaryLines.push(`- Total value: ${totalValue}`);
-  if (cashBalance) summaryLines.push(`- Cash balance: ${cashBalance}`);
-  if (changeInValue) summaryLines.push(`- Change in value: ${changeInValue}`);
-  if (netDepositsWithdrawals) {
-    summaryLines.push(`- Net deposits/withdrawals: ${netDepositsWithdrawals}`);
-  }
-  if (investmentGainLoss) summaryLines.push(`- Investment gain/loss: ${investmentGainLoss}`);
-  if (totalFees) summaryLines.push(`- Fees: ${totalFees}`);
-  if (totalIncomePeriod) summaryLines.push(`- Income this period: ${totalIncomePeriod}`);
-  if (totalIncomeYtd) summaryLines.push(`- Income year to date: ${totalIncomeYtd}`);
 
-  const holdings = Array.isArray(portfolio.holdings) ? portfolio.holdings : [];
+  if (multiAccount) {
+    summaryLines.push(`- Accounts: ${consolidated.accounts.length}`);
+    const totalValue = formatCurrencyValue(consolidated.totalValue);
+    if (totalValue) summaryLines.push(`- Total value: ${totalValue}`);
+    for (const account of consolidated.accounts) {
+      const label = account.label || "Account";
+      const accountValue = formatCurrencyValue(account.endingValue);
+      if (accountValue) summaryLines.push(`- ${label}: ${accountValue}`);
+    }
+    const cashBalance = formatCurrencyValue(consolidated.cashBalance);
+    if (cashBalance) summaryLines.push(`- Cash balance: ${cashBalance}`);
+  } else {
+    // Single-account: preserve the existing rich statement summary verbatim.
+    const holderName = truncate(
+      getRecordValue(accountInfo, ["holder_name", "account_holder_name"]),
+      120
+    );
+    const beginningValue = formatCurrencyValue(getRecordValue(accountSummary, ["beginning_value"]));
+    const totalValue =
+      formatCurrencyValue(consolidated.totalValue) ||
+      formatCurrencyValue(getRecordValue(portfolio, ["total_value", "market_value"]));
+    const cashBalance =
+      formatCurrencyValue(consolidated.cashBalance) ||
+      formatCurrencyValue(getRecordValue(accountSummary, ["cash_balance"]));
+    const changeInValue = formatCurrencyValue(getRecordValue(accountSummary, ["change_in_value"]));
+    const netDepositsWithdrawals = formatCurrencyValue(
+      getRecordValue(accountSummary, ["net_deposits_withdrawals"])
+    );
+    const investmentGainLoss = formatCurrencyValue(
+      getRecordValue(accountSummary, ["investment_gain_loss", "gain_loss", "change_in_value"])
+    );
+    const totalFees = formatCurrencyValue(getRecordValue(accountSummary, ["total_fees", "fees"]));
+    const totalIncomePeriod = formatCurrencyValue(
+      getRecordValue(accountSummary, ["total_income_period"])
+    );
+    const totalIncomeYtd = formatCurrencyValue(getRecordValue(accountSummary, ["total_income_ytd"]));
+
+    if (holderName) summaryLines.push(`- Account name: ${holderName}`);
+    if (beginningValue) summaryLines.push(`- Beginning value: ${beginningValue}`);
+    if (totalValue) summaryLines.push(`- Total value: ${totalValue}`);
+    if (cashBalance) summaryLines.push(`- Cash balance: ${cashBalance}`);
+    if (changeInValue) summaryLines.push(`- Change in value: ${changeInValue}`);
+    if (netDepositsWithdrawals) {
+      summaryLines.push(`- Net deposits/withdrawals: ${netDepositsWithdrawals}`);
+    }
+    if (investmentGainLoss) summaryLines.push(`- Investment gain/loss: ${investmentGainLoss}`);
+    if (totalFees) summaryLines.push(`- Fees: ${totalFees}`);
+    if (totalIncomePeriod) summaryLines.push(`- Income this period: ${totalIncomePeriod}`);
+    if (totalIncomeYtd) summaryLines.push(`- Income year to date: ${totalIncomeYtd}`);
+  }
+
+  // Shared aggregate lines (both single- and multi-account).
+  const netUnrealized = formatCurrencyValue(consolidated.netUnrealizedGainLoss);
+  if (netUnrealized) summaryLines.push(`- Net unrealized gain/loss: ${netUnrealized}`);
+  const allocationSummary = formatAllocationSummary(consolidated.allocation);
+  if (allocationSummary) summaryLines.push(`- Asset allocation: ${allocationSummary}`);
+
+  const holdings = consolidated.holdings;
   if (holdings.length) summaryLines.push(`- Holdings: ${holdings.length}`);
+
+  if (consolidated.reconciliationMismatch) {
+    const holdingsTotal = formatCurrencyValue(consolidated.holdingsSum);
+    if (holdingsTotal) {
+      summaryLines.push(
+        `- Totals as reported on statements; itemized holdings total ${holdingsTotal}.`
+      );
+    }
+  }
+
   const holdingLines = holdings.map(formatHoldingLine).filter(Boolean);
   const sections: string[] = [];
   if (summaryLines.length) sections.push(["Portfolio summary", ...summaryLines].join("\n"));
