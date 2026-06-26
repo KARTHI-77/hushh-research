@@ -1596,11 +1596,10 @@ function ProfilePageContent() {
 
     // Branded actionable loading: keep the toast in its loading state until the
     // reset has been acknowledged and local state has been cleared.
-    const token = resolution.token;
     try {
       await morphyToast.promise(
         (async () => {
-          await AccountService.resetAccount(token);
+          await AccountService.resetAccount(resolution.token);
 
           CacheSyncService.onAccountDeleted(user.uid);
           await UserLocalStateService.clearForUser(user.uid);
