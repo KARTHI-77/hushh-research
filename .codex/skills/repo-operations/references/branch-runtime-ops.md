@@ -96,6 +96,28 @@ asks to watch logs themselves, or when the agent has no managed terminal.
    while tailing output for telemetry.
 2. `--reload` on the backend is the native hot-restart: code edits auto-restart
    the worker, so most "restart" needs are already handled without a manual kill.
+
+### What `stack --mode local` launches (all three components)
+
+`./bin/hushh stack --mode local` (→ `scripts/runtime/launch_stack.sh`) brings up
+the full local runtime as ONE in-session process tree, in this order:
+
+1. Cloud SQL proxy — auto-started inside `run_backend_local.sh` whenever the
+   active backend profile defines `CLOUDSQL_INSTANCE_CONNECTION_NAME`. It binds
+   `127.0.0.1:<CLOUDSQL_PROXY_PORT>` (local default `6543`) to the configured
+   Cloud SQL instance (e.g. `hushh-pda-uat:...:hushh-uat-pg`). Confirm in logs:
+   `Starting Cloud SQL proxy for <instance> on 127.0.0.1:6543`.
+2. Backend — uvicorn on `:8000` (ENVIRONMENT=development for local). Confirm:
+   `Uvicorn running on http://127.0.0.1:8000` and `Application startup complete`.
+3. Frontend — `npm run dev` (Next.js) on `:3000`, after clearing stale `.next`.
+
+For backend-only telemetry, `./bin/hushh backend --mode local --reload` starts
+components 1 and 2 (proxy + backend); the frontend is started separately with
+`./bin/hushh web --mode local`. To confirm all three are healthy in-session:
+`./bin/hushh doctor --mode local`, `curl -s -o /dev/null -w '%{http_code}'
+http://127.0.0.1:8000/docs` (expect 200), web origin `http://localhost:3000`,
+and `lsof -ti :6543` (proxy) / `:8000` (backend) / `:3000` (frontend) each
+showing a bound listener.
 3. Visible OS terminal windows (`./bin/hushh terminal backend|web|stack`) are
    opt-in: use when the developer explicitly wants to watch logs, or for a
    detached long-running session the agent does not need to read.
