@@ -87,53 +87,62 @@ agent-run servers because direct log access is required for monitoring and fast
 fix loops. Use a visible OS terminal window only when the developer explicitly
 asks to watch logs themselves, or when the agent has no managed terminal.
 
-1. Agent default = in-session terminal. Launch the canonical command DIRECTLY
-   (not the `terminal` wrapper, which always pops a visible OS window):
-   - backend: `./bin/hushh backend --mode local --reload`
-   - web: `./bin/hushh web --mode local`
-   - combined: `./bin/hushh stack --mode local`
-   Run it as a background/async terminal in the agent so the agent keeps working
-   while tailing output for telemetry.
-2. `--reload` on the backend is the native hot-restart: code edits auto-restart
-   the worker, so most "restart" needs are already handled without a manual kill.
+Canonical local runtime = THREE separate in-session terminals, one per
+component. There is no combined `stack` command — it was removed so each
+component's telemetry stays isolated and readable. Launch each canonical command
+DIRECTLY (not the `terminal` wrapper, which always pops a visible OS window),
+each as its own background/async terminal in the agent:
 
-### What `stack --mode local` launches (all three components)
+1. Cloud SQL proxy — terminal 1: `./bin/hushh proxy --mode local`
+2. Backend — terminal 2: `./bin/hushh backend --mode local --reload`
+3. Frontend — terminal 3: `./bin/hushh web --mode local`
 
-`./bin/hushh stack --mode local` (→ `scripts/runtime/launch_stack.sh`) brings up
-the full local runtime as ONE in-session process tree, in this order:
+Notes:
 
-1. Cloud SQL proxy — auto-started inside `run_backend_local.sh` whenever the
-   active backend profile defines `CLOUDSQL_INSTANCE_CONNECTION_NAME`. It binds
-   `127.0.0.1:<CLOUDSQL_PROXY_PORT>` (local default `6543`) to the configured
-   Cloud SQL instance (e.g. `hushh-pda-uat:...:hushh-uat-pg`). Confirm in logs:
+- `--reload` on the backend is the native hot-restart: code edits auto-restart
+  the worker, so most "restart" needs are handled without a manual kill.
+- The proxy must be running (terminal 1) before the backend. The backend
+  auto-detects an existing proxy listener on `127.0.0.1:<CLOUDSQL_PROXY_PORT>`
+  (local default `6543`) and reuses it instead of spawning its own. If you run
+  the backend without a standalone proxy, it will still start its own proxy as a
+  child — but the canonical, telemetry-isolated flow is the three terminals
+  above.
+- Visible OS terminal windows (`./bin/hushh terminal proxy|backend|web`) are
+  opt-in: use when the developer explicitly wants to watch logs themselves, or
+  for a detached long-running session the agent does not need to read.
+
+### What each component binds (all three)
+
+1. Cloud SQL proxy (`./bin/hushh proxy --mode local` →
+   `scripts/runtime/run_proxy_local.sh`) binds `127.0.0.1:6543` (local default
+   `CLOUDSQL_PROXY_PORT`) to the configured Cloud SQL instance (e.g.
+   `hushh-pda-uat:...:hushh-uat-pg`). Confirm in logs:
    `Starting Cloud SQL proxy for <instance> on 127.0.0.1:6543`.
-2. Backend — uvicorn on `:8000` (ENVIRONMENT=development for local). Confirm:
-   `Uvicorn running on http://127.0.0.1:8000` and `Application startup complete`.
-3. Frontend — `npm run dev` (Next.js) on `:3000`, after clearing stale `.next`.
+2. Backend (`./bin/hushh backend --mode local --reload`) runs uvicorn on `:8000`
+   (ENVIRONMENT=development for local). Confirm: `Uvicorn running on
+   http://127.0.0.1:8000` and `Application startup complete`.
+3. Frontend (`./bin/hushh web --mode local`) runs `npm run dev` (Next.js) on
+   `:3000`.
 
-For backend-only telemetry, `./bin/hushh backend --mode local --reload` starts
-components 1 and 2 (proxy + backend); the frontend is started separately with
-`./bin/hushh web --mode local`. To confirm all three are healthy in-session:
-`./bin/hushh doctor --mode local`, `curl -s -o /dev/null -w '%{http_code}'
-http://127.0.0.1:8000/docs` (expect 200), web origin `http://localhost:3000`,
-and `lsof -ti :6543` (proxy) / `:8000` (backend) / `:3000` (frontend) each
-showing a bound listener.
-3. Visible OS terminal windows (`./bin/hushh terminal backend|web|stack`) are
-   opt-in: use when the developer explicitly wants to watch logs, or for a
-   detached long-running session the agent does not need to read.
-4. Prefer separate backend and web terminals unless one combined stack terminal
-   is explicitly requested, so backend and frontend telemetry stay readable.
+To confirm all three are healthy in-session: `./bin/hushh doctor --mode local`,
+`curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/docs` (expect 200),
+web origin `http://localhost:3000`, and `lsof -ti :6543` (proxy) / `:8000`
+(backend) / `:3000` (frontend) each showing a bound listener.
 
 ### Native restart playbook (agent-driven)
 
 1. Prefer the built-in hot-reload first: with `--reload` running, a code change
    restarts the backend worker automatically — no manual restart needed.
-2. For a full restart, stop the agent-managed terminal cleanly (kill the managed
-   terminal/process), then verify the ports are free before relaunching:
-   - backend default port and web default port: `lsof -ti :<port>` should be
-     empty; if a stray listener remains, terminate it before relaunch.
-3. Relaunch the same in-session command from step 1; keep the terminal in the
-   agent so telemetry resumes streaming immediately.
+2. For a full restart, stop the relevant agent-managed terminal cleanly (kill
+   the managed terminal/process), then verify the ports are free before
+   relaunching: `lsof -ti :6543` (proxy), `:8000` (backend), and `:3000`
+   (frontend) should each be empty; if a stray listener remains, terminate it
+   before relaunch.
+3. Relaunch the same in-session command(s) from the three-terminal list; keep
+   each terminal in the agent so telemetry resumes streaming immediately.
+   Restart only the component that changed — e.g. backend code edits restart the
+   backend terminal, frontend edits restart the web terminal, and the proxy
+   rarely needs a restart.
 4. Do not claim restart success until backend health and web origin respond
    (probe `./bin/hushh doctor --mode local` and the web origin / backend
    `/docs`).
