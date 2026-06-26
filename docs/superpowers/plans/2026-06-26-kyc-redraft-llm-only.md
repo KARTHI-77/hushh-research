@@ -8,6 +8,30 @@
 
 **Tech Stack:** Python (FastAPI, pytest, `consent-protocol/.venv`), TypeScript/React (Next.js, vitest).
 
+## Visual Map
+
+```text
+page.tsx runAction("redraft")
+      │
+      ▼
+runLlmRedraft  (hushh-webapp/lib/services/one-kyc-client-zk-service.ts)
+   splitDraftTemplate ─► redactDraftForLlm  (PII → {{Fn}}, token map stays local)
+      │
+      ▼  only PII-free tokenized text leaves the browser
+OneKycService.redraftWithLlm ─► POST /kyc/workflows/{id}/redraft-llm
+      │
+      ▼  consent gate (agent.kyc.redraft.llm via vault.owner) → Gemini Vertex
+redraft_llm()  (consent-protocol/hushh_mcp/services/one_email_kyc_service.py)
+   returns { rewritten_template }   (draft_body stays NULL; logs hash only)
+      │
+      ▼  back in the browser
+validateTokenIntegrity ─► resubstituteDraft ─► reassembleDraftTemplate
+   guardrail 1 (token integrity) + guardrail 2 (field-key set) — both fail closed
+      │
+      ▼
+renderLlmRedraftHtml ─► setLocalDrafts  (human review before send unchanged)
+```
+
 ## Global Constraints
 
 - **Zero-knowledge:** every PII value is redacted to `{{Fn}}` before anything leaves the browser; the token map and re-substitution stay client-side only.
@@ -622,7 +646,7 @@ Expected: FAIL — `runLlmRedraft` is not exported.
 
 - [ ] **Step 3: Extend the renderer import**
 
-In `hushh-webapp/lib/services/one-kyc-client-zk-service.ts`, add `renderLlmRedraftHtml` to the existing import from `./one-kyc-approved-disclosure-renderer` (the import that already pulls `redraftTransformFromInstructions`, `buildApprovedDisclosureHtml`, etc.):
+In `hushh-webapp/lib/services/one-kyc-client-zk-service.ts`, add `renderLlmRedraftHtml` to the existing import from the renderer module `hushh-webapp/lib/services/one-kyc-approved-disclosure-renderer.ts` (the import that already pulls `redraftTransformFromInstructions`, `buildApprovedDisclosureHtml`, etc.):
 
 ```ts
 import {
@@ -883,5 +907,5 @@ git add -A && git commit -m "test(kyc): verify LLM-only redraft suite green" || 
 ## Self-Review (completed by plan author)
 
 - **Spec coverage:** consent scope (T1), backend method + ZK/no-draft_body + audit hash (T2), route + model (T3), client API (T4), client orchestrator + both guardrails (T5), page wiring LLM-only (T6), suite verification (T7). Kept-as-is items (regex path, `redraftTransformFromInstructions`, `isKeywordOnlyInstruction`) are enforced via Global Constraints + T6 Step 3 / T7 Step 3. ✓
-- **Placeholder scan:** no TBD/TODO; the one externally-sourced artifact (backend test file) is fetched via an exact `git show` command; test-scaffolding (`makeFixture`, route-test helpers) is described with the exact reference file to copy from, because the precise fixture shape must be read from the live file rather than guessed. ✓
+- **Placeholder scan:** no unresolved placeholder markers; the one externally-sourced artifact (backend test file) is fetched via an exact `git show` command; test-scaffolding (`makeFixture`, route-test helpers) is described with the exact reference file to copy from, because the precise fixture shape must be read from the live file rather than guessed. ✓
 - **Type consistency:** `redraftWithLlm` body keys (`tokenized_template`, `instruction`) match `LlmRedraftRequest` and the service signature; `LlmRedraftResult` error codes (`TOKEN_INTEGRITY`, `FIELD_SET_CHANGED`) are used identically in T5 and T6; `runLlmRedraft` params match its call site. ✓

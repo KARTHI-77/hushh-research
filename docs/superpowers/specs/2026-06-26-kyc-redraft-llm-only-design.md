@@ -4,6 +4,31 @@
 - **Branch:** `promote/kyc-financial-consolidation` (= `origin/main` + 4 consolidation/UX commits)
 - **Status:** Approved design, ready for implementation plan
 
+## Visual Map
+
+```text
+Redraft (LLM-only) — zero-knowledge data flow
+
+Browser                                        │  Server
+────────────────────────────────────────────  │  ───────────────────────────────
+localDraft                                     │
+  split framing → redact PII to {{Fn}}         │
+  (token map never leaves the browser)         │
+        │  tokenized template + instruction    │
+        └────────────────────────────────────► │  redraft_llm()
+                                               │    consent gate (agent.kyc.redraft.llm
+                                               │      satisfied by vault.owner)
+                                               │    → Gemini Vertex (kai/llm.py)
+                                               │    draft_body = NULL; log hash only
+        ◄────────────────────────────────────┘    { rewritten_template }
+  validate token integrity (guardrail 1)        │
+  re-substitute real values + reassemble        │
+  re-validate consented field set (guardrail 2) │
+  render → preview (human review before send)   │
+
+Both guardrails fail closed → keep the prior draft.
+```
+
 ## 1. Goal
 
 Make KYC "Redraft" **LLM-only**: every redraft instruction goes through the
