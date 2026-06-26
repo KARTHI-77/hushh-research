@@ -914,7 +914,7 @@ export function VaultFlow({
                     : "Enter your passphrase to open Vault"}
                 </p>
                 {unlockHint ? (
-                  <p className="mt-1 text-xs font-medium text-amber-500">
+                  <p className="mx-auto mt-2 max-w-[19rem] text-balance rounded-[14px] border border-border/40 bg-muted/40 px-3 py-2 text-[12.5px] font-medium leading-[1.4] text-muted-foreground">
                     {unlockHint}
                   </p>
                 ) : null}

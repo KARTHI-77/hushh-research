@@ -263,6 +263,8 @@ export const Navbar = () => {
       }
     };
 
+    // When the bottom nav is genuinely gone for this context (unauthenticated,
+    // onboarding chrome, or no nav options), collapse the reserved height to 0.
     if (!isAuthenticated || useOnboardingChrome || navOptions.length === 0) {
       setBottomChromeVars("0px", "58px");
       return;
@@ -270,7 +272,12 @@ export const Navbar = () => {
 
     const el = pillRef.current;
     if (!el) {
-      setBottomChromeVars("0px", "58px");
+      // The navbar is temporarily unmounted (e.g. the agent window is open, which
+      // also hides the agent bar that consumes --app-bottom-fixed-ui). Do NOT
+      // zero the reserved height here: when the agent window closes the navbar
+      // remounts but this effect's other deps are unchanged, so it would not
+      // re-measure and the stale 0px would collapse the agent bar onto the nav.
+      // Preserve the last measured value until a real measurement runs.
       return;
     }
 
@@ -295,7 +302,10 @@ export const Navbar = () => {
       ro?.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [isAuthenticated, navOptions.length, useOnboardingChrome]);
+    // `agentWindowOpen` is included so the pill is re-measured when the navbar
+    // remounts after the agent window closes (otherwise --app-bottom-fixed-ui
+    // stays stale and the agent bar overlaps the nav).
+  }, [agentWindowOpen, isAuthenticated, navOptions.length, useOnboardingChrome]);
 
   const bottomNavMaxWidth =
     navOptions.length > 0 ? resolveBottomNavMaxWidth(navOptions.length) : "0px";

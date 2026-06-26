@@ -91,9 +91,12 @@ export function AgentBar() {
         {
           // Sit just above the visible bottom nav inset (not the full Kai
           // command-bar reservation) and ride the same scroll-hide translation
-          // as the rest of the bottom chrome.
+          // as the rest of the bottom chrome. Floor the nav reservation with the
+          // static fallback so a transiently-zero --app-bottom-fixed-ui (e.g.
+          // before the navbar re-measures after the agent window closes) can
+          // never collapse this bar down onto the nav.
           bottom:
-            "calc(var(--app-bottom-inset) + max(var(--app-safe-area-bottom-effective), 0.25rem) + 0.5rem)",
+            "calc(max(var(--app-bottom-inset), var(--bottom-nav-offset, 88px)) + max(var(--app-safe-area-bottom-effective), 0.25rem) + 0.5rem)",
           transform:
             "translate3d(0, calc(var(--bottom-chrome-progress, 0) * var(--bottom-chrome-hide-distance, var(--bottom-chrome-full-height))), 0)",
           "--bottom-chrome-progress": String(hideBottomChromeProgress),
