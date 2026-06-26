@@ -239,3 +239,56 @@ export function useKaiBottomChromeVisibility(enabled: boolean): {
 
   return { hidden: enabled ? hidden : false, progress: enabled ? progress : 0, onScroll };
 }
+
+const BOTTOM_CHROME_PROGRESS_VAR = "--bottom-chrome-progress";
+
+/**
+ * Drives the bottom-chrome hide animation by writing the continuous scroll
+ * progress to a CSS variable on the document root, WITHOUT returning the value
+ * into React render output.
+ *
+ * The earlier `useKaiBottomChromeVisibility` hook returns `progress` (a value
+ * that changes on every scroll frame) via useSyncExternalStore. When that hook
+ * is consumed in the root app shell, every scroll frame re-renders the entire
+ * provider subtree, which made pages like /consents appear to "reload" on
+ * scroll. This hook isolates the per-frame update to a CSS variable mutation so
+ * the React tree is never re-rendered by scrolling; consumers read
+ * `var(--bottom-chrome-progress)` from the cascade instead.
+ */
+export function useKaiBottomChromeProgressCssVar(enabled: boolean): void {
+  useEffect(() => {
+    if (!enabled || typeof document === "undefined") {
+      resetKaiBottomChromeVisibility();
+      if (typeof document !== "undefined") {
+        document.documentElement.style.setProperty(
+          BOTTOM_CHROME_PROGRESS_VAR,
+          "0",
+        );
+      }
+      return;
+    }
+
+    const root = document.documentElement;
+    const writeVar = () => {
+      root.style.setProperty(
+        BOTTOM_CHROME_PROGRESS_VAR,
+        String(getSnapshot()),
+      );
+    };
+
+    listenerRefCount += 1;
+    attachScrollListener();
+    writeVar();
+    const unsubscribe = subscribe(writeVar);
+
+    return () => {
+      unsubscribe();
+      listenerRefCount = Math.max(0, listenerRefCount - 1);
+      if (listenerRefCount === 0) {
+        resetKaiBottomChromeVisibility();
+        detachScrollListener();
+      }
+      root.style.setProperty(BOTTOM_CHROME_PROGRESS_VAR, "0");
+    };
+  }, [enabled]);
+}

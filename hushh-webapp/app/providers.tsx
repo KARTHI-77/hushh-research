@@ -47,7 +47,7 @@ import { Capacitor } from "@capacitor/core";
 import { ObservabilityRouteObserver } from "@/components/observability/route-observer";
 import {
   resetKaiBottomChromeVisibility,
-  useKaiBottomChromeVisibility,
+  useKaiBottomChromeProgressCssVar,
 } from "@/lib/navigation/kai-bottom-chrome-visibility";
 import { getKaiChromeState } from "@/lib/navigation/kai-chrome-state";
 import { ROUTES } from "@/lib/navigation/routes";
@@ -170,8 +170,13 @@ function AppShellFrame({ children }: ProvidersProps) {
     topShellMetrics.shellVisible && !isFullscreenTopFlow;
   const showVaultMethodPrompt =
     isAuthenticated && topShellMetrics.shellVisible && !isFullscreenTopFlow;
-  const { progress: hideBottomChromeGlassProgress } =
-    useKaiBottomChromeVisibility(showSharedBottomChromeGlass);
+  // Drive the bottom-chrome hide animation through a CSS variable instead of a
+  // render-coupled value. Reading the continuous scroll progress in this root
+  // shell re-rendered the entire provider subtree on every scroll frame, which
+  // made pages like /consents appear to reload on scroll. This hook writes
+  // `--bottom-chrome-progress` to the document root imperatively and returns
+  // nothing, so scrolling no longer re-renders the React tree.
+  useKaiBottomChromeProgressCssVar(showSharedBottomChromeGlass);
   const pageRef = useRef<HTMLDivElement | null>(null);
   const isKaiRoute = useMemo(
     () =>
@@ -344,9 +349,6 @@ function AppShellFrame({ children }: ProvidersProps) {
                                   height: "var(--bottom-chrome-full-height)",
                                   transform:
                                     "translate3d(0, calc(var(--bottom-chrome-progress, 0) * var(--bottom-chrome-hide-distance)), 0)",
-                                  "--bottom-chrome-progress": String(
-                                    hideBottomChromeGlassProgress,
-                                  ),
                                   ...SHARED_BOTTOM_CHROME_GLASS_VARS,
                                 } as CSSProperties
                               }
@@ -426,9 +428,6 @@ function AppShellFrame({ children }: ProvidersProps) {
                                   height: "var(--bottom-chrome-full-height)",
                                   transform:
                                     "translate3d(0, calc(var(--bottom-chrome-progress, 0) * var(--bottom-chrome-hide-distance)), 0)",
-                                  "--bottom-chrome-progress": String(
-                                    hideBottomChromeGlassProgress,
-                                  ),
                                   ...SHARED_BOTTOM_CHROME_GLASS_VARS,
                                 } as CSSProperties
                               }
