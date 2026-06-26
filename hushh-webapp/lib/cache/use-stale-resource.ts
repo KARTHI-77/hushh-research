@@ -203,7 +203,6 @@ export function useStaleResource<T>({
       return;
     }
     void refreshRef.current();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, cacheKey, refreshKey]);
 
   return {
