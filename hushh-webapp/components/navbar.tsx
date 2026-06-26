@@ -171,10 +171,13 @@ function navOptionForKey(
   pendingConsents: number,
 ): SegmentedPillOption {
   const option = BOTTOM_NAV_OPTION_META[key];
+  // Pending-consent badge home: the dedicated "guardian" tab when it exists
+  // (investor / ria scopes), otherwise the One "dashboard" tab, since consent
+  // now lives as a subroute of the One dashboard.
   return {
     ...option,
     badge:
-      (key === "guardian" || key === "profile") && pendingConsents > 0
+      (key === "guardian" || key === "dashboard") && pendingConsents > 0
         ? pendingConsents
         : undefined,
   };
