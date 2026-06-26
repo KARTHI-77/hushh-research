@@ -23,9 +23,20 @@ push safety, local runtime terminals, deploy cadence, and UAT release gates.
    return to the preserved development branch, and back-sync landed `main`.
 7. If you discover you created a branch you should not have, move the real
    commits back onto the correct existing branch(es) and delete the stray
-   branch (only if it was never pushed); state the correction to the user.
+   branch (local AND remote if it was pushed but never merged); state the
+   correction to the user.
 8. Do not leave the workspace detached, parked on `main`, or parked on a temp
-   branch unless the user explicitly asked for that state.
+   branch unless the user explicitly asked for that state. If branch switching
+   happened mid-task (including from another terminal), switch BACK to the
+   developer's starting branch before handoff and say so.
+9. HARD CLEANUP RULE: always delete temporary branches you created, both local
+   and remote, once the work is safely preserved on the kept branches. Before
+   deleting, verify every unique commit/file is represented on a branch you are
+   keeping (`git --no-pager log --oneline <kept-branch> | grep <subject>` for
+   each piece). Close any throwaway PR opened from the temp branch. After
+   cleanup, confirm: developer on their branch, no stray local temp branches
+   (`git branch | grep -iE 'ship/|phase|tmp/'`), no stray remote temp branches
+   (`git ls-remote --heads origin '*<name>*'`), no dangling throwaway PRs.
 
 ## Shared Branch A Teammate Is Actively Pushing
 
