@@ -2910,6 +2910,9 @@ export function AgentChatWorkspace({
       <div
         className={cn(
           "relative flex min-h-0 flex-1",
+          // On phones the popover is a full-bleed immersive sheet, so the inner
+          // content must reach every edge (no surrounding padding gap). The
+          // inset padding only applies to the floating windowed card at >=sm.
           isPopover ? "overflow-hidden p-0 sm:p-3" : "overflow-hidden"
         )}
       >
@@ -2945,6 +2948,8 @@ export function AgentChatWorkspace({
         <section
           className={cn(
             "relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background",
+            // Rounded card framing is only for the floating windowed popover at
+            // >=sm. On phones the sheet is edge-to-edge, so no rounding/border.
             isPopover &&
               "sm:rounded-lg sm:border sm:border-black/10 sm:shadow-sm sm:dark:border-white/10"
           )}

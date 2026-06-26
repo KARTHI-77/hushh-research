@@ -202,6 +202,32 @@ export function resetKaiBottomChromeVisibility(): void {
   emit();
 }
 
+/**
+ * Re-seed the singleton from the ACTUAL current scroll position of the active
+ * target and animate toward the matching mean/hidden target.
+ *
+ * The singleton is module-level and shared across consumers. When a transient
+ * consumer (e.g. the AgentBar, which unmounts while the agent window is open)
+ * remounts, it reads the frozen `state.progress` snapshot via
+ * useSyncExternalStore. If progress was left at 1 (hidden) from an earlier
+ * scroll-down and no scroll event fired on the active target in the meantime
+ * (because scrolling happened inside the agent window's own containers), the
+ * bar would render stuck off its mean position until the user scrolled the real
+ * root up again. Re-syncing on enable makes the chrome reflect reality at mount
+ * time instead of a stale value.
+ */
+export function syncKaiBottomChromeVisibilityToScroll(): void {
+  const nextY = readActiveScrollY();
+  state.lastY = nextY;
+  state.initialized = true;
+  // At/near the top the chrome is always shown (mean position). Otherwise leave
+  // the existing target untouched so a genuinely hidden state is preserved when
+  // the user really is scrolled down.
+  if (nextY <= MIN_SCROLL_Y_FOR_SHOW) {
+    setTargetProgress(0);
+  }
+}
+
 function subscribe(listener: Listener) {
   listeners.add(listener);
   return () => listeners.delete(listener);
@@ -227,6 +253,7 @@ export function useKaiBottomChromeVisibility(enabled: boolean): {
 
     listenerRefCount += 1;
     attachScrollListener();
+    syncKaiBottomChromeVisibilityToScroll();
 
     return () => {
       listenerRefCount = Math.max(0, listenerRefCount - 1);
@@ -278,6 +305,7 @@ export function useKaiBottomChromeProgressCssVar(enabled: boolean): void {
 
     listenerRefCount += 1;
     attachScrollListener();
+    syncKaiBottomChromeVisibilityToScroll();
     writeVar();
     const unsubscribe = subscribe(writeVar);
 

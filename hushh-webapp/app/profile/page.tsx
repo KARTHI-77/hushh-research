@@ -119,7 +119,7 @@ import {
 import { resolveProfileVaultSettingsRow } from "@/lib/profile/profile-vault-settings-row";
 import { usePersonaState } from "@/lib/persona/persona-context";
 import { Icon } from "@/lib/morphy-ux/ui";
-import { Button } from "@/lib/morphy-ux/morphy";
+import { Button, morphyToast } from "@/lib/morphy-ux/morphy";
 import { useScrollReset } from "@/lib/navigation/use-scroll-reset";
 import {
   AccountService,
@@ -1475,39 +1475,63 @@ function ProfilePageContent() {
     if (!user) return;
 
     setIsDeleting(true);
+
+    // Resolve auth first so a vault-unlock requirement is handled as a guard
+    // (not as a failed delete). Only the real delete-and-ack work is wrapped in
+    // the branded promise toast.
+    let resolution: Awaited<ReturnType<typeof resolveDeleteAccountAuth>>;
     try {
-      const resolution = await resolveDeleteAccountAuth({
+      resolution = await resolveDeleteAccountAuth({
         userId: user.uid,
         existingVaultOwnerToken: vaultOwnerToken ?? null,
       });
+    } catch (error) {
+      console.error("Delete account auth error:", error);
+      morphyToast.error("Failed to delete account. Please try again.");
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+      return;
+    }
 
-      if (resolution.kind === "needs_unlock") {
-        toast.error("Please unlock your vault first to delete your account.");
-        setShowDeleteConfirm(false);
-        setVaultUnlockReason("delete_account");
-        setShowVaultUnlock(true);
-        return;
-      }
+    if (resolution.kind === "needs_unlock") {
+      morphyToast.info("Please unlock your vault first to delete your account.");
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+      setVaultUnlockReason("delete_account");
+      setShowVaultUnlock(true);
+      return;
+    }
 
-      setHasVault(resolution.hasVault);
+    setHasVault(resolution.hasVault);
 
-      await AccountService.deleteAccount(resolution.token, effectiveDeleteTarget);
+    // Branded actionable loading: the Sonner toast stays in its loading state
+    // while the delete promise runs and only resolves once the backend ack and
+    // local cleanup complete.
+    const token = resolution.token;
+    try {
+      await morphyToast.promise(
+        (async () => {
+          await AccountService.deleteAccount(token, effectiveDeleteTarget);
 
-      CacheSyncService.onAccountDeleted(user.uid);
-      await UserLocalStateService.clearForUser(user.uid);
+          CacheSyncService.onAccountDeleted(user.uid);
+          await UserLocalStateService.clearForUser(user.uid);
 
-      // One account model: deletion is always a full account removal.
-      setOnboardingRequiredCookie(false);
-      setOnboardingFlowActiveCookie(false);
-      toast.success("Account deleted successfully. Redirecting...", {
-        duration: 3000,
-      });
+          // One account model: deletion is always a full account removal.
+          setOnboardingRequiredCookie(false);
+          setOnboardingFlowActiveCookie(false);
+        })(),
+        {
+          loading: "Deleting your account...",
+          success: "Account deleted. Redirecting...",
+          error: "Failed to delete account. Please try again.",
+          variant: "destructive",
+        }
+      ).unwrap();
+
       await new Promise((resolve) => setTimeout(resolve, 1500));
       await signOut();
-      return;
     } catch (error) {
       console.error("Delete account error:", error);
-      toast.error("Failed to delete account. Please try again.");
     } finally {
       setIsDeleting(false);
       setShowDeleteConfirm(false);
@@ -1544,41 +1568,60 @@ function ProfilePageContent() {
     if (!user) return;
 
     setIsResetting(true);
+
+    let resolution: Awaited<ReturnType<typeof resolveDeleteAccountAuth>>;
     try {
-      const resolution = await resolveDeleteAccountAuth({
+      resolution = await resolveDeleteAccountAuth({
         userId: user.uid,
         existingVaultOwnerToken: vaultOwnerToken ?? null,
       });
+    } catch (error) {
+      console.error("Reset account auth error:", error);
+      morphyToast.error("Failed to reset account. Please try again.");
+      setIsResetting(false);
+      setShowResetConfirm(false);
+      return;
+    }
 
-      if (resolution.kind === "needs_unlock") {
-        toast.error("Please unlock your vault first to reset your account.");
-        setShowResetConfirm(false);
-        setVaultUnlockReason("reset_account");
-        setShowVaultUnlock(true);
-        return;
-      }
+    if (resolution.kind === "needs_unlock") {
+      morphyToast.info("Please unlock your vault first to reset your account.");
+      setIsResetting(false);
+      setShowResetConfirm(false);
+      setVaultUnlockReason("reset_account");
+      setShowVaultUnlock(true);
+      return;
+    }
 
-      setHasVault(resolution.hasVault);
+    setHasVault(resolution.hasVault);
 
-      await AccountService.resetAccount(resolution.token);
+    // Branded actionable loading: keep the toast in its loading state until the
+    // reset has been acknowledged and local state has been cleared.
+    try {
+      await morphyToast.promise(
+        (async () => {
+          await AccountService.resetAccount(resolution.token);
 
-      CacheSyncService.onAccountDeleted(user.uid);
-      await UserLocalStateService.clearForUser(user.uid);
-      await refreshPersonaState({ force: true });
+          CacheSyncService.onAccountDeleted(user.uid);
+          await UserLocalStateService.clearForUser(user.uid);
+          await refreshPersonaState({ force: true });
 
-      // Reset returns the account to a fresh, just-onboarded state: keep the
-      // identity and vault, but re-run onboarding on the next visit.
-      setOnboardingRequiredCookie(true);
-      setOnboardingFlowActiveCookie(true);
-      toast.success("Account reset. Restarting onboarding...", {
-        duration: 3000,
-      });
+          // Reset returns the account to a fresh, just-onboarded state: keep
+          // the identity and vault, but re-run onboarding on the next visit.
+          setOnboardingRequiredCookie(true);
+          setOnboardingFlowActiveCookie(true);
+        })(),
+        {
+          loading: "Resetting your account...",
+          success: "Account reset. Restarting onboarding...",
+          error: "Failed to reset account. Please try again.",
+          variant: "destructive",
+        }
+      ).unwrap();
+
       await new Promise((resolve) => setTimeout(resolve, 1200));
       router.replace(ROUTES.ONE_ONBOARDING);
-      return;
     } catch (error) {
       console.error("Reset account error:", error);
-      toast.error("Failed to reset account. Please try again.");
     } finally {
       setIsResetting(false);
       setShowResetConfirm(false);

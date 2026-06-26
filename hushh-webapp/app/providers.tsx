@@ -39,7 +39,10 @@ import { StatusBarManager } from "@/components/status-bar-manager";
 import { usePathname, useRouter } from "next/navigation";
 import { ensureMorphyGsapReady } from "@/lib/morphy-ux/gsap-init";
 import { usePageEnterAnimation } from "@/lib/morphy-ux/hooks/use-page-enter";
-import { useRouteTransition } from "@/lib/morphy-ux/hooks/use-route-transition";
+import {
+  beginRouteTransition,
+  useRouteTransition,
+} from "@/lib/morphy-ux/hooks/use-route-transition";
 import { PostAuthOnboardingSyncBridge } from "@/components/onboarding/PostAuthOnboardingSyncBridge";
 import { KaiCommandBarGlobal } from "@/components/kai/kai-command-bar-global";
 import { useScrollReset } from "@/lib/navigation/use-scroll-reset";
@@ -241,11 +244,16 @@ function AppShellFrame({ children }: ProvidersProps) {
       }
       const replace = Boolean(customEvent.detail?.replace);
       const scroll = customEvent.detail?.scroll ?? false;
-      if (replace) {
-        router.replace(href, { scroll });
-        return;
-      }
-      router.push(href, { scroll });
+      // Route programmatic navigations through the shared exit -> enter envelope
+      // so they crossfade exactly like /one -> /one/* link clicks instead of
+      // hard-cutting on exit.
+      beginRouteTransition(href, () => {
+        if (replace) {
+          router.replace(href, { scroll });
+          return;
+        }
+        router.push(href, { scroll });
+      });
     };
 
     window.addEventListener(

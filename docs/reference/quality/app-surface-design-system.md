@@ -59,6 +59,7 @@ Rules:
 5. Route links from consumer notifications must point to consumer surfaces such as Profile, Personal Data, Access Center, or the relevant workspace, not labs or raw explorer tools.
 6. Row-level saves, deletes, refreshes, and short-lived failures must use the shadcn Sonner notification stack. Do not add inline route banners for transient row actions because they shift page layout and create loading bounce.
 7. Destructive actions must use the shadcn AlertDialog confirmation pattern before mutation. Keep the in-flight state inside the dialog or the initiating row action, not as a page-level loader.
+8. Async actionables (deletes, resets, disconnects, sends, and any mutation that waits for a backend ack or status) must surface a single branded loading -> success/error lifecycle through `morphyToast.promise` from `@/lib/morphy-ux/morphy`, tied to the real action promise. The toast stays in its loading state while the promise is pending and morphs in place to success or error once the ack lands. Do not hand-roll a `loading` toast plus a separate `success`/`error` toast, and do not fire a success toast before the promise resolves. Pre-flight guards that are not failures of the action itself (for example a required vault unlock) stay outside the promise as an `info`/`error` toast. Use `variant: "destructive"` for destructive actionables so the toast accent matches the action.
 8. Email Helper draft previews must not expose raw data structure terms such as `changes`, `entities`, hashes, provenance, parser metadata, or internal ids. Use readable sections, facts, and tables from the approved render model.
 9. Dense email tables, especially portfolios and holdings, should remain complete and readable on mobile through horizontal scrolling. Do not force all table columns to fit the viewport when that creates overlap.
 
@@ -329,12 +330,14 @@ Use the `Subtle Apple` depth model:
 4. Outer cards remain `overflow-visible`; ripple, media, code panes, and chart plots clip inside their own inner boundaries.
 5. Standard shared actionables include:
    - `Button`
+   - `AlertDialogAction` / `AlertDialogCancel` (confirmation buttons)
    - dropdown/select rows
    - segmented controls / bottom nav items
    - actionable settings rows
    - actionable cards or list rows
 6. Do not add route-level ripple wrappers when a shared primitive already provides one.
 7. The top shell uses `components/app-ui/shell-action-surface.tsx` as its canonical interaction host.
+8. Confirmation buttons get their ripple from the shared `components/ui/alert-dialog.tsx` primitive: `AlertDialogAction` and `AlertDialogCancel` host a clipped `MaterialRipple` (palette mapped from the shadcn variant) while preserving their appearance via the caller `className` (for example `app-critical-action`). Do not re-import the plain `@/components/ui/button` for confirmation actions or strip the ripple host; keep the action label inside the `z-10` content span so the ripple stays behind it.
 
 ## Labs Boundary
 
