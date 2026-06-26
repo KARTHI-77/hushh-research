@@ -851,6 +851,14 @@ function OneKycWorkspace() {
 
     return () => {
       cancelled = true;
+      // Clear the background draft-prep flag when this run is superseded or
+      // unmounted. The in-flight run's `finally` skips the reset while
+      // `cancelled`, and a follow-up run can early-return before the `try`
+      // (e.g. the failed-attempt/recovery guards on a 409), which would leave
+      // `busy` stuck at "draft" and disable every action button. Only "draft"
+      // is cleared, so a concurrent user action's busy state is never touched;
+      // the next run re-sets it if it actually starts preparing.
+      setBusy((current) => (current === "draft" ? null : current));
     };
   }, [
     auth.userId,
