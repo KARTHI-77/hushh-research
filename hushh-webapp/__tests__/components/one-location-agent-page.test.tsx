@@ -72,6 +72,12 @@ vi.mock("@/hooks/use-auth", () => ({
   useRequireAuth: mockUseRequireAuth,
 }));
 
+// CapabilityExploreCard (rendered on the location tab) reads useAuth from the
+// firebase auth context directly, so it needs its own stub in this harness.
+vi.mock("@/lib/firebase/auth-context", () => ({
+  useAuth: () => ({ user: { uid: "user_a" }, loading: false }),
+}));
+
 vi.mock("@/lib/vault/vault-context", () => ({
   useVault: mockUseVault,
 }));
@@ -115,6 +121,8 @@ vi.mock("@/lib/one-location/service", () => ({
     createGrant: mockCreateGrant,
     storeEnvelope: mockStoreEnvelope,
     captureCurrentPosition: mockCaptureCurrentPosition,
+    watchCurrentPosition: vi.fn().mockResolvedValue(null),
+    clearWatch: vi.fn(),
     viewEnvelope: mockViewEnvelope,
     revokeGrant: mockRevokeGrant,
     requestAccess: mockRequestAccess,

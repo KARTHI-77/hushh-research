@@ -22,6 +22,15 @@ vi.mock("@/components/auth/phone-mandate-guard", () => ({
   ),
 }));
 
+// OneAuthGate only composes the guard chain; OneOnboardingGuard's internal
+// router/auth/vault wiring is exercised by its own suite, so stub it to a
+// passthrough here to keep this test focused on the composition contract.
+vi.mock("@/components/kai/onboarding/kai-onboarding-guard", () => ({
+  OneOnboardingGuard: ({ children }: { children: ReactNode }) => (
+    <div data-testid="one-onboarding-guard">{children}</div>
+  ),
+}));
+
 import { OneAuthGate } from "@/app/one/one-auth-gate";
 
 describe("OneAuthGate", () => {
