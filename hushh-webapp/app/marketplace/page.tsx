@@ -1179,6 +1179,7 @@ export default function MarketplacePage() {
                 <Input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
+                  aria-label="Search marketplace"
                   placeholder={searchPlaceholder}
                   className="min-h-11 rounded-[22px] border-0 bg-card pl-10 text-sm"
                 />
