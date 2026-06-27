@@ -95,7 +95,8 @@ export class PostAuthRouteService {
       fallbackRoute === ROUTES.ONE_HOME ||
       fallbackRoute === ROUTES.KAI_HOME ||
       fallbackRoute === ROUTES.LEGACY_KAI_HOME ||
-      fallbackRoute === ROUTES.ONE_ONBOARDING ||
+      fallbackRoute === ROUTES.ONE_SETUP ||
+      fallbackRoute === ROUTES.ONE_SETUP_KAI ||
       fallbackRoute === ROUTES.LEGACY_ONE_KAI_ONBOARDING ||
       fallbackRoute === ROUTES.LEGACY_KAI_ONBOARDING;
 
@@ -113,19 +114,20 @@ export class PostAuthRouteService {
     }
 
     if (remoteState.hasVault) {
-      const onboardingResolved = PreVaultUserStateService.isOnboardingResolved(remoteState);
+      const setupResolved = PreVaultUserStateService.isSetupResolved(remoteState);
       const inviteRedirectTarget = inviteRedirectTargetFor(fallbackRoute);
       if (
-        remoteState.preOnboardingCompleted === false &&
-        !onboardingResolved
+        remoteState.setupCompleted === false &&
+        !setupResolved
       ) {
         return PRE_VAULT_ROUTE;
       }
       if (
-        (fallbackRoute === ROUTES.ONE_ONBOARDING ||
+        (fallbackRoute === ROUTES.ONE_SETUP ||
+          fallbackRoute === ROUTES.ONE_SETUP_KAI ||
           fallbackRoute === ROUTES.LEGACY_ONE_KAI_ONBOARDING ||
           fallbackRoute === ROUTES.LEGACY_KAI_ONBOARDING) &&
-        onboardingResolved
+        setupResolved
       ) {
         return DEFAULT_HOME_ROUTE;
       }
@@ -141,7 +143,7 @@ export class PostAuthRouteService {
       ) {
         return buildPhoneMandateRoute(fallbackRoute);
       }
-      if (onboardingResolved && fallbackRoute === DEFAULT_HOME_ROUTE) {
+      if (setupResolved && fallbackRoute === DEFAULT_HOME_ROUTE) {
         return PostAuthRouteService.applyFirstRunSetupGate({
           userId: params.userId,
           homeRoute: fallbackRoute,
@@ -152,13 +154,13 @@ export class PostAuthRouteService {
       return fallbackRoute;
     }
 
-    let onboardingResolved = PreVaultUserStateService.isOnboardingResolved(remoteState);
-    if (!onboardingResolved) {
+    let setupResolved = PreVaultUserStateService.isSetupResolved(remoteState);
+    if (!setupResolved) {
       const pending = await PreVaultOnboardingService.load(params.userId);
       const remoteUnset =
-        remoteState.preOnboardingCompleted === null &&
-        remoteState.preOnboardingSkipped === null &&
-        remoteState.preOnboardingCompletedAt === null;
+        remoteState.setupCompleted === null &&
+        remoteState.setupSkipped === null &&
+        remoteState.setupCompletedAt === null;
       const pendingResolved =
         pending?.completed === true &&
         Boolean(pending.completed_at) &&
@@ -171,9 +173,9 @@ export class PostAuthRouteService {
             : Date.now();
         try {
           await PreVaultUserStateService.updatePreVaultState(params.userId, {
-            preOnboardingCompleted: true,
-            preOnboardingSkipped: pending.skipped,
-            preOnboardingCompletedAt: completedAtMs,
+            setupCompleted: true,
+            setupSkipped: pending.skipped,
+            setupCompletedAt: completedAtMs,
           });
         } catch (error) {
           console.warn(
@@ -181,14 +183,14 @@ export class PostAuthRouteService {
             error
           );
         }
-        onboardingResolved = true;
+        setupResolved = true;
       }
     }
 
     const inviteRedirectTarget = inviteRedirectTargetFor(fallbackRoute);
     const resolvedNoVaultRoute = inviteRedirectTarget
       ? buildProfileVaultRoute(inviteRedirectTarget)
-      : onboardingResolved
+      : setupResolved
         ? NO_VAULT_DEFAULT_ROUTE
         : PRE_VAULT_ROUTE;
 

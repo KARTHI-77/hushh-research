@@ -32,14 +32,15 @@ describe("top shell breadcrumbs", () => {
     });
   });
 
-  it("uses sanitized from params for Kai onboarding back navigation", () => {
+  it("uses sanitized from params for Kai setup wizard back navigation", () => {
     const params = new URLSearchParams();
     params.set("from", "/one?mode=finance");
 
-    expect(resolveTopShellBreadcrumb("/one/onboarding", params)).toEqual({
+    expect(resolveTopShellBreadcrumb("/one/setup/kai", params)).toEqual({
       backHref: "/one?mode=finance",
       width: "content",
       align: "center",
+      hideBack: true,
       items: [
         { label: "One", href: "/one" },
         { label: "Setup" },
@@ -49,7 +50,7 @@ describe("top shell breadcrumbs", () => {
     const unsafeParams = new URLSearchParams();
     unsafeParams.set("from", "//evil.example/path");
 
-    expect(resolveTopShellBreadcrumb("/one/onboarding", unsafeParams)?.backHref).toBe(
+    expect(resolveTopShellBreadcrumb("/one/setup/kai", unsafeParams)?.backHref).toBe(
       "/one",
     );
   });

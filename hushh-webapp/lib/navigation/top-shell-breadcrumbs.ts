@@ -147,13 +147,13 @@ export function resolveTopShellBreadcrumb(
     };
   }
 
-  if (pathname === ROUTES.ONE_ONBOARDING) {
+  if (pathname === ROUTES.ONE_SETUP_KAI) {
     const originHref = normalizeInternalRouteHref(searchParams?.get("from"));
     return {
       backHref: originHref || ROUTES.ONE_HOME,
       width: "content",
       align: "center",
-      // No back button on the onboarding entry screen: the user has not yet
+      // No back button on the setup wizard entry screen: the user has not yet
       // skipped or continued, so there is no logically-confirmed destination to
       // go back to (navigating before /one would bypass the unfinished flow).
       hideBack: true,

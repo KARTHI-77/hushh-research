@@ -20,32 +20,32 @@ function makePreVaultState(overrides: Partial<PreVaultUserState> = {}): PreVault
     firstLoginAt: 1,
     lastLoginAt: 2,
     loginCount: 3,
-    preOnboardingCompleted: null,
-    preOnboardingSkipped: null,
-    preOnboardingCompletedAt: null,
-    preNavTourCompletedAt: null,
-    preNavTourSkippedAt: null,
-    preStateUpdatedAt: null,
+    setupCompleted: null,
+    setupSkipped: null,
+    setupCompletedAt: null,
+    navSetupCompletedAt: null,
+    navSetupSkippedAt: null,
+    setupStateUpdatedAt: null,
     phoneVerified: null,
-    exploredCapabilityIds: [],
-    preExploredUpdatedAt: null,
+    setupCapabilityIds: [],
+    setupCapabilitiesUpdatedAt: null,
     ...overrides,
   };
 }
 
 function makeKaiProfile(
-  onboarding: Partial<KaiProfileV2["onboarding"]> = {}
+  setup: Partial<KaiProfileV2["setup"]> = {}
 ): KaiProfileV2 {
   return {
-    schema_version: 2,
-    onboarding: {
+    schema_version: 3,
+    setup: {
       completed: false,
       completed_at: null,
       skipped_preferences: false,
-      nav_tour_completed_at: null,
-      nav_tour_skipped_at: null,
-      version: 2,
-      ...onboarding,
+      nav_completed_at: null,
+      nav_skipped_at: null,
+      version: 3,
+      ...setup,
     },
     preferences: {
       investment_horizon: null,
@@ -127,13 +127,13 @@ describe("resolveCapabilitySetupState — finance", () => {
   it("falls back to the coarse pre-vault mirror before unlock", () => {
     const completed = resolveCapabilitySetupState(
       "finance",
-      baseInputs({ preVaultState: makePreVaultState({ preOnboardingCompleted: true }) })
+      baseInputs({ preVaultState: makePreVaultState({ setupCompleted: true }) })
     );
     expect(completed.state).toBe("completed");
 
     const skipped = resolveCapabilitySetupState(
       "finance",
-      baseInputs({ preVaultState: makePreVaultState({ preOnboardingSkipped: true }) })
+      baseInputs({ preVaultState: makePreVaultState({ setupSkipped: true }) })
     );
     expect(skipped.state).toBe("skipped");
   });
@@ -143,8 +143,8 @@ describe("resolveCapabilitySetupState — finance", () => {
       "finance",
       baseInputs({
         preVaultState: makePreVaultState({
-          preOnboardingCompleted: false,
-          preOnboardingSkipped: false,
+          setupCompleted: false,
+          setupSkipped: false,
         }),
       })
     );

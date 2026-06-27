@@ -74,8 +74,8 @@ export function AuthStep({
     Boolean(nativeTestConfig.vaultPassphrase);
   const preserveOnboardingAuditRoute =
     nativeTestConfig.enabled &&
-    nativeTestConfig.expectedRoute === ROUTES.ONE_ONBOARDING &&
-    redirectPath === ROUTES.ONE_ONBOARDING;
+    nativeTestConfig.expectedRoute === ROUTES.ONE_SETUP_KAI &&
+    redirectPath === ROUTES.ONE_SETUP_KAI;
   const growthJourney = useMemo(() => resolveGrowthJourneyForPath(redirectPath), [redirectPath]);
   const growthEntrySurface = useMemo(
     () => resolveGrowthEntrySurface(redirectPath),
@@ -129,7 +129,7 @@ export function AuthStep({
         if (preserveOnboardingAuditRoute) {
           setOnboardingRequiredCookie(false);
           setOnboardingFlowActiveCookie(false);
-          router.push(ROUTES.ONE_ONBOARDING);
+          router.push(ROUTES.ONE_SETUP_KAI);
           return;
         }
         const resolvedIdToken =
@@ -146,17 +146,17 @@ export function AuthStep({
           resolvedPath === ROUTES.KAI_HOME && isOnboardingFlowActiveCookieEnabled();
         const nextPath = resumeImportFlow ? ROUTES.KAI_IMPORT : resolvedPath;
 
-        setOnboardingRequiredCookie(nextPath === ROUTES.ONE_ONBOARDING);
+        setOnboardingRequiredCookie(nextPath === ROUTES.ONE_SETUP);
         setOnboardingFlowActiveCookie(nextPath === ROUTES.KAI_IMPORT);
         router.push(nextPath);
       } catch (error) {
         console.warn("[AuthStep] Failed to resolve post-auth route:", error);
         const fallbackPath = redirectPath || ROUTES.KAI_HOME;
         const safeFallbackPath =
-          fallbackPath === ROUTES.ONE_ONBOARDING || fallbackPath === ROUTES.KAI_IMPORT
+          fallbackPath === ROUTES.ONE_SETUP || fallbackPath === ROUTES.ONE_SETUP_KAI || fallbackPath === ROUTES.KAI_IMPORT
             ? ROUTES.KAI_HOME
             : fallbackPath;
-        setOnboardingRequiredCookie(safeFallbackPath === ROUTES.ONE_ONBOARDING);
+        setOnboardingRequiredCookie(safeFallbackPath === ROUTES.ONE_SETUP);
         setOnboardingFlowActiveCookie(safeFallbackPath === ROUTES.KAI_IMPORT);
         router.push(safeFallbackPath);
       }

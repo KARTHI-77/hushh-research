@@ -60,48 +60,6 @@ export function OneSetupHub() {
   });
   const [dismissing, setDismissing] = useState(false);
 
-  // "Not now" must SATISFY the root onboarding gate (skip-resolved), not just
-  // record a soft "seen" flag. Otherwise the hard gate on /one/* would bounce
-  // the user straight back to /one/setup. We mark the server pre-vault gate
-  // resolved-skipped (authoritative for the gate and PostAuthRouteService); when
-  // the vault is unlocked we also flip the vault profile so the unlocked path
-  // agrees. Both are awaited before navigating so the gate is consistent on the
-  // very next route resolve. Failures stay fail-open (we still navigate home).
-  const handleNotNow = async () => {
-    if (dismissing) return;
-    if (!user?.uid) {
-      router.push(ROUTES.ONE_HOME);
-      return;
-    }
-    setDismissing(true);
-    try {
-      await PreVaultUserStateService.syncKaiOnboardingState({
-        userId: user.uid,
-        completed: true,
-        skipped: true,
-      });
-      if (isVaultUnlocked && vaultKey && vaultOwnerToken) {
-        await KaiProfileService.setOnboardingCompleted({
-          userId: user.uid,
-          vaultKey,
-          vaultOwnerToken,
-          skippedPreferences: true,
-        }).catch((error) => {
-          console.warn(
-            "[OneSetupHub] Failed to mark vault profile onboarding skipped:",
-            error,
-          );
-        });
-      }
-      OneSetupGateService.markSeen(user.uid);
-    } catch (error) {
-      console.warn("[OneSetupHub] Failed to resolve onboarding on Not now:", error);
-    } finally {
-      setDismissing(false);
-      router.push(ROUTES.ONE_HOME);
-    }
-  };
-
   const items = useMemo(() => buildSetupItems(byId), [byId]);
 
   const total = items.length;
@@ -112,6 +70,54 @@ export function OneSetupHub() {
   const done = items.filter((item) => isCapabilitySetupComplete(item.status)).length;
   const remaining = total - done;
   const allReady = total > 0 && remaining === 0;
+
+  // The MASTER setup acknowledgement is owned by this single hub control:
+  //   - 0 capabilities done  -> "Skip"     (master skip-resolved)
+  //   - 1..n capabilities done -> "Continue" (master completed, not skipped)
+  // Either way it SATISFIES the root setup gate so the hard gate on /one/* does
+  // not bounce the user back here. Per-capability tiles never touch this gate;
+  // they only record their own signal. We mark the server pre-vault gate
+  // (authoritative for the gate and PostAuthRouteService); when the vault is
+  // unlocked we also flip the vault profile so the unlocked path agrees. Both
+  // are awaited before navigating so the gate is consistent on the very next
+  // route resolve. Failures stay fail-open (we still navigate home).
+  const masterSkipped = done === 0;
+  const masterActionLabel = masterSkipped ? "Skip" : "Continue";
+
+  const handleMasterAck = async () => {
+    if (dismissing) return;
+    if (!user?.uid) {
+      router.push(ROUTES.ONE_HOME);
+      return;
+    }
+    setDismissing(true);
+    try {
+      await PreVaultUserStateService.syncKaiSetupState({
+        userId: user.uid,
+        completed: true,
+        skipped: masterSkipped,
+      });
+      if (isVaultUnlocked && vaultKey && vaultOwnerToken) {
+        await KaiProfileService.setOnboardingCompleted({
+          userId: user.uid,
+          vaultKey,
+          vaultOwnerToken,
+          skippedPreferences: masterSkipped,
+        }).catch((error) => {
+          console.warn(
+            "[OneSetupHub] Failed to mark vault profile setup completed:",
+            error,
+          );
+        });
+      }
+      OneSetupGateService.markSeen(user.uid);
+    } catch (error) {
+      console.warn("[OneSetupHub] Failed to resolve master setup gate:", error);
+    } finally {
+      setDismissing(false);
+      router.push(ROUTES.ONE_HOME);
+    }
+  };
 
   const summary = isLoading
     ? "Checking what's set up…"
@@ -141,13 +147,13 @@ export function OneSetupHub() {
           actions={
             <Button
               type="button"
-              variant="ghost"
+              variant={masterSkipped ? "ghost" : "default"}
               size="sm"
               disabled={dismissing}
-              onClick={() => void handleNotNow()}
-              data-testid="one-setup-not-now"
+              onClick={() => void handleMasterAck()}
+              data-testid="one-setup-master-ack"
             >
-              Not now
+              {masterActionLabel}
             </Button>
           }
         />

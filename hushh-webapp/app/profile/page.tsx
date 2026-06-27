@@ -1618,7 +1618,7 @@ function ProfilePageContent() {
       ).unwrap();
 
       await new Promise((resolve) => setTimeout(resolve, 1200));
-      router.replace(ROUTES.ONE_ONBOARDING);
+      router.replace(ROUTES.ONE_SETUP);
     } catch (error) {
       console.error("Reset account error:", error);
     } finally {

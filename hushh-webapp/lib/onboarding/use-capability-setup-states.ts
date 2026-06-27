@@ -136,7 +136,7 @@ export function useCapabilitySetupStates(
   // explored id because of a stale server snapshot.
   useEffect(() => {
     if (!userId) return;
-    const serverIds = preVaultState?.exploredCapabilityIds;
+    const serverIds = preVaultState?.setupCapabilityIds;
     if (!serverIds || serverIds.length === 0) return;
     let cancelled = false;
     CapabilityTourService.mergeFromServer(userId, serverIds)
@@ -149,7 +149,7 @@ export function useCapabilitySetupStates(
     return () => {
       cancelled = true;
     };
-  }, [userId, preVaultState?.exploredCapabilityIds]);
+  }, [userId, preVaultState?.setupCapabilityIds]);
 
   // ---- OPT-IN: decrypted Kai profile (vault-backed) -----------------------
   useEffect(() => {
@@ -232,7 +232,7 @@ export function useCapabilitySetupStates(
       const nextIds = state?.exploredIds ?? [id];
       // Best-effort durable mirror for cross-device. A failure leaves the local
       // copy authoritative on this device.
-      PreVaultUserStateService.syncExploredCapabilities(userId, nextIds).catch(() => {
+      PreVaultUserStateService.syncSetupCapabilities(userId, nextIds).catch(() => {
         // swallow — local copy already recorded the exploration.
       });
     },

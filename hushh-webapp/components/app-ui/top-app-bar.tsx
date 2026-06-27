@@ -133,8 +133,8 @@ function getTopBarTitle(
   interactive: boolean;
 } | null {
   if (
-    pathname === ROUTES.ONE_ONBOARDING ||
-    pathname.startsWith(`${ROUTES.ONE_ONBOARDING}/`)
+    pathname === ROUTES.ONE_SETUP ||
+    pathname.startsWith(`${ROUTES.ONE_SETUP}/`)
   ) {
     return { label: "Set up One", interactive: false as const };
   }

@@ -31,7 +31,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useVault } from "@/lib/vault/vault-context";
 import { usePersonaState } from "@/lib/persona/persona-context";
 import {
-  buildOneOnboardingRoute,
+  buildOneSetupKaiRoute,
   buildOneSetupRoute,
   normalizeInternalRouteHref,
   ROUTES,
@@ -106,12 +106,12 @@ function KaiOnboardingPageContent() {
     [searchParams],
   );
   const onboardingSelfHref = useMemo(
-    () => buildOneOnboardingRoute({ from: onboardingFromHref, invite: inviteToken }),
+    () => buildOneSetupKaiRoute({ from: onboardingFromHref, invite: inviteToken }),
     [inviteToken, onboardingFromHref],
   );
   const preserveOnboardingAuditRoute =
     nativeTestConfig.enabled &&
-    nativeTestConfig.expectedRoute === ROUTES.ONE_ONBOARDING;
+    nativeTestConfig.expectedRoute === ROUTES.ONE_SETUP_KAI;
 
   useEffect(() => {
     let cancelled = false;
@@ -141,7 +141,7 @@ function KaiOnboardingPageContent() {
           const remoteState = await PreVaultUserStateService.bootstrapState(user.uid);
           if (cancelled) return;
 
-          const onboardingResolved = PreVaultUserStateService.isOnboardingResolved(remoteState);
+          const onboardingResolved = PreVaultUserStateService.isSetupResolved(remoteState);
           if (onboardingResolved) {
             setOnboardingRequiredCookie(false);
             setOnboardingFlowActiveCookie(false);
@@ -187,7 +187,7 @@ function KaiOnboardingPageContent() {
         setProfile(nextProfile);
         const completion = resolveKaiOnboardingCompletion(nextProfile);
         if (completion.completed) {
-          void PreVaultUserStateService.syncKaiOnboardingState({
+          void PreVaultUserStateService.syncKaiSetupState({
             userId: user.uid,
             completed: true,
             skipped: completion.skippedPreferences,
@@ -270,8 +270,8 @@ function KaiOnboardingPageContent() {
     return (
       <>
         <NativeTestBeacon
-          routeId={ROUTES.ONE_ONBOARDING}
-          marker="native-route-kai-onboarding"
+          routeId={ROUTES.ONE_SETUP_KAI}
+          marker="native-route-one-setup-kai"
           authState={user ? "authenticated" : "pending"}
           dataState="loaded"
         />
@@ -284,11 +284,11 @@ function KaiOnboardingPageContent() {
     return (
       <div className="mx-auto flex min-h-[70vh] w-full max-w-md items-center justify-center px-5">
         <NativeTestBeacon
-          routeId={ROUTES.ONE_ONBOARDING}
-          marker="native-route-kai-onboarding"
+          routeId={ROUTES.ONE_SETUP_KAI}
+          marker="native-route-one-setup-kai"
           authState={user ? "authenticated" : "pending"}
           dataState="unavailable-valid"
-          errorCode="kai_onboarding"
+          errorCode="one_setup"
           errorMessage={loadError}
         />
         <Card
@@ -341,8 +341,8 @@ function KaiOnboardingPageContent() {
     return (
       <>
         <NativeTestBeacon
-          routeId={ROUTES.ONE_ONBOARDING}
-          marker="native-route-kai-onboarding"
+          routeId={ROUTES.ONE_SETUP_KAI}
+          marker="native-route-one-setup-kai"
           authState={user ? "authenticated" : "pending"}
           dataState="loaded"
         />
@@ -371,11 +371,11 @@ function KaiOnboardingPageContent() {
               // as the skip path) so the One gate is authoritative server-side the
               // instant the user leaves onboarding. Error-swallowed to stay
               // fail-open; vault profile remains the unlocked-path source.
-              await PreVaultUserStateService.syncKaiOnboardingState({
+              await PreVaultUserStateService.syncKaiSetupState({
                 userId: user.uid,
                 completed: true,
                 skipped: false,
-                completedAt: nextProfile.onboarding.completed_at,
+                completedAt: nextProfile.setup.completed_at,
               }).catch((syncError) => {
                 console.warn(
                   "[OneOnboardingPage] Failed vault->remote onboarding bridge after completion:",
@@ -386,9 +386,9 @@ function KaiOnboardingPageContent() {
             } else {
               const completedAt = Date.now();
               await PreVaultUserStateService.updatePreVaultState(user.uid, {
-                preOnboardingCompleted: true,
-                preOnboardingSkipped: false,
-                preOnboardingCompletedAt: completedAt,
+                setupCompleted: true,
+                setupSkipped: false,
+                setupCompletedAt: completedAt,
               });
               await PreVaultOnboardingService.markCompleted(user.uid, {
                 skipped: false,
@@ -439,8 +439,8 @@ function KaiOnboardingPageContent() {
   return (
     <>
       <NativeTestBeacon
-        routeId={ROUTES.ONE_ONBOARDING}
-        marker="native-route-kai-onboarding"
+        routeId={ROUTES.ONE_SETUP_KAI}
+        marker="native-route-one-setup-kai"
         authState={user ? "authenticated" : "pending"}
         dataState="loaded"
       />

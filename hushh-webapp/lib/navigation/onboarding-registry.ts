@@ -27,8 +27,8 @@
 
 import {
   ROUTES,
-  isOneOnboardingRoute,
-  isOneOnboardingWizardRoute,
+  isOneSetupSurfaceRoute,
+  isOneSetupWizardRoute,
   isRiaOnboardingRoute,
 } from "@/lib/navigation/routes";
 
@@ -96,16 +96,16 @@ export type OnboardingDefinition = {
  * The One root gate. Completing OR skipping it satisfies the account-level gate
  * once; it only returns after account delete/reset. The canonical surface is the
  * `/one/setup` capability hub; the Kai investor-profile wizard opens from the
- * hub's finance tile at `/one/onboarding`. `matchesRoute` spans both so the gate
- * treats the hub and the wizard as one onboarding surface.
+ * hub's finance tile at `/one/setup/kai`. `matchesRoute` spans both so the gate
+ * treats the hub and the wizard as one setup surface.
  */
 const ONE: OnboardingDefinition = {
   id: "one",
-  label: "One onboarding",
+  label: "One setup",
   tier: "root",
   parent: null,
   route: ROUTES.ONE_SETUP,
-  matchesRoute: isOneOnboardingRoute,
+  matchesRoute: isOneSetupSurfaceRoute,
   stores: ["server-pre-vault", "vault-profile", "local-preferences", "session-hint"],
   resetScope: "account",
   resumable: true,
@@ -114,7 +114,7 @@ const ONE: OnboardingDefinition = {
 
 /**
  * Kai investor-profile sub-onboarding. Its steps render as the wizard at
- * `/one/onboarding`, opened from the One setup hub's finance tile. Modeled as a
+ * `/one/setup/kai`, opened from the One setup hub's finance tile. Modeled as a
  * distinct sub so downstream Kai surfaces can reason about (and re-run) just the
  * investor-profile portion without implying a second account gate.
  */
@@ -123,8 +123,8 @@ const KAI: OnboardingDefinition = {
   label: "Kai investor profile",
   tier: "sub",
   parent: "one",
-  route: ROUTES.ONE_ONBOARDING,
-  matchesRoute: isOneOnboardingWizardRoute,
+  route: ROUTES.ONE_SETUP_KAI,
+  matchesRoute: isOneSetupWizardRoute,
   stores: ["server-pre-vault", "vault-profile", "local-preferences"],
   resetScope: "surface",
   resumable: true,

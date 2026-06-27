@@ -26,7 +26,7 @@ import { ONE_CAPABILITIES, getOneCapability } from "@/lib/onboarding/one-capabil
  *   needed". A network blip on the coarse mirror must never silently re-trigger
  *   a setup flow.
  * - `skipped` is distinct from `completed`. The user choosing "Not now" is a
- *   real, persisted decision (PreVault `preOnboardingSkipped` /
+ *   real, persisted decision (PreVault `setupSkipped` /
  *   KaiProfile `skipped_preferences`) and must not read as incomplete.
  */
 
@@ -150,10 +150,10 @@ function resolveFinance(inputs: CapabilitySetupInputs): CapabilityStatus {
 
   // No decrypted profile yet. Fall back to the coarse pre-vault mirror.
   if (preVaultState) {
-    if (preVaultState.preOnboardingCompleted === true) {
+    if (preVaultState.setupCompleted === true) {
       return simple("finance", "completed");
     }
-    if (preVaultState.preOnboardingSkipped === true) {
+    if (preVaultState.setupSkipped === true) {
       return simple("finance", "skipped");
     }
     // Mirror resolved and says neither done nor skipped → genuinely not started.

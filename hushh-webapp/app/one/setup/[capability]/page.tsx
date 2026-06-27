@@ -1,0 +1,115 @@
+"use client";
+
+import { use, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { HushhLoader } from "@/components/app-ui/hushh-loader";
+import { OnboardingCapabilityStep } from "@/components/onboarding/setup/onboarding-capability-step";
+import { useAuth } from "@/lib/firebase/auth-context";
+import { getOneCapability } from "@/lib/onboarding/one-capabilities";
+import { CapabilityTourService } from "@/lib/services/capability-tour-service";
+import { OneSetupGateService } from "@/lib/services/one-setup-gate-service";
+import { PreVaultUserStateService } from "@/lib/services/pre-vault-user-state-service";
+import {
+  resolveCapabilityHandoffTarget,
+  ROUTES,
+} from "@/lib/navigation/routes";
+
+/**
+ * Per-capability setup step: `/one/setup/<capability>`.
+ *
+ * This route lives UNDER `/one/setup/*`, which `OneOnboardingGuard` allows
+ * through while the root setup gate is unresolved (see
+ * `isOneSetupCapabilityRoute`). That is what fixes the first-time trap:
+ * tapping a setup-hub tile lands HERE (allowed) instead of a hard-gated
+ * canonical route (which bounced the user back to `/one/setup`).
+ *
+ * IMPORTANT — per-capability scope: this screen records ONLY the signal for the
+ * capability the user opened (and, for explore-only capabilities, the explore
+ * mark). It MUST NOT touch the master setup gate (`setupCompleted` /
+ * `setupSkipped`) — that master acknowledgement belongs exclusively to the hub's
+ * Skip (0 done) / Continue (1..n done) controls. Marking the master gate here
+ * was the bug that flagged finance "skipped" on every capability tap.
+ *
+ * The forward is one client-side choke point, so "unlock the routes later"
+ * (drop the gate, or gate per-capability) is a single-file change.
+ */
+export default function OneOnboardingCapabilityPage({
+  params,
+}: {
+  params: Promise<{ capability: string }>;
+}) {
+  const { capability: capabilityId } = use(params);
+  const router = useRouter();
+  const { user } = useAuth();
+  const [busy, setBusy] = useState(false);
+
+  const capability = getOneCapability(capabilityId);
+  const target = resolveCapabilityHandoffTarget(capabilityId);
+
+  // Unknown capability: contain to the hub, never a hard 404.
+  useEffect(() => {
+    if (!capability) {
+      router.replace(ROUTES.ONE_SETUP);
+    }
+  }, [capability, router]);
+
+  if (!capability) {
+    return <HushhLoader label="Opening…" />;
+  }
+
+  const handleBack = () => {
+    router.replace(ROUTES.ONE_SETUP);
+  };
+
+  const handlePrimary = () => {
+    if (busy) return;
+    const userId = user?.uid ?? null;
+
+    // Auth/lock guards own the unauthenticated path; if we somehow have no user,
+    // just forward so the user is never stranded on this screen.
+    if (!userId) {
+      router.replace(target);
+      return;
+    }
+
+    setBusy(true);
+
+    void (async () => {
+      try {
+        // Per-capability scope ONLY: never touch the master setup gate here.
+        // Mark this visit as "seen" so the hub no longer treats it as a fresh,
+        // never-opened tile, and record the explore signal for explore-only
+        // capabilities. The master Skip/Continue acknowledgement is the hub's.
+        OneSetupGateService.markSeen(userId);
+
+        if (capability?.isExploreOnly === true) {
+          await CapabilityTourService.markExplored(userId, capabilityId).catch(
+            () => undefined,
+          );
+          const explored = await CapabilityTourService.loadExploredIds(userId);
+          void PreVaultUserStateService.syncSetupCapabilities(userId, [
+            ...explored,
+          ]).catch(() => undefined);
+        }
+      } catch (resolveError) {
+        console.warn(
+          "[OneOnboardingCapabilityPage] Failed to record capability signal:",
+          resolveError,
+        );
+        // Fail-open: still forward so the user is never stranded.
+      } finally {
+        router.replace(target);
+      }
+    })();
+  };
+
+  return (
+    <OnboardingCapabilityStep
+      capabilityId={capabilityId}
+      onPrimary={handlePrimary}
+      onBack={handleBack}
+      busy={busy}
+    />
+  );
+}

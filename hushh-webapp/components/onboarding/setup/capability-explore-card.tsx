@@ -92,7 +92,7 @@ export function CapabilityExploreCard({
     // Local store is the source of truth; persist, then best-effort mirror.
     void CapabilityTourService.markExplored(userId, capabilityId)
       .then((state) =>
-        PreVaultUserStateService.syncExploredCapabilities(
+        PreVaultUserStateService.syncSetupCapabilities(
           userId,
           state.exploredIds,
         ).catch(() => {
