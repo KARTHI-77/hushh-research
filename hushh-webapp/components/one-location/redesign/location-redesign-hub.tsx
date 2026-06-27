@@ -390,7 +390,7 @@ function NowHub({
 
         <Button
           onClick={onStartShare}
-          className="h-12 whitespace-normal rounded-2xl bg-[#0a84ff] px-2 text-center text-[13px] font-semibold leading-tight text-white hover:bg-[#0a84ff]/90 sm:text-base"
+          className="h-12 whitespace-normal rounded-2xl bg-[#d4a574] px-2 text-center text-[13px] font-semibold leading-tight text-white hover:bg-[#d4a574]/90 sm:text-base"
         >
           <MapPin className="mr-1.5 h-4 w-4 shrink-0" />
           Share my location
@@ -490,7 +490,7 @@ function PeopleHub({
         <div className="grid grid-cols-1 gap-2">
           <Button
             onClick={onInvite}
-            className="h-11 rounded-full bg-[#0a84ff] text-sm font-semibold text-white hover:bg-[#0a84ff]/90"
+            className="h-11 rounded-full bg-[#d4a574] text-sm font-semibold text-white hover:bg-[#d4a574]/90"
           >
             <UserPlus className="mr-2 h-4 w-4" />
             Invite trusted person
@@ -583,7 +583,7 @@ function LinksHub({
       >
         <Button
           onClick={onCreateTempLink}
-          className="h-11 w-full rounded-full bg-[#0a84ff] text-sm font-semibold text-white hover:bg-[#0a84ff]/90"
+          className="h-11 w-full rounded-full bg-[#d4a574] text-sm font-semibold text-white hover:bg-[#d4a574]/90"
         >
           <Plus className="mr-2 h-4 w-4" />
           Create public location link
@@ -810,7 +810,7 @@ function ShareFlow({
           <Button
             onClick={vm.onConfirmShare}
             isLoading={vm.busy === "share"}
-            className="h-12 w-full rounded-2xl bg-[#0a84ff] text-base font-semibold text-white hover:bg-[#0a84ff]/90"
+            className="h-12 w-full rounded-2xl bg-[#d4a574] text-base font-semibold text-white hover:bg-[#d4a574]/90"
           >
             Start sharing
           </Button>
@@ -851,7 +851,7 @@ function ShareFlow({
                 rows={2}
                 maxLength={80}
                 placeholder="On my way to the meeting"
-                className="w-full rounded-[14px] border border-border/70 bg-background p-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-[#0a84ff]/25"
+                className="w-full rounded-[14px] border border-border/70 bg-background p-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-[#d4a574]/25"
               />
             </div>
           </div>
@@ -864,7 +864,7 @@ function ShareFlow({
           onClick={vm.onOpenShareReview}
           disabled={!vm.canShare}
           isLoading={vm.busy === "share"}
-          className="h-12 w-full rounded-2xl bg-[#0a84ff] text-base font-semibold text-white hover:bg-[#0a84ff]/90 disabled:opacity-50"
+          className="h-12 w-full rounded-2xl bg-[#d4a574] text-base font-semibold text-white hover:bg-[#d4a574]/90 disabled:opacity-50"
         >
           Review share
         </Button>
@@ -927,7 +927,7 @@ function ShareFlow({
       <Button
         onClick={() => setStep("details")}
         disabled={!selectedReady.length}
-        className="h-12 w-full rounded-2xl bg-[#0a84ff] text-base font-semibold text-white hover:bg-[#0a84ff]/90 disabled:opacity-50"
+        className="h-12 w-full rounded-2xl bg-[#d4a574] text-base font-semibold text-white hover:bg-[#d4a574]/90 disabled:opacity-50"
       >
         Continue
       </Button>
@@ -1040,7 +1040,7 @@ function AskFlow({
           onChange={(e) => vm.setRequestMessage(e.target.value)}
           rows={2}
           placeholder="Hey, can you share your location until we meet?"
-          className="w-full rounded-[14px] border border-border/70 bg-background p-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-[#0a84ff]/25"
+          className="w-full rounded-[14px] border border-border/70 bg-background p-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-[#d4a574]/25"
         />
       </SectionCard>
 
@@ -1056,7 +1056,7 @@ function AskFlow({
         }}
         disabled={!vm.selectedRequestOwnerIds.length}
         isLoading={vm.busy === "request"}
-        className="h-12 w-full rounded-2xl bg-[#0a84ff] text-base font-semibold text-white hover:bg-[#0a84ff]/90 disabled:opacity-50"
+        className="h-12 w-full rounded-2xl bg-[#d4a574] text-base font-semibold text-white hover:bg-[#d4a574]/90 disabled:opacity-50"
       >
         Send request
       </Button>
@@ -1089,7 +1089,7 @@ function InviteFlow({
         />
         <SectionCard>
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0a84ff]/12 text-[#0a84ff]">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#d4a574]/12 text-[#d4a574]">
               <UserPlus className="h-5 w-5" />
             </span>
             <div className="min-w-0 flex-1">
@@ -1110,7 +1110,7 @@ function InviteFlow({
         <div className="grid grid-cols-2 gap-2">
           <Button
             onClick={vm.onShareCircleInvite}
-            className="h-11 rounded-full bg-[#0a84ff] text-sm font-semibold text-white hover:bg-[#0a84ff]/90"
+            className="h-11 rounded-full bg-[#d4a574] text-sm font-semibold text-white hover:bg-[#d4a574]/90"
           >
             <Send className="mr-1.5 h-4 w-4" />
             Share invite
@@ -1177,7 +1177,7 @@ function InviteFlow({
       <Button
         onClick={vm.onCreateCircleInvite}
         isLoading={vm.busy === "circleInvite"}
-        className="h-12 w-full rounded-2xl bg-[#0a84ff] text-base font-semibold text-white hover:bg-[#0a84ff]/90"
+        className="h-12 w-full rounded-2xl bg-[#d4a574] text-base font-semibold text-white hover:bg-[#d4a574]/90"
       >
         Create invite
       </Button>
@@ -1275,7 +1275,7 @@ function TemporaryLinkFlow({
       <Button
         onClick={vm.onCreatePublicInvite}
         isLoading={vm.busy === "publicInvite"}
-        className="h-12 w-full rounded-2xl bg-[#0a84ff] text-base font-semibold text-white hover:bg-[#0a84ff]/90"
+        className="h-12 w-full rounded-2xl bg-[#d4a574] text-base font-semibold text-white hover:bg-[#d4a574]/90"
       >
         Review public location link
       </Button>
