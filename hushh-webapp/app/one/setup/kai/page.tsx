@@ -123,6 +123,16 @@ function KaiOnboardingPageContent() {
     () => normalizeInternalRouteHref(searchParams.get("from")),
     [searchParams],
   );
+  // Intentional re-entry: a user who has ALREADY resolved the setup gate but
+  // deliberately reopens this wizard (tapping the Finance tile, which forwards
+  // with a `from` marker, or an explicit `edit=1`) must land ON the
+  // questionnaire to review/edit their answers, NOT be bounced to the `/one/setup`
+  // hub. Without this, finance "Unlock & continue" dead-loops back to the hub.
+  // First-run gating (unresolved users) is unchanged.
+  const wizardReentryRequested = useMemo(
+    () => onboardingFromHref !== null || searchParams.get("edit") === "1",
+    [onboardingFromHref, searchParams],
+  );
   const onboardingSelfHref = useMemo(
     () => buildOneSetupKaiRoute({ from: onboardingFromHref, invite: inviteToken }),
     [inviteToken, onboardingFromHref],
@@ -175,11 +185,12 @@ function KaiOnboardingPageContent() {
             router.replace(ROUTES.RIA_HOME);
             return;
           }
-          // The investor-preferences wizard renders here only when the root flow
-          // is unresolved and a draft exists; otherwise the canonical surface is
-          // the `/one/setup` capability hub, so we redirect there instead of
-          // showing the legacy entry hub.
-          if (!onboardingResolved && pending) {
+          // The investor-preferences wizard renders here when the root flow is
+          // unresolved and a draft exists, OR when a resolved user intentionally
+          // re-enters to review/edit their answers (finance tile / edit=1).
+          // Otherwise the canonical surface is the `/one/setup` capability hub,
+          // so we redirect there instead of showing the legacy entry hub.
+          if ((!onboardingResolved && pending) || wizardReentryRequested) {
             setStage("wizard");
           } else {
             router.replace(buildOneSetupRoute({ from: onboardingFromHref }));
@@ -215,8 +226,14 @@ function KaiOnboardingPageContent() {
           });
           setOnboardingRequiredCookie(false);
           setOnboardingFlowActiveCookie(false);
-          // Onboarding is complete; the canonical surface is the `/one/setup`
-          // hub rather than the legacy entry acknowledgement screen.
+          // Onboarding is complete. A user who intentionally re-enters to edit
+          // their preferences (finance tile / edit=1) stays on the questionnaire,
+          // pre-filled from the saved profile. Everyone else returns to the
+          // canonical `/one/setup` hub rather than the legacy entry screen.
+          if (wizardReentryRequested) {
+            setStage("wizard");
+            return;
+          }
           router.replace(buildOneSetupRoute({ from: onboardingFromHref }));
           return;
         }
@@ -254,6 +271,7 @@ function KaiOnboardingPageContent() {
     preserveOnboardingAuditRoute,
     onboardingSelfHref,
     onboardingFromHref,
+    wizardReentryRequested,
   ]);
 
   const wizardAnswers: WizardAnswers = useMemo(() => {

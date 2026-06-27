@@ -898,7 +898,7 @@
       "physical_page_exists": true,
       "route_contract": {
         "mode": "redirect",
-        "exemption_reason": "Compatibility redirect route only launches the canonical /one/onboarding flow.",
+        "exemption_reason": "Compatibility redirect route only launches the canonical /one/setup/kai flow.",
         "shell_verification_file": null,
         "shell_verification_includes": []
       },
@@ -1708,7 +1708,7 @@
       "physical_page_exists": true,
       "route_contract": {
         "mode": "redirect",
-        "exemption_reason": "Compatibility redirect route only launches the canonical /one/onboarding flow.",
+        "exemption_reason": "Compatibility redirect route only launches the canonical /one/setup/kai flow.",
         "shell_verification_file": null,
         "shell_verification_includes": []
       },
@@ -2053,30 +2053,6 @@
       "thread_and_consent_contract": null
     },
     {
-      "route": "/one/onboarding",
-      "page_file": null,
-      "physical_page_exists": false,
-      "route_contract": {
-        "mode": "flow",
-        "exemption_reason": "Fullscreen onboarding flow owns its own shell and safe-area spacing.",
-        "shell_verification_file": null,
-        "shell_verification_includes": []
-      },
-      "native": null,
-      "shell": {
-        "app_page_shell": false,
-        "page_header": false,
-        "settings_ui": false,
-        "shared_loader": false,
-        "back_button_pattern": "unknown"
-      },
-      "voice_action_contract_file": null,
-      "voice_action_contract_ids": [],
-      "api_dependencies": [],
-      "native_plugin_dependencies": [],
-      "thread_and_consent_contract": null
-    },
-    {
       "route": "/one/pkm",
       "page_file": "app/one/pkm/page.tsx",
       "physical_page_exists": true,
@@ -2163,7 +2139,17 @@
       "route": "/one/setup/[capability]",
       "page_file": "app/one/setup/[capability]/page.tsx",
       "physical_page_exists": true,
-      "route_contract": null,
+      "route_contract": {
+        "mode": "standard",
+        "exemption_reason": null,
+        "shell_verification_file": "components/onboarding/setup/onboarding-capability-step.tsx",
+        "shell_verification_includes": [
+          "AppPageShell",
+          "AppPageHeaderRegion",
+          "AppPageContentRegion",
+          "PageHeader"
+        ]
+      },
       "native": null,
       "shell": {
         "app_page_shell": false,
@@ -2182,7 +2168,12 @@
       "route": "/one/setup/kai",
       "page_file": "app/one/setup/kai/page.tsx",
       "physical_page_exists": true,
-      "route_contract": null,
+      "route_contract": {
+        "mode": "flow",
+        "exemption_reason": "Fullscreen setup wizard owns its own shell and safe-area spacing.",
+        "shell_verification_file": null,
+        "shell_verification_includes": []
+      },
       "native": {
         "route": "/one/setup/kai",
         "classification": "native-required-functional",

@@ -14,13 +14,13 @@
     "total_screens": 67,
     "physical_page_count": 67,
     "route_contract_count": 67,
-    "surface_map_count": 68,
+    "surface_map_count": 67,
     "class_counts": {
       "public/static": 3,
       "realtime/SSE": 1,
       "redirect/alias": 24,
-      "vault-backed": 15,
-      "hidden flow": 8,
+      "vault-backed": 16,
+      "hidden flow": 7,
       "auth/pre-vault": 6,
       "RIA/provider": 8,
       "PKM-secure": 2
@@ -2149,8 +2149,8 @@
     {
       "route": "/one/setup/[capability]",
       "page_file": "app/one/setup/[capability]/page.tsx",
-      "route_contract_mode": "flow",
-      "screen_class": "hidden flow",
+      "route_contract_mode": "standard",
+      "screen_class": "vault-backed",
       "cache_policy": "memory-only",
       "cache_keys": [],
       "resource_classes": [
@@ -2189,7 +2189,8 @@
       },
       "findings": [
         "review native route beacon coverage",
-        "no local cache primitive detected in page/contract source"
+        "no local cache primitive detected in page/contract source",
+        "loader detected; verify warm cache path avoids blocking loader"
       ]
     },
     {

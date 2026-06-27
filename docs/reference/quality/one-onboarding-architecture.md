@@ -166,11 +166,24 @@ forwards to the capability's real workspace via
 `resolveCapabilityHandoffTarget` (declared in
 [`lib/navigation/routes.ts`](../../../hushh-webapp/lib/navigation/routes.ts)).
 
+The step renders a normal `AppPageShell`, so `/one/setup/[capability]` is a
+**`standard`** route in
+[`lib/navigation/app-route-layout.contract.json`](../../../hushh-webapp/lib/navigation/app-route-layout.contract.json)
+— it inherits the app shell's top spacer (`--app-top-content-offset`, which
+folds in `env(safe-area-inset-top)`) so its content always clears the top app
+bar on notched devices. Only the self‑padding fullscreen wizard at
+`/one/setup/kai` is a `flow` route. This is the layout‑level safe‑area
+guarantee: step screens never hand‑roll top padding.
+
 - **Finance** forwards to the investor‑preferences **wizard**
   (`/one/setup/kai`), not straight to the dashboard, so the questionnaire →
   persona → portfolio‑import journey is never orphaned. The forward appends a
-  `?from=` marker so `OneOnboardingGuard` treats an already‑resolved user's
-  visit as an **intentional re‑entry** and does not bounce them back to `/one`.
+  `?from=` marker so an already‑resolved user's visit is treated as an
+  **intentional re‑entry**. Both the guard (`OneOnboardingGuard`) and the wizard
+  page's own load effect honor this marker: without it, a resolved user tapping
+  Finance dead‑looped back to `/one/setup` because the wizard page redirected
+  resolved users to the hub. With it, the wizard renders pre‑filled from the
+  saved profile / pre‑vault draft so the person can review or edit their answers.
 - **Vault‑aware CTA**: capabilities flagged `requiresVault` in the catalog
   ([`lib/onboarding/one-capabilities.ts`](../../../hushh-webapp/lib/onboarding/one-capabilities.ts))
   whose vault is currently locked show **"Unlock & continue"** with a

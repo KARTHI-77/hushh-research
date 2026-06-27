@@ -244,8 +244,11 @@
   },
   {
     "route": "/one/setup/[capability]",
-    "mode": "flow",
-    "exemptionReason": "Per-capability setup step owns its own fullscreen shell and safe-area spacing."
+    "mode": "standard",
+    "shellVerification": {
+      "file": "components/onboarding/setup/onboarding-capability-step.tsx",
+      "includes": ["AppPageShell", "AppPageHeaderRegion", "AppPageContentRegion", "PageHeader"]
+    }
   },
   {
     "route": "/kai/optimize",
