@@ -167,6 +167,7 @@ export function OneSetupHub() {
                 icon={item.icon}
                 tone={item.tone}
                 status={item.status}
+                isExploreOnly={item.isExploreOnly}
                 isCurrent={item.isCurrent}
               />
             </li>
@@ -184,6 +185,7 @@ interface SetupItem {
   icon: LucideIcon;
   tone: OneCapabilityTone;
   isActionable: boolean;
+  isExploreOnly: boolean;
   isCurrent: boolean;
 }
 
@@ -211,6 +213,7 @@ function buildSetupItems(
         icon: capability.icon,
         tone: capability.tone,
         isActionable: isCapabilitySetupActionable(status),
+        isExploreOnly: capability.isExploreOnly === true,
       },
     ];
   });

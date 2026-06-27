@@ -52,6 +52,16 @@ export interface OneCapability {
   icon: LucideIcon;
   tone: OneCapabilityTone;
   group: OneCapabilityGroup;
+  /**
+   * True when this capability collects NOTHING from the user — there is no data
+   * to enter or connection to authorize, the tab is usable as soon as it opens.
+   * Such capabilities are "set up" by taking a one-time look (an Explore tour)
+   * rather than by a configuration step. The resolver treats them as
+   * `not-started` ("Explore") until the person has explored them once, then
+   * `completed` ("Explored"). This keeps the "N of M ready" count honest: an
+   * un-explored tab is genuinely "left to set up", never a fabricated "Ready".
+   */
+  isExploreOnly?: boolean;
 }
 
 /**
@@ -86,6 +96,7 @@ export const ONE_CAPABILITIES: readonly OneCapability[] = [
     icon: MailCheck,
     tone: "email",
     group: "workflow",
+    isExploreOnly: true,
   },
   {
     id: "location",
@@ -96,6 +107,7 @@ export const ONE_CAPABILITIES: readonly OneCapability[] = [
     icon: MapPin,
     tone: "location",
     group: "workflow",
+    isExploreOnly: true,
   },
   {
     id: "pkm",
@@ -114,6 +126,7 @@ export const ONE_CAPABILITIES: readonly OneCapability[] = [
     icon: ShieldCheck,
     tone: "consent",
     group: "access",
+    isExploreOnly: true,
   },
   {
     id: "connected-systems",

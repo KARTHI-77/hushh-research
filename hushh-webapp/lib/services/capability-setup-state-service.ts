@@ -1,7 +1,7 @@
 import type { KaiProfileV2 } from "@/lib/services/kai-profile-service";
 import type { PreVaultUserState } from "@/lib/services/pre-vault-user-state-service";
 import { resolveKaiOnboardingCompletion } from "@/lib/services/kai-profile-service";
-import { ONE_CAPABILITIES } from "@/lib/onboarding/one-capabilities";
+import { ONE_CAPABILITIES, getOneCapability } from "@/lib/onboarding/one-capabilities";
 
 /**
  * CAPABILITY SETUP-STATE RESOLVER — single source of truth for "is this
@@ -103,6 +103,13 @@ export interface CapabilitySetupInputs {
    * are treated per the capability's own prerequisite rules.
    */
   oauthConnections?: Partial<Record<string, boolean>>;
+  /**
+   * Ids of explore-only capabilities (those that collect nothing) the user has
+   * explored at least once. An explore-only capability is `not-started`
+   * ("Explore") until its id appears here, then `completed` ("Explored"). Absent
+   * means "nothing explored yet".
+   */
+  exploredCapabilityIds?: ReadonlySet<string>;
 }
 
 /** Capabilities whose real configuration lives behind the encrypted vault. */
@@ -164,7 +171,13 @@ function resolveFinance(inputs: CapabilitySetupInputs): CapabilityStatus {
   return unknown("finance", isVaultUnlocked ? null : "vault", !isVaultUnlocked);
 }
 
-/** Resolve the consent capability from the live pending-request count. */
+/**
+ * Resolve the consent capability. Pending requests always win as
+ * `needs-attention` (there is something to act on right now). With nothing
+ * pending it is an explore-only review surface: `not-started` ("Explore") until
+ * the person has looked once, then `completed` ("Explored"). This avoids a fresh
+ * account fabricating a "Ready" badge for a tab the user has never opened.
+ */
 function resolveConsent(inputs: CapabilitySetupInputs): CapabilityStatus {
   const pending = Math.max(0, Math.trunc(inputs.pendingConsents || 0));
   if (pending > 0) {
@@ -176,8 +189,19 @@ function resolveConsent(inputs: CapabilitySetupInputs): CapabilityStatus {
       requiresUnlock: false,
     };
   }
-  // No pending requests is a steady, healthy state — not "setup needed".
-  return simple("consent", "completed");
+  return resolveExploreOnly("consent", inputs);
+}
+
+/**
+ * Resolve an explore-only capability (one that collects nothing from the user).
+ * Its "setup" is a one-time look: `not-started` ("Explore") until the user has
+ * explored it once, then `completed` ("Explored"). Keeping un-explored tabs
+ * `not-started` makes the "N of M ready" count honest — an unseen tab is
+ * genuinely "left to set up", never a fabricated "Ready".
+ */
+function resolveExploreOnly(id: string, inputs: CapabilitySetupInputs): CapabilityStatus {
+  const explored = inputs.exploredCapabilityIds?.has(id) === true;
+  return simple(id, explored ? "completed" : "not-started");
 }
 
 /**
@@ -218,10 +242,17 @@ export function resolveCapabilitySetupState(
   if (VAULT_GATED.has(id)) return resolveVaultGated(id, inputs);
   if (OAUTH_GATED.has(id)) return resolveOauthGated(id, inputs);
 
-  // Capabilities with no backend setup gate yet (email, location). These are
-  // usable without explicit configuration, so they are `completed` once the
-  // user is authenticated. Kept explicit so adding a real gate later is a
-  // deliberate change, not an accident.
+  // Explore-only capabilities (email, location): no data to collect, so their
+  // "setup" is a one-time look. `not-started` ("Explore") until explored once,
+  // then `completed` ("Explored"). Declared via the catalog `isExploreOnly`
+  // flag so the set is explicit and testable.
+  if (getOneCapability(id)?.isExploreOnly === true) {
+    return resolveExploreOnly(id, inputs);
+  }
+
+  // No backend setup gate and not declared explore-only: treat as usable once
+  // authenticated. Kept explicit so adding a real gate later is a deliberate
+  // change, not an accident.
   return simple(id, "completed");
 }
 

@@ -20,6 +20,12 @@ export type PreVaultUserState = {
   preOnboardingCompletedAt: number | null;
   preNavTourCompletedAt: number | null;
   preNavTourSkippedAt: number | null;
+  // Explore-only capability tour mirror: ids the user has explored at least
+  // once. The client local store (CapabilityTourService) is the source of
+  // truth; this is the durable, cross-device echo. Always an array (never null)
+  // so callers can treat absent as "nothing explored".
+  exploredCapabilityIds: string[];
+  preExploredUpdatedAt: number | null;
   preStateUpdatedAt: number | null;
   // Verified-phone claim folded in from the backend bootstrap call. null means
   // "unknown" (older backend, or shadow lookup failed) so callers fall back to
@@ -35,6 +41,7 @@ type PreVaultStateUpdatePayload = {
   preOnboardingCompletedAt?: number | null;
   preNavTourCompletedAt?: number | null;
   preNavTourSkippedAt?: number | null;
+  exploredCapabilityIds?: string[];
 };
 
 const bootstrapInflight = new Map<string, Promise<PreVaultUserState>>();
@@ -43,6 +50,17 @@ function toMillis(value: unknown): number | null {
   if (value === null || value === undefined) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  for (const entry of value) {
+    if (typeof entry !== "string") continue;
+    const trimmed = entry.trim();
+    if (trimmed.length > 0) seen.add(trimmed);
+  }
+  return Array.from(seen).sort();
 }
 
 function toNullableBool(value: unknown): boolean | null {
@@ -71,6 +89,8 @@ function normalizeResponse(userId: string, payload: BootstrapStateResponse): Pre
     preOnboardingCompletedAt: toMillis(payload.preOnboardingCompletedAt),
     preNavTourCompletedAt: toMillis(payload.preNavTourCompletedAt),
     preNavTourSkippedAt: toMillis(payload.preNavTourSkippedAt),
+    exploredCapabilityIds: toStringArray(payload.exploredCapabilityIds),
+    preExploredUpdatedAt: toMillis(payload.preExploredUpdatedAt),
     preStateUpdatedAt: toMillis(payload.preStateUpdatedAt),
     phoneVerified: toNullableBool(payload.phoneVerified),
   };
@@ -170,6 +190,21 @@ export class PreVaultUserStateService {
   static isNavTourResolved(state: PreVaultUserState | null | undefined): boolean {
     if (!state) return false;
     return Boolean(state.preNavTourCompletedAt || state.preNavTourSkippedAt);
+  }
+
+  /**
+   * Mirror the explore-only capability set to the durable backend store. The
+   * caller passes the FULL desired set (already merged with the local copy);
+   * the backend replaces its stored value. Best-effort at the call site — a
+   * failed mirror leaves the local copy authoritative for this device.
+   */
+  static async syncExploredCapabilities(
+    userId: string,
+    exploredCapabilityIds: readonly string[]
+  ): Promise<PreVaultUserState> {
+    return this.updatePreVaultState(userId, {
+      exploredCapabilityIds: toStringArray([...exploredCapabilityIds]),
+    });
   }
 
   static async syncKaiOnboardingState(params: {

@@ -25,9 +25,28 @@ export interface CapabilitySetupCopy {
   setupBlurb: string;
   /** Where "Set up" / "Continue" routes for this capability. */
   href: string;
+  /**
+   * First-visit Explore card copy for explore-only capabilities (those that
+   * collect nothing). Present only for explore-only ids. `exploreTitle` is a
+   * warm "here's what's in this tab" heading; `exploreBullets` are 2-3 plain
+   * one-liners describing what the person can do here, no system nouns.
+   */
+  exploreTitle?: string;
+  exploreBlurb?: string;
+  exploreBullets?: readonly string[];
 }
 
-const SETUP_COPY_BY_ID: Record<string, { setupTitle: string; setupBlurb: string; href?: string }> = {
+const SETUP_COPY_BY_ID: Record<
+  string,
+  {
+    setupTitle: string;
+    setupBlurb: string;
+    href?: string;
+    exploreTitle?: string;
+    exploreBlurb?: string;
+    exploreBullets?: readonly string[];
+  }
+> = {
   finance: {
     setupTitle: "Set up your finances",
     setupBlurb:
@@ -44,11 +63,27 @@ const SETUP_COPY_BY_ID: Record<string, { setupTitle: string; setupBlurb: string;
     setupTitle: "Let One draft for you",
     setupBlurb:
       "Set up email so One can prepare replies and approvals you can send with a tap.",
+    exploreTitle: "Here's your email workspace",
+    exploreBlurb:
+      "Nothing to set up — take a quick look at what One can do for your inbox.",
+    exploreBullets: [
+      "One drafts replies and approvals you can send with a tap.",
+      "Everything stays a draft until you choose to send it.",
+      "Come back any time — you are always in control.",
+    ],
   },
   location: {
     setupTitle: "Add live location",
     setupBlurb:
       "Share location when it helps so One can offer local context and referrals — you stay in control.",
+    exploreTitle: "Here's how location helps",
+    exploreBlurb:
+      "Nothing to set up — see what local context unlocks before you share anything.",
+    exploreBullets: [
+      "Share your location only when it actually helps.",
+      "One adds local context and referrals around you.",
+      "Turn sharing off whenever you want.",
+    ],
   },
   pkm: {
     setupTitle: "Save what matters",
@@ -59,6 +94,14 @@ const SETUP_COPY_BY_ID: Record<string, { setupTitle: string; setupBlurb: string;
     setupTitle: "Review who has access",
     setupBlurb:
       "See every request to use your data, approve what you trust, and pull access back any time.",
+    exploreTitle: "Here's your access center",
+    exploreBlurb:
+      "Nothing to set up — this is where you see and control who can use your data.",
+    exploreBullets: [
+      "Every request to use your data shows up here.",
+      "Approve what you trust, decline the rest.",
+      "Pull access back at any time, instantly.",
+    ],
   },
   "connected-systems": {
     setupTitle: "Link your tools",
@@ -75,6 +118,9 @@ function toSetupCopy(cap: OneCapability): CapabilitySetupCopy {
     setupTitle: extra?.setupTitle ?? `Set up ${cap.title}`,
     setupBlurb: extra?.setupBlurb ?? cap.description,
     href: extra?.href ?? cap.href,
+    exploreTitle: extra?.exploreTitle,
+    exploreBlurb: extra?.exploreBlurb,
+    exploreBullets: extra?.exploreBullets,
   };
 }
 

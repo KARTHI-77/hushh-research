@@ -31,6 +31,7 @@ import {
   AppPageShell,
 } from "@/components/app-ui/app-page-shell";
 import { PageHeader } from "@/components/app-ui/page-sections";
+import { CapabilityExploreCard } from "@/components/onboarding/setup/capability-explore-card";
 import { PaginatedListFooter } from "@/components/app-ui/paginated-list-footer";
 import { SurfaceStack } from "@/components/app-ui/surfaces";
 import {
@@ -1970,6 +1971,7 @@ export function ConsentCenterPage() {
 
   return (
     <AppPageShell as="main" width="expanded" className="pb-24 sm:pb-28">
+      <CapabilityExploreCard capabilityId="consent" />
       <AppPageHeaderRegion>
         <PageHeader
           eyebrow={pageEyebrow}

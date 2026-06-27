@@ -78,7 +78,7 @@ function buildModes(statusById: Record<string, CapabilityStatus>): OneDashboardM
   return ONE_CAPABILITIES.map((cap) => {
     const status = statusById[cap.id];
     const display = status
-      ? getCapabilityStatusDisplay(status)
+      ? getCapabilityStatusDisplay(status, { isExploreOnly: cap.isExploreOnly })
       : { label: "Checking…", tone: "muted" as CapabilityStatusTone };
     return {
       id: cap.id,

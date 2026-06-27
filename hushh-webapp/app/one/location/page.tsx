@@ -45,6 +45,7 @@ import {
   AppPageShell,
 } from "@/components/app-ui/app-page-shell";
 import { NativeTestBeacon } from "@/components/app-ui/native-test-beacon";
+import { CapabilityExploreCard } from "@/components/onboarding/setup/capability-explore-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -4229,6 +4230,7 @@ function OneLocationAgentPageContent() {
       width="standard"
       nativeTest={nativeTestConfig}
     >
+      <CapabilityExploreCard capabilityId="location" />
       <AppPageHeaderRegion className="mx-auto w-full max-w-[720px] min-w-0 overflow-hidden">
         <div className="flex flex-col gap-4 px-1 pt-3 sm:flex-row sm:items-end sm:justify-between">
           <header className="max-w-[560px] min-w-0 space-y-2">

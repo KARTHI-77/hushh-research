@@ -27,6 +27,8 @@ function makePreVaultState(overrides: Partial<PreVaultUserState> = {}): PreVault
     preNavTourSkippedAt: null,
     preStateUpdatedAt: null,
     phoneVerified: null,
+    exploredCapabilityIds: [],
+    preExploredUpdatedAt: null,
     ...overrides,
   };
 }
@@ -151,22 +153,34 @@ describe("resolveCapabilitySetupState — finance", () => {
   });
 });
 
-describe("resolveCapabilitySetupState — consent", () => {
-  it("is completed when there are no pending requests", () => {
+describe("resolveCapabilitySetupState — consent (explore-only)", () => {
+  it("is not-started when there are no pending requests and it has not been explored", () => {
     const status = resolveCapabilitySetupState("consent", baseInputs({ pendingConsents: 0 }));
+    expect(status.state).toBe("not-started");
+    expect(status.pendingCount).toBe(0);
+  });
+
+  it("is completed once explored with no pending requests", () => {
+    const status = resolveCapabilitySetupState(
+      "consent",
+      baseInputs({ pendingConsents: 0, exploredCapabilityIds: new Set(["consent"]) })
+    );
     expect(status.state).toBe("completed");
     expect(status.pendingCount).toBe(0);
   });
 
-  it("needs attention with an accurate pending count", () => {
-    const status = resolveCapabilitySetupState("consent", baseInputs({ pendingConsents: 3 }));
+  it("needs attention with an accurate pending count regardless of explored state", () => {
+    const status = resolveCapabilitySetupState(
+      "consent",
+      baseInputs({ pendingConsents: 3, exploredCapabilityIds: new Set(["consent"]) })
+    );
     expect(status.state).toBe("needs-attention");
     expect(status.pendingCount).toBe(3);
   });
 
-  it("clamps negative/fractional pending counts", () => {
+  it("clamps negative/fractional pending counts and stays explore-gated", () => {
     const status = resolveCapabilitySetupState("consent", baseInputs({ pendingConsents: -5 }));
-    expect(status.state).toBe("completed");
+    expect(status.state).toBe("not-started");
     expect(status.pendingCount).toBe(0);
   });
 });
@@ -210,10 +224,20 @@ describe("resolveCapabilitySetupState — oauth-gated (gmail, connected-systems)
   });
 });
 
-describe("resolveCapabilitySetupState — ungated (email, location)", () => {
-  it("is completed once authenticated", () => {
-    expect(resolveCapabilitySetupState("email", baseInputs()).state).toBe("completed");
-    expect(resolveCapabilitySetupState("location", baseInputs()).state).toBe("completed");
+describe("resolveCapabilitySetupState — explore-only (email, location)", () => {
+  it("is not-started until explored", () => {
+    expect(resolveCapabilitySetupState("email", baseInputs()).state).toBe("not-started");
+    expect(resolveCapabilitySetupState("location", baseInputs()).state).toBe("not-started");
+  });
+
+  it("is completed once explored", () => {
+    const explored = new Set(["email", "location"]);
+    expect(
+      resolveCapabilitySetupState("email", baseInputs({ exploredCapabilityIds: explored })).state
+    ).toBe("completed");
+    expect(
+      resolveCapabilitySetupState("location", baseInputs({ exploredCapabilityIds: explored })).state
+    ).toBe("completed");
   });
 });
 
