@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { morphyToast as toast } from "@/lib/morphy-ux/morphy";
 
@@ -82,6 +83,23 @@ function computePersona(answers: WizardAnswers, explicit?: RiskProfile | null): 
   if (explicit) return explicit;
   const score = computeRiskScore(answers as PreVaultOnboardingAnswers);
   return score === null ? "balanced" : mapRiskProfile(score);
+}
+
+/**
+ * Full-height region for the wizard's transient stages (loading, redirect,
+ * error). The TopAppBar stays visible in this flow, so these stages must START
+ * below the top shell + safe-area inset just like the questionnaire/persona
+ * stages do. `--top-content-pad` folds in `env(safe-area-inset-top)`, the
+ * shell's reserved height, and the sub-nav gap; `--app-screen-footer-pad`
+ * mirrors the bottom inset. Centering happens INSIDE this padded box so the
+ * loader text can never tuck under the top bar on notched devices.
+ */
+function SetupKaiStageRegion({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-[100dvh] w-full flex-col items-center justify-center px-5 pt-[var(--top-content-pad)] pb-[var(--app-screen-footer-pad)]">
+      {children}
+    </div>
+  );
 }
 
 function KaiOnboardingPageContent() {
@@ -259,11 +277,19 @@ function KaiOnboardingPageContent() {
   }, [source, stage]);
 
   if (authLoading) {
-    return <HushhLoader label="Loading onboarding..." variant="fullscreen" />;
+    return (
+      <SetupKaiStageRegion>
+        <HushhLoader label="Loading onboarding..." variant="inline" />
+      </SetupKaiStageRegion>
+    );
   }
 
   if (!user) {
-    return <HushhLoader label="Redirecting..." variant="fullscreen" />;
+    return (
+      <SetupKaiStageRegion>
+        <HushhLoader label="Redirecting..." variant="inline" />
+      </SetupKaiStageRegion>
+    );
   }
 
   if (inviteToken) {
@@ -282,7 +308,7 @@ function KaiOnboardingPageContent() {
 
   if (loadError) {
     return (
-      <div className="mx-auto flex min-h-[70vh] w-full max-w-md items-center justify-center px-5">
+      <SetupKaiStageRegion>
         <NativeTestBeacon
           routeId={ROUTES.ONE_SETUP_KAI}
           marker="native-route-one-setup-kai"
@@ -319,12 +345,16 @@ function KaiOnboardingPageContent() {
             </Button>
           </div>
         </Card>
-      </div>
+      </SetupKaiStageRegion>
     );
   }
 
   if (stage === "loading" || !source) {
-    return <HushhLoader label="Loading onboarding..." variant="fullscreen" />;
+    return (
+      <SetupKaiStageRegion>
+        <HushhLoader label="Loading onboarding..." variant="inline" />
+      </SetupKaiStageRegion>
+    );
   }
 
   if (stage === "entry") {
@@ -334,7 +364,11 @@ function KaiOnboardingPageContent() {
     if (typeof window !== "undefined") {
       router.replace(buildOneSetupRoute({ from: onboardingFromHref }));
     }
-    return <HushhLoader label="Loading setup..." variant="fullscreen" />;
+    return (
+      <SetupKaiStageRegion>
+        <HushhLoader label="Loading setup..." variant="inline" />
+      </SetupKaiStageRegion>
+    );
   }
 
   if (stage === "persona") {
@@ -529,7 +563,13 @@ function KaiOnboardingPageContent() {
 
 export default function KaiOnboardingPage() {
   return (
-    <Suspense fallback={<HushhLoader label="Loading onboarding..." variant="fullscreen" />}>
+    <Suspense
+      fallback={
+        <SetupKaiStageRegion>
+          <HushhLoader label="Loading onboarding..." variant="inline" />
+        </SetupKaiStageRegion>
+      }
+    >
       <KaiOnboardingPageContent />
     </Suspense>
   );

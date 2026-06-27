@@ -224,20 +224,22 @@ describe("resolveCapabilitySetupState — oauth-gated (gmail, connected-systems)
   });
 });
 
-describe("resolveCapabilitySetupState — explore-only (email, location)", () => {
-  it("is not-started until explored", () => {
-    expect(resolveCapabilitySetupState("email", baseInputs()).state).toBe("not-started");
-    expect(resolveCapabilitySetupState("location", baseInputs()).state).toBe("not-started");
+describe("resolveCapabilitySetupState — vault-gated (email, location)", () => {
+  it("is unknown with vault prerequisite while locked", () => {
+    for (const id of ["email", "location"]) {
+      const status = resolveCapabilitySetupState(id, baseInputs({ isVaultUnlocked: false }));
+      expect(status.state).toBe("unknown");
+      expect(status.prerequisite).toBe("vault");
+      expect(status.requiresUnlock).toBe(true);
+    }
   });
 
-  it("is completed once explored", () => {
-    const explored = new Set(["email", "location"]);
-    expect(
-      resolveCapabilitySetupState("email", baseInputs({ exploredCapabilityIds: explored })).state
-    ).toBe("completed");
-    expect(
-      resolveCapabilitySetupState("location", baseInputs({ exploredCapabilityIds: explored })).state
-    ).toBe("completed");
+  it("stays unknown (not fabricated) after unlock until a real signal is wired", () => {
+    for (const id of ["email", "location"]) {
+      const status = resolveCapabilitySetupState(id, baseInputs({ isVaultUnlocked: true }));
+      expect(status.state).toBe("unknown");
+      expect(status.requiresUnlock).toBe(true);
+    }
   });
 });
 

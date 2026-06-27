@@ -62,6 +62,15 @@ export interface OneCapability {
    * un-explored tab is genuinely "left to set up", never a fabricated "Ready".
    */
   isExploreOnly?: boolean;
+  /**
+   * True when this capability's real workspace reads or writes vault-backed
+   * personal data and therefore needs an UNLOCKED vault to be usable. The setup
+   * STEP itself collects nothing and renders pre-vault; this flag only lets the
+   * step set honest "you'll unlock your vault next" expectations and lets the
+   * destination's own guard own the actual unlock prompt. Consent Guardian is
+   * the only capability that does not read vault-backed data here.
+   */
+  requiresVault?: boolean;
 }
 
 /**
@@ -77,6 +86,7 @@ export const ONE_CAPABILITIES: readonly OneCapability[] = [
     icon: ChartNoAxesCombined,
     tone: "finance",
     group: "workflow",
+    requiresVault: true,
   },
   {
     id: "gmail",
@@ -87,6 +97,7 @@ export const ONE_CAPABILITIES: readonly OneCapability[] = [
     icon: Mail,
     tone: "gmail",
     group: "memory",
+    requiresVault: true,
   },
   {
     id: "email",
@@ -96,7 +107,7 @@ export const ONE_CAPABILITIES: readonly OneCapability[] = [
     icon: MailCheck,
     tone: "email",
     group: "workflow",
-    isExploreOnly: true,
+    requiresVault: true,
   },
   {
     id: "location",
@@ -107,7 +118,7 @@ export const ONE_CAPABILITIES: readonly OneCapability[] = [
     icon: MapPin,
     tone: "location",
     group: "workflow",
-    isExploreOnly: true,
+    requiresVault: true,
   },
   {
     id: "pkm",
@@ -117,6 +128,7 @@ export const ONE_CAPABILITIES: readonly OneCapability[] = [
     icon: FolderSearch,
     tone: "pkm",
     group: "memory",
+    requiresVault: true,
   },
   {
     id: "consent",
@@ -136,6 +148,7 @@ export const ONE_CAPABILITIES: readonly OneCapability[] = [
     icon: Database,
     tone: "connected",
     group: "workflow",
+    requiresVault: true,
   },
 ] as const;
 

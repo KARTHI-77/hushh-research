@@ -18,10 +18,10 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * OnboardingCapabilityStep — the shared, copy-driven onboarding screen rendered
- * at `/one/onboarding/<id>` for every capability.
+ * OnboardingCapabilityStep — the shared, copy-driven setup screen rendered
+ * at `/one/setup/<id>` for every capability.
  *
- * It lives inside the onboarding surface (allow-listed through the hard gate),
+ * It lives inside the setup surface (allow-listed through the hard gate),
  * so a first-time user reaches it without being bounced back to `/one/setup`.
  *
  * Two flavors, both driven by the shared capability catalog + setup copy (no
@@ -43,6 +43,13 @@ export interface OnboardingCapabilityStepProps {
   onBack: () => void;
   /** Disables the CTA while the page resolves the gate. */
   busy?: boolean;
+  /**
+   * True when this capability's real workspace needs an unlocked vault and the
+   * vault is currently locked. The step still forwards (the destination owns
+   * the unlock prompt), but the CTA + helper copy set the honest expectation so
+   * the person is not surprised by an unlock screen on the next step.
+   */
+  needsVaultUnlock?: boolean;
 }
 
 export function OnboardingCapabilityStep({
@@ -50,6 +57,7 @@ export function OnboardingCapabilityStep({
   onPrimary,
   onBack,
   busy = false,
+  needsVaultUnlock = false,
 }: OnboardingCapabilityStepProps) {
   const capability = getOneCapability(capabilityId);
   const copy = getCapabilitySetupCopy(capabilityId);
@@ -69,7 +77,16 @@ export function OnboardingCapabilityStep({
     ? copy.exploreBlurb ?? copy.setupBlurb
     : copy.setupBlurb;
   const bullets = isExploreOnly ? copy.exploreBullets : copy.setupBullets;
-  const ctaLabel = isExploreOnly ? "Got it" : "Continue";
+  const ctaLabel = isExploreOnly
+    ? "Got it"
+    : needsVaultUnlock
+      ? "Unlock & continue"
+      : "Continue";
+  const subline = isExploreOnly
+    ? "No setup required. Just explore."
+    : needsVaultUnlock
+      ? "A quick, one-time setup. You'll unlock your vault next."
+      : "A quick, one-time setup.";
 
   function handlePrimary() {
     if (busy || acted) return;
@@ -83,8 +100,8 @@ export function OnboardingCapabilityStep({
       width="content"
       className="space-y-5 px-4 py-5 sm:px-6"
       nativeTest={{
-        routeId: `/one/onboarding/${capabilityId}`,
-        marker: "native-route-one-onboarding-capability",
+        routeId: `/one/setup/${capabilityId}`,
+        marker: "native-route-one-setup-capability",
         authState: "authenticated",
         dataState: "loaded",
       }}
@@ -127,9 +144,7 @@ export function OnboardingCapabilityStep({
                 {capability.title}
               </p>
               <p className="mt-0.5 text-sm leading-5 text-muted-foreground">
-                {isExploreOnly
-                  ? "No setup required. Just explore."
-                  : "A quick, one-time setup."}
+                {subline}
               </p>
             </div>
           </div>
@@ -155,7 +170,7 @@ export function OnboardingCapabilityStep({
             className="mt-6 w-full"
             onClick={handlePrimary}
             disabled={busy || acted}
-            data-testid="one-onboarding-capability-primary"
+            data-testid="one-setup-capability-primary"
           >
             {ctaLabel}
             {!isExploreOnly ? (

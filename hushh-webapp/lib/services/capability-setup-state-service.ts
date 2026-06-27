@@ -112,8 +112,6 @@ export interface CapabilitySetupInputs {
   exploredCapabilityIds?: ReadonlySet<string>;
 }
 
-/** Capabilities whose real configuration lives behind the encrypted vault. */
-const VAULT_GATED = new Set<string>(["finance", "pkm"]);
 /** Capabilities that require an OAuth connection to a third party. */
 const OAUTH_GATED = new Set<string>(["gmail", "connected-systems"]);
 
@@ -214,8 +212,8 @@ function resolveVaultGated(id: string, inputs: CapabilitySetupInputs): Capabilit
     return unknown(id, "vault", true);
   }
   // Post-unlock, no per-capability signal wired yet for non-finance vault
-  // capabilities (e.g. pkm). Report `unknown` honestly until a real signal is
-  // passed in, instead of fabricating "Ready".
+  // capabilities (e.g. pkm, email, location). Report `unknown` honestly until a
+  // real signal is passed in, instead of fabricating "Ready".
   return unknown(id, null, true);
 }
 
@@ -239,20 +237,32 @@ export function resolveCapabilitySetupState(
 
   if (id === "finance") return resolveFinance(inputs);
   if (id === "consent") return resolveConsent(inputs);
-  if (VAULT_GATED.has(id)) return resolveVaultGated(id, inputs);
   if (OAUTH_GATED.has(id)) return resolveOauthGated(id, inputs);
 
-  // Explore-only capabilities (email, location): no data to collect, so their
-  // "setup" is a one-time look. `not-started` ("Explore") until explored once,
-  // then `completed` ("Explored"). Declared via the catalog `isExploreOnly`
-  // flag so the set is explicit and testable.
-  if (getOneCapability(id)?.isExploreOnly === true) {
+  const capability = getOneCapability(id);
+
+  // Explore-only capabilities (e.g. consent fallthrough): no data to collect, so
+  // their "setup" is a one-time look. `not-started` ("Explore") until explored
+  // once, then `completed` ("Explored"). Declared via the catalog
+  // `isExploreOnly` flag so the set is explicit and testable.
+  if (capability?.isExploreOnly === true) {
     return resolveExploreOnly(id, inputs);
   }
 
-  // No backend setup gate and not declared explore-only: treat as usable once
-  // authenticated. Kept explicit so adding a real gate later is a deliberate
-  // change, not an accident.
+  // Vault-backed capabilities (finance handled separately above): their real
+  // configuration lives behind the encrypted vault. Without an unlocked vault we
+  // cannot read real state, so report `unknown` with the vault prerequisite
+  // rather than fabricating "Ready". Declared via the catalog `requiresVault`
+  // flag so the set is explicit and testable (finance, gmail, email, location,
+  // pkm, connected-systems). Note gmail/connected-systems are handled by the
+  // OAuth branch above, so this covers email, location, and pkm.
+  if (capability?.requiresVault === true) {
+    return resolveVaultGated(id, inputs);
+  }
+
+  // No backend setup gate and not declared explore-only or vault-backed: treat
+  // as usable once authenticated. Kept explicit so adding a real gate later is a
+  // deliberate change, not an accident.
   return simple(id, "completed");
 }
 

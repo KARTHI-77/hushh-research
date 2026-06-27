@@ -25,9 +25,9 @@ import { isPublicRoute } from "@/lib/navigation/routes";
  * does not redirect anonymous visitors of public links to /login.
  *
  * Guard order for private routes: authentication/vault -> phone mandate ->
- * root onboarding gate. OneOnboardingGuard hard-gates the whole /one/* surface:
- * a user who has not resolved the root onboarding flow can only reach
- * /one/setup or /one/onboarding (the guard allows those through); everything
+ * root setup gate. OneOnboardingGuard hard-gates the whole /one/* surface:
+ * a user who has not resolved the root setup flow can only reach
+ * /one/setup and its sub-routes (the guard allows those through); everything
  * else redirects to /one/setup until the gate is satisfied. It sits INSIDE the
  * public-route bypass so anonymous visitors of public links are never gated.
  */

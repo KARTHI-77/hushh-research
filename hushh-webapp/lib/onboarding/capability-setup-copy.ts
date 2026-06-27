@@ -11,9 +11,9 @@ import { buildOneSetupCapabilityRoute } from "@/lib/navigation/routes";
  * - `setupTitle` is an action-framed heading ("Set up your finances"), distinct
  *   from the catalog `title` ("Finance") used as the short label.
  * - `setupBlurb` explains the *value* of finishing the step in one sentence.
- * - `href` ALWAYS points at the onboarding-scoped handoff route
- *   (`/one/onboarding/<id>`). That route is allow-listed through the hard
- *   onboarding gate, so a first-time tap is never bounced back to `/one/setup`;
+ * - `href` ALWAYS points at the setup-scoped handoff route
+ *   (`/one/setup/<id>`). That route is allow-listed through the hard setup
+ *   gate, so a first-time tap is never bounced back to `/one/setup`;
  *   it resolves the gate and forwards to the canonical capability destination.
  */
 export interface CapabilitySetupCopy {
@@ -26,8 +26,8 @@ export interface CapabilitySetupCopy {
   setupBlurb: string;
   /**
    * Where "Set up" / "Explore" routes for this capability. Always the
-   * onboarding-scoped handoff route (`/one/onboarding/<id>`) so the hard
-   * onboarding gate never bounces a first-time tap.
+   * setup-scoped handoff route (`/one/setup/<id>`) so the hard setup gate
+   * never bounces a first-time tap.
    */
   href: string;
   /**
@@ -82,23 +82,17 @@ const SETUP_COPY_BY_ID: Record<
     setupTitle: "Let One draft for you",
     setupBlurb:
       "Set up email so One can prepare replies and approvals you can send with a tap.",
-    exploreTitle: "Here's your email workspace",
-    exploreBlurb:
-      "Nothing to set up. Take a quick look at what One can do for your inbox.",
-    exploreBullets: [
+    setupBullets: [
       "One drafts replies and approvals you can send with a tap.",
       "Everything stays a draft until you choose to send it.",
-      "Come back any time. You are always in control.",
+      "You are always in control of what goes out.",
     ],
   },
   location: {
     setupTitle: "Add live location",
     setupBlurb:
       "Share location when it helps so One can offer local context and referrals. You stay in control.",
-    exploreTitle: "Here's how location helps",
-    exploreBlurb:
-      "Nothing to set up. See what local context unlocks before you share anything.",
-    exploreBullets: [
+    setupBullets: [
       "Share your location only when it actually helps.",
       "One adds local context and referrals around you.",
       "Turn sharing off whenever you want.",

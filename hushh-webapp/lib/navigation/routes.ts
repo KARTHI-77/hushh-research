@@ -126,12 +126,16 @@ export function buildOneSetupCapabilityRoute(capabilityId: string): string {
 /**
  * Canonical post-handoff destination per capability. After the
  * `/one/setup/<id>` handoff records the capability signal, it forwards here.
- * Finance keeps using the existing guided wizard. Consent forwards to the
- * pending tab of the consent center. Anything not listed falls back to the
- * setup hub so a typo'd handoff is contained, never a hard 404.
+ * Finance forwards into the guided investor-preferences wizard
+ * (`/one/setup/kai`), which then chains persona -> portfolio import
+ * (`/one/kai/import`) -> dashboard. Sending finance straight to the dashboard
+ * orphaned the questionnaire and import, so the tile now opens the actual
+ * setup journey. Consent forwards to the pending tab of the consent center.
+ * Anything not listed falls back to the setup hub so a typo'd handoff is
+ * contained, never a hard 404.
  */
 export const CAPABILITY_HANDOFF_TARGETS: Readonly<Record<string, string>> = {
-  finance: ROUTES.KAI_HOME,
+  finance: ROUTES.ONE_SETUP_KAI,
   gmail: ROUTES.GMAIL,
   email: ROUTES.ONE_KYC,
   location: ROUTES.ONE_LOCATION,
@@ -266,9 +270,9 @@ export function buildKaiAnalysisPreviewRoute(entries?: {
 }
 
 /**
- * The `/one/setup` capability hub — the canonical onboarding entry. A fresh user
- * lands here; the investor-preferences wizard opens from the finance tile (which
- * still lives at `/one/onboarding`).
+ * The `/one/setup` capability hub — the canonical setup entry. A fresh user
+ * lands here; the investor-preferences wizard opens from the finance tile and
+ * lives at `/one/setup/kai`.
  */
 export function isOneSetupRoute(pathname: string): boolean {
   return (

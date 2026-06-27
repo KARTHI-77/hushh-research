@@ -109,7 +109,10 @@ describe("navigation routes", () => {
 
   it("resolves per-capability handoff targets, containing unknown ids to the hub", () => {
     expect(resolveCapabilityHandoffTarget("gmail")).toBe(ROUTES.GMAIL);
-    expect(resolveCapabilityHandoffTarget("finance")).toBe(ROUTES.KAI_HOME);
+    // Finance forwards into the investor-preferences WIZARD (questionnaire ->
+    // persona -> portfolio import), not straight to the dashboard, so the
+    // first-time finance journey is never orphaned from its setup steps.
+    expect(resolveCapabilityHandoffTarget("finance")).toBe(ROUTES.ONE_SETUP_KAI);
     expect(resolveCapabilityHandoffTarget("email")).toBe(ROUTES.ONE_KYC);
     expect(resolveCapabilityHandoffTarget("location")).toBe(ROUTES.ONE_LOCATION);
     expect(resolveCapabilityHandoffTarget("pkm")).toBe(ROUTES.PKM);

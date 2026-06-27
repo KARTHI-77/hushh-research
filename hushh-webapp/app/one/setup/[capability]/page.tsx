@@ -6,11 +6,13 @@ import { useRouter } from "next/navigation";
 import { HushhLoader } from "@/components/app-ui/hushh-loader";
 import { OnboardingCapabilityStep } from "@/components/onboarding/setup/onboarding-capability-step";
 import { useAuth } from "@/lib/firebase/auth-context";
+import { useVault } from "@/lib/vault/vault-context";
 import { getOneCapability } from "@/lib/onboarding/one-capabilities";
 import { CapabilityTourService } from "@/lib/services/capability-tour-service";
 import { OneSetupGateService } from "@/lib/services/one-setup-gate-service";
 import { PreVaultUserStateService } from "@/lib/services/pre-vault-user-state-service";
 import {
+  buildOneSetupCapabilityRoute,
   resolveCapabilityHandoffTarget,
   ROUTES,
 } from "@/lib/navigation/routes";
@@ -42,10 +44,28 @@ export default function OneOnboardingCapabilityPage({
   const { capability: capabilityId } = use(params);
   const router = useRouter();
   const { user } = useAuth();
+  const { isVaultUnlocked } = useVault();
   const [busy, setBusy] = useState(false);
 
   const capability = getOneCapability(capabilityId);
-  const target = resolveCapabilityHandoffTarget(capabilityId);
+  // The step collects nothing and renders pre-vault, but if this capability's
+  // workspace reads vault-backed data and the vault is currently locked, set the
+  // honest "you'll unlock next" expectation. The destination guard owns the
+  // actual unlock prompt.
+  const needsVaultUnlock =
+    capability?.requiresVault === true && !isVaultUnlocked;
+  // Forward target for this capability. When the destination is the
+  // investor-preferences WIZARD (`/one/setup/kai`, used by finance), append a
+  // `from` marker so `OneOnboardingGuard` treats the visit as an intentional
+  // re-entry and does NOT bounce a user who has already resolved the gate. The
+  // wizard reads `from` for its own back affordance too.
+  const handoffTarget = resolveCapabilityHandoffTarget(capabilityId);
+  const target =
+    handoffTarget === ROUTES.ONE_SETUP_KAI
+      ? `${handoffTarget}?from=${encodeURIComponent(
+          buildOneSetupCapabilityRoute(capabilityId),
+        )}`
+      : handoffTarget;
 
   // Unknown capability: contain to the hub, never a hard 404.
   useEffect(() => {
@@ -110,6 +130,7 @@ export default function OneOnboardingCapabilityPage({
       onPrimary={handlePrimary}
       onBack={handleBack}
       busy={busy}
+      needsVaultUnlock={needsVaultUnlock}
     />
   );
 }

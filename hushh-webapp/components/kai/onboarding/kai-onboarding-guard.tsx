@@ -73,6 +73,18 @@ export function OneOnboardingGuard({ children }: { children: React.ReactNode }) 
     const preserveOnboardingAuditRoute =
       nativeTestConfig.enabled &&
       nativeTestConfig.expectedRoute === ROUTES.ONE_SETUP_KAI;
+    // Intentional re-entry: a resolved user who deliberately reopens the
+    // investor-preferences wizard (e.g. tapping the Finance tile from the setup
+    // hub, which forwards with a `from` param, or an explicit `edit=1`) must NOT
+    // be bounced home. Only the *automatic* post-completion bounce is suppressed
+    // here; first-run gating is unchanged.
+    const wizardReentryRequested = (() => {
+      if (typeof window === "undefined") return false;
+      const params = new URLSearchParams(window.location.search);
+      return params.has("from") || params.get("edit") === "1";
+    })();
+    const suppressWizardBounce =
+      preserveOnboardingAuditRoute || wizardReentryRequested;
 
     async function run() {
       if (authLoading) return;
@@ -146,7 +158,7 @@ export function OneOnboardingGuard({ children }: { children: React.ReactNode }) 
           }
 
           if (!onboardingIncomplete && onOnboardingWizardRoute) {
-            if (!preserveOnboardingAuditRoute) {
+            if (!suppressWizardBounce) {
               router.replace(ROUTES.ONE_HOME);
               return;
             }
@@ -182,7 +194,7 @@ export function OneOnboardingGuard({ children }: { children: React.ReactNode }) 
             return;
           }
           if (onboardingResolved && onOnboardingWizardRoute) {
-            if (!preserveOnboardingAuditRoute) {
+            if (!suppressWizardBounce) {
               router.replace(ROUTES.ONE_HOME);
               return;
             }
@@ -257,7 +269,7 @@ export function OneOnboardingGuard({ children }: { children: React.ReactNode }) 
         }
 
         if (!onboardingIncomplete && onOnboardingWizardRoute) {
-          if (!preserveOnboardingAuditRoute) {
+          if (!suppressWizardBounce) {
             router.replace(ROUTES.ONE_HOME);
             return;
           }
