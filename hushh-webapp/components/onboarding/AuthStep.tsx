@@ -643,7 +643,7 @@ export function AuthStep({
             <button
               type="button"
               onClick={() => openLegalDoc("terms")}
-              className="font-semibold text-[#0066cc] transition-opacity hover:opacity-70 dark:text-[#2997ff]"
+              className="font-semibold text-[#b8894d] transition-opacity hover:opacity-70 dark:text-[#d4a574]"
             >
               Terms
             </button>{" "}
@@ -651,7 +651,7 @@ export function AuthStep({
             <button
               type="button"
               onClick={() => openLegalDoc("privacy")}
-              className="font-semibold text-[#0066cc] transition-opacity hover:opacity-70 dark:text-[#2997ff]"
+              className="font-semibold text-[#b8894d] transition-opacity hover:opacity-70 dark:text-[#d4a574]"
             >
               Privacy Policy
             </button>

@@ -107,13 +107,13 @@ const INTRO_FEATURES: Array<{
     icon: FinanceCapabilityIcon,
     title: "Finance, made personal",
     subtitle: "Track and act on your money with Kai",
-    tone: "green",
+    tone: "blue",
   },
   {
     icon: InboxCapabilityIcon,
     title: "Connect Gmail and more",
     subtitle: "One works across your apps, with consent",
-    tone: "orange",
+    tone: "blue",
   },
 ];
 
