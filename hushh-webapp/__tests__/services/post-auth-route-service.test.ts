@@ -53,7 +53,7 @@ describe("PostAuthRouteService", () => {
     getPersonaStateMock.mockRejectedValue(new Error("persona not requested"));
   });
 
-  it("routes vault users with unresolved onboarding to onboarding", async () => {
+  it("routes vault users with unresolved onboarding to the setup hub", async () => {
     bootstrapStateMock.mockResolvedValue({
       hasVault: true,
       preOnboardingCompleted: false,
@@ -62,7 +62,7 @@ describe("PostAuthRouteService", () => {
 
     await expect(
       PostAuthRouteService.resolveAfterLogin({ userId: "user_123" })
-    ).resolves.toBe(ROUTES.ONE_ONBOARDING);
+    ).resolves.toBe(ROUTES.ONE_SETUP);
   });
 
   it("keeps vault users on the requested route when onboarding is resolved", async () => {
@@ -123,7 +123,7 @@ describe("PostAuthRouteService", () => {
     expect(updatePreVaultStateMock).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps interrupted pre-vault onboarding on the setup route after restart", async () => {
+  it("keeps interrupted pre-vault onboarding on the setup hub after restart", async () => {
     bootstrapStateMock.mockResolvedValue({
       hasVault: false,
       preOnboardingCompleted: null,
@@ -146,7 +146,7 @@ describe("PostAuthRouteService", () => {
         userId: "user_123",
         phoneNumber: "+16505550101",
       })
-    ).resolves.toBe(ROUTES.ONE_ONBOARDING);
+    ).resolves.toBe(ROUTES.ONE_SETUP);
     expect(updatePreVaultStateMock).not.toHaveBeenCalled();
   });
 
@@ -173,7 +173,7 @@ describe("PostAuthRouteService", () => {
         userId: "user_123",
         phoneNumber: "+16505550101",
       })
-    ).resolves.toBe(ROUTES.ONE_ONBOARDING);
+    ).resolves.toBe(ROUTES.ONE_SETUP);
     expect(updatePreVaultStateMock).not.toHaveBeenCalled();
   });
 
@@ -219,7 +219,7 @@ describe("PostAuthRouteService", () => {
         userId: "user_123",
         phoneNumber: null,
       })
-    ).resolves.toBe(buildPhoneMandateRoute(ROUTES.ONE_ONBOARDING));
+    ).resolves.toBe(buildPhoneMandateRoute(ROUTES.ONE_SETUP));
   });
 
   it("routes no-vault users without a verified phone to the phone mandate before home", async () => {
@@ -482,7 +482,7 @@ describe("PostAuthRouteService", () => {
       ).resolves.toBe(ROUTES.KAI_PORTFOLIO);
     });
 
-    it("does not gate a user with unresolved onboarding", async () => {
+    it("routes a user with unresolved onboarding straight to the setup hub", async () => {
       bootstrapStateMock.mockResolvedValue({
         hasVault: true,
         preOnboardingCompleted: false,
@@ -495,7 +495,7 @@ describe("PostAuthRouteService", () => {
           phoneVerified: true,
           enableFirstRunSetupGate: true,
         })
-      ).resolves.toBe(ROUTES.ONE_ONBOARDING);
+      ).resolves.toBe(ROUTES.ONE_SETUP);
     });
   });
 });

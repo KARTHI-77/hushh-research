@@ -12,7 +12,9 @@ import {
 import { shouldRequirePhoneMandate } from "@/lib/services/phone-mandate-service";
 import type { PreVaultOnboardingAnswers } from "@/lib/services/pre-vault-onboarding-service";
 
-const PRE_VAULT_ROUTE = ROUTES.ONE_ONBOARDING;
+// Unresolved-onboarding users land on the canonical `/one/setup` capability hub
+// (the investor-preferences wizard opens from the hub's finance tile).
+const PRE_VAULT_ROUTE = ROUTES.ONE_SETUP;
 const DEFAULT_HOME_ROUTE = ROUTES.ONE_HOME;
 const NO_VAULT_DEFAULT_ROUTE = ROUTES.ONE_HOME;
 

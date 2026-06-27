@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, type LucideIcon } from "lucide-react";
+import { ListChecks, type LucideIcon } from "lucide-react";
 
 import {
   AppPageContentRegion,
@@ -13,8 +13,11 @@ import { PageHeader } from "@/components/app-ui/page-sections";
 import { Button } from "@/components/ui/button";
 import { CapabilitySetupTile } from "@/components/onboarding/setup/capability-setup-tile";
 import { useAuth } from "@/lib/firebase/auth-context";
+import { useVault } from "@/lib/vault/vault-context";
 import { ROUTES } from "@/lib/navigation/routes";
+import { KaiProfileService } from "@/lib/services/kai-profile-service";
 import { OneSetupGateService } from "@/lib/services/one-setup-gate-service";
+import { PreVaultUserStateService } from "@/lib/services/pre-vault-user-state-service";
 import {
   CAPABILITY_SETUP_COPY,
   type CapabilitySetupCopy,
@@ -26,6 +29,7 @@ import {
 import { useCapabilitySetupStates } from "@/lib/onboarding/use-capability-setup-states";
 import {
   isCapabilitySetupActionable,
+  isCapabilitySetupComplete,
   type CapabilityStatus,
 } from "@/lib/services/capability-setup-state-service";
 import { cn } from "@/lib/utils";
@@ -49,23 +53,64 @@ import { cn } from "@/lib/utils";
 export function OneSetupHub() {
   const router = useRouter();
   const { user } = useAuth();
+  const { vaultKey, vaultOwnerToken, isVaultUnlocked } = useVault();
   const { byId, isLoading } = useCapabilitySetupStates({
     enrichVault: true,
     enrichOauth: true,
   });
+  const [dismissing, setDismissing] = useState(false);
 
-  const handleNotNow = () => {
-    if (user?.uid) {
-      OneSetupGateService.markSeen(user.uid);
+  // "Not now" must SATISFY the root onboarding gate (skip-resolved), not just
+  // record a soft "seen" flag. Otherwise the hard gate on /one/* would bounce
+  // the user straight back to /one/setup. We mark the server pre-vault gate
+  // resolved-skipped (authoritative for the gate and PostAuthRouteService); when
+  // the vault is unlocked we also flip the vault profile so the unlocked path
+  // agrees. Both are awaited before navigating so the gate is consistent on the
+  // very next route resolve. Failures stay fail-open (we still navigate home).
+  const handleNotNow = async () => {
+    if (dismissing) return;
+    if (!user?.uid) {
+      router.push(ROUTES.ONE_HOME);
+      return;
     }
-    router.push(ROUTES.ONE_HOME);
+    setDismissing(true);
+    try {
+      await PreVaultUserStateService.syncKaiOnboardingState({
+        userId: user.uid,
+        completed: true,
+        skipped: true,
+      });
+      if (isVaultUnlocked && vaultKey && vaultOwnerToken) {
+        await KaiProfileService.setOnboardingCompleted({
+          userId: user.uid,
+          vaultKey,
+          vaultOwnerToken,
+          skippedPreferences: true,
+        }).catch((error) => {
+          console.warn(
+            "[OneSetupHub] Failed to mark vault profile onboarding skipped:",
+            error,
+          );
+        });
+      }
+      OneSetupGateService.markSeen(user.uid);
+    } catch (error) {
+      console.warn("[OneSetupHub] Failed to resolve onboarding on Not now:", error);
+    } finally {
+      setDismissing(false);
+      router.push(ROUTES.ONE_HOME);
+    }
   };
 
   const items = useMemo(() => buildSetupItems(byId), [byId]);
 
   const total = items.length;
-  const remaining = items.filter((item) => item.isActionable).length;
-  const done = total - remaining;
+  // "Ready" counts only GENUINELY set-up capabilities (completed/skipped). A
+  // tile that still needs a connection or an unlock (blocked/unknown) is NOT
+  // ready, even though it is not directly tappable-into-setup — so we never
+  // count it as done. Everything that is not complete is "left to set up".
+  const done = items.filter((item) => isCapabilitySetupComplete(item.status)).length;
+  const remaining = total - done;
   const allReady = total > 0 && remaining === 0;
 
   const summary = isLoading
@@ -91,14 +136,15 @@ export function OneSetupHub() {
           eyebrow="Set up One"
           title={allReady ? "You're all set" : "Finish setting up One"}
           description={summary}
-          icon={Sparkles}
+          icon={ListChecks}
           accent="neutral"
           actions={
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              onClick={handleNotNow}
+              disabled={dismissing}
+              onClick={() => void handleNotNow()}
               data-testid="one-setup-not-now"
             >
               Not now

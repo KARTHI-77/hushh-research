@@ -233,7 +233,23 @@ export function buildKaiAnalysisPreviewRoute(entries?: {
   });
 }
 
-export function isOneOnboardingRoute(pathname: string): boolean {
+/**
+ * The `/one/setup` capability hub — the canonical onboarding entry. A fresh user
+ * lands here; the investor-preferences wizard opens from the finance tile (which
+ * still lives at `/one/onboarding`).
+ */
+export function isOneSetupRoute(pathname: string): boolean {
+  return (
+    pathname === ROUTES.ONE_SETUP || pathname.startsWith(`${ROUTES.ONE_SETUP}/`)
+  );
+}
+
+/**
+ * The investor-preferences wizard route. Distinct from {@link isOneSetupRoute}
+ * because the wizard is a sub-step opened from the setup hub, while the hub is
+ * the root onboarding surface.
+ */
+export function isOneOnboardingWizardRoute(pathname: string): boolean {
   return (
     pathname === ROUTES.ONE_ONBOARDING ||
     pathname.startsWith(`${ROUTES.ONE_ONBOARDING}/`) ||
@@ -242,6 +258,16 @@ export function isOneOnboardingRoute(pathname: string): boolean {
     pathname === ROUTES.LEGACY_KAI_ONBOARDING ||
     pathname.startsWith(`${ROUTES.LEGACY_KAI_ONBOARDING}/`)
   );
+}
+
+/**
+ * True for any route in the One onboarding surface: the canonical `/one/setup`
+ * hub OR the investor-preferences wizard at `/one/onboarding`. Guards and chrome
+ * use this so both the hub and the wizard render onboarding chrome and are
+ * allowed through the onboarding gate while the root flow is unresolved.
+ */
+export function isOneOnboardingRoute(pathname: string): boolean {
+  return isOneSetupRoute(pathname) || isOneOnboardingWizardRoute(pathname);
 }
 
 export const isKaiOnboardingRoute = isOneOnboardingRoute;

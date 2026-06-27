@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   isCapabilitySetupActionable,
+  isCapabilitySetupComplete,
   resolveAllCapabilitySetupStates,
   resolveCapabilitySetupState,
   shouldSkipCapabilityStep,
@@ -25,6 +26,7 @@ function makePreVaultState(overrides: Partial<PreVaultUserState> = {}): PreVault
     preNavTourCompletedAt: null,
     preNavTourSkippedAt: null,
     preStateUpdatedAt: null,
+    phoneVerified: null,
     ...overrides,
   };
 }
@@ -238,5 +240,18 @@ describe("skip-vs-continue semantics", () => {
     expect(isCapabilitySetupActionable({ id: "x", state: "in-progress", pendingCount: 0, prerequisite: null, requiresUnlock: false })).toBe(true);
     expect(isCapabilitySetupActionable({ id: "x", state: "needs-attention", pendingCount: 2, prerequisite: null, requiresUnlock: false })).toBe(true);
     expect(isCapabilitySetupActionable({ id: "x", state: "completed", pendingCount: 0, prerequisite: null, requiresUnlock: false })).toBe(false);
+  });
+
+  it("counts only completed/skipped as genuinely set up", () => {
+    expect(isCapabilitySetupComplete({ id: "x", state: "completed", pendingCount: 0, prerequisite: null, requiresUnlock: false })).toBe(true);
+    expect(isCapabilitySetupComplete({ id: "x", state: "skipped", pendingCount: 0, prerequisite: null, requiresUnlock: false })).toBe(true);
+  });
+
+  it("never counts blocked or unknown as set up (they still need the user)", () => {
+    // The bug behind "5 of 7 ready" on a fresh account: blocked (needs an OAuth
+    // connection) and unknown (needs a vault unlock) must NOT read as ready.
+    expect(isCapabilitySetupComplete({ id: "x", state: "blocked", pendingCount: 0, prerequisite: "oauth", requiresUnlock: false })).toBe(false);
+    expect(isCapabilitySetupComplete({ id: "x", state: "unknown", pendingCount: 0, prerequisite: "vault", requiresUnlock: true })).toBe(false);
+    expect(isCapabilitySetupComplete({ id: "x", state: "not-started", pendingCount: 0, prerequisite: null, requiresUnlock: false })).toBe(false);
   });
 });

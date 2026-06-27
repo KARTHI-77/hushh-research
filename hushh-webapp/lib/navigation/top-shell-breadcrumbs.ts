@@ -10,6 +10,14 @@ export type TopShellBreadcrumbConfig = {
   items: TopShellBreadcrumbItem[];
   width?: "content" | "profile";
   align?: "start" | "center";
+  /**
+   * Suppress the top-bar back button for this route while keeping the rest of
+   * the breadcrumb/title chrome. Used by the onboarding entry screen: until the
+   * user has explicitly skipped or continued into a step, there is no confirmed
+   * "previous" destination (back-before-/one would be logically wrong), so we
+   * show no back affordance at all.
+   */
+  hideBack?: boolean;
 };
 
 function titleizeSegment(segment: string): string {
@@ -145,6 +153,10 @@ export function resolveTopShellBreadcrumb(
       backHref: originHref || ROUTES.ONE_HOME,
       width: "content",
       align: "center",
+      // No back button on the onboarding entry screen: the user has not yet
+      // skipped or continued, so there is no logically-confirmed destination to
+      // go back to (navigating before /one would bypass the unfinished flow).
+      hideBack: true,
       items: [
         { label: "One", href: ROUTES.ONE_HOME },
         { label: "Setup" },

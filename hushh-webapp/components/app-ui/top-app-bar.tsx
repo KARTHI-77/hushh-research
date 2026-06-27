@@ -47,7 +47,7 @@ import {
   APP_SHELL_FRAME_CLASSNAME,
   APP_SHELL_FRAME_STYLE,
 } from "@/components/app-ui/app-page-shell";
-import { ThemeToggleCompact } from "@/components/theme-toggle";
+import { ThemeToggleLean } from "@/components/theme-toggle";
 import { Icon } from "@/lib/morphy-ux/ui";
 import {
   DropdownMenu,
@@ -402,6 +402,15 @@ export function TopAppBar({ className }: TopAppBarProps) {
         return;
       }
 
+      // The top app bar mounts on nearly every page, so read the shared
+      // vault-presence cache synchronously first to avoid a per-route refetch
+      // while locked. Only hit the network on a cold cache.
+      const cachedPresence = VaultService.peekVaultPresence(user.uid);
+      if (cachedPresence !== null) {
+        setHasVault(cachedPresence);
+        return;
+      }
+
       try {
         const exists = await VaultService.checkVault(user.uid);
         if (!cancelled) {
@@ -596,7 +605,7 @@ export function TopAppBar({ className }: TopAppBarProps) {
                 style={{ width: "var(--top-bar-side-w)" }}
               >
                 <div className="pointer-events-auto flex h-11 w-11 items-center justify-center">
-                  {topShellBreadcrumb ? (
+                  {topShellBreadcrumb && !topShellBreadcrumb.hideBack ? (
                     <ShellActionSurface
                       variant="icon"
                       aria-label="Go back"
@@ -874,7 +883,7 @@ function OnboardingRouteActions() {
 
   return (
     <>
-      <ThemeToggleCompact className={TOP_SHELL_ICON_BUTTON_CLASSNAME} />
+      <ThemeToggleLean size="expanded" />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <ShellActionSurface

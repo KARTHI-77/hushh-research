@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { morphyToast as toast } from "@/lib/morphy-ux/morphy";
 
@@ -32,6 +32,7 @@ import { useVault } from "@/lib/vault/vault-context";
 import { usePersonaState } from "@/lib/persona/persona-context";
 import {
   buildOneOnboardingRoute,
+  buildOneSetupRoute,
   normalizeInternalRouteHref,
   ROUTES,
 } from "@/lib/navigation/routes";
@@ -43,21 +44,8 @@ import { trackEvent } from "@/lib/observability/client";
 import { trackGrowthFunnelStepCompleted } from "@/lib/observability/growth";
 import { Card } from "@/lib/morphy-ux/card";
 import { Button } from "@/lib/morphy-ux/button";
-import {
-  AlertTriangle,
-  BrainCircuit,
-  KeyRound,
-  Mail,
-  UserRound,
-  WalletCards,
-} from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { useNativeTestConfig } from "@/lib/testing/native-test";
-import {
-  kaiAppBodyClassName,
-  kaiAppCardTitleClassName,
-  kaiAppDisplayTitleClassName,
-  kaiAppEyebrowClassName,
-} from "@/components/kai/shared/kai-typography";
 
 type Stage = "loading" | "entry" | "wizard" | "persona";
 type OnboardingSource = "pre_vault" | "vault";
@@ -96,133 +84,13 @@ function computePersona(answers: WizardAnswers, explicit?: RiskProfile | null): 
   return score === null ? "balanced" : mapRiskProfile(score);
 }
 
-function SetupCard({
-  eyebrow,
-  title,
-  description,
-  actionLabel,
-  icon,
-  disabled = false,
-  onClick,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  actionLabel: string;
-  icon: ReactNode;
-  disabled?: boolean;
-  onClick?: () => void;
-}) {
-  return (
-    <Card
-      preset="hero"
-      variant="none"
-      effect="glass"
-      showRipple={!disabled}
-      interactive={!disabled}
-      className="transition-[border-color,background-color,box-shadow,transform] enabled:hover:!-translate-y-0.5 enabled:hover:!border-primary/30 disabled:opacity-60"
-    >
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={onClick}
-        className="flex h-full min-h-[138px] w-full flex-col justify-between gap-4 p-5 text-left disabled:cursor-not-allowed"
-      >
-        <span className="flex items-start gap-3">
-          <span className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
-            {icon}
-          </span>
-          <span className="min-w-0 space-y-2">
-            <span className="block text-[10.5px] font-medium uppercase tracking-[0.16em] text-primary/75">
-              {eyebrow}
-            </span>
-            <span
-              role="heading"
-              aria-level={2}
-              className={`${kaiAppCardTitleClassName} block text-foreground`}
-            >
-              {title}
-            </span>
-            <span className="block max-w-[28rem] text-[14px] font-normal leading-[1.45] tracking-normal text-muted-foreground">
-              {description}
-            </span>
-          </span>
-        </span>
-        <span className="inline-flex h-9 w-fit items-center rounded-full bg-primary px-4 text-[13.5px] font-medium text-primary-foreground shadow-[0_12px_26px_-18px_rgba(0,113,227,0.75)] disabled:bg-muted">
-          {actionLabel}
-        </span>
-      </button>
-    </Card>
-  );
-}
-
-function MemoryImportComingSoonCard() {
-  return (
-    <Card
-      preset="hero"
-      variant="none"
-      effect="glass"
-      showRipple={false}
-      className="opacity-75"
-    >
-      <div className="flex h-full min-h-[158px] w-full flex-col justify-between gap-4 p-5 text-left">
-        <span className="flex items-start gap-3">
-          <span className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
-            <BrainCircuit className="h-5 w-5" />
-          </span>
-          <span className="min-w-0 space-y-2">
-            <span className="block text-[10.5px] font-medium uppercase tracking-[0.16em] text-primary/75">
-              Memory import
-            </span>
-            <span
-              role="heading"
-              aria-level={2}
-              className={`${kaiAppCardTitleClassName} block text-foreground`}
-            >
-              Import memory
-            </span>
-            <span className="block max-w-[28rem] text-[14px] font-normal leading-[1.45] tracking-normal text-muted-foreground">
-              Import memory as a whole from ChatGPT or Claude when this connector is ready.
-            </span>
-          </span>
-        </span>
-        <span className="grid gap-2 sm:grid-cols-2">
-          <button
-            type="button"
-            disabled
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 text-[13px] font-medium text-muted-foreground disabled:cursor-not-allowed"
-          >
-            <span className="grid h-5 w-5 place-items-center rounded-full border border-border/70 text-[10px] font-semibold">
-              G
-            </span>
-            Continue with ChatGPT
-          </button>
-          <button
-            type="button"
-            disabled
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 text-[13px] font-medium text-muted-foreground disabled:cursor-not-allowed"
-          >
-            <span className="grid h-5 w-5 place-items-center rounded-full border border-border/70 text-[10px] font-semibold">
-              C
-            </span>
-            Continue with Claude
-          </button>
-        </span>
-        <span className="text-[12px] font-medium text-muted-foreground">
-          Coming soon
-        </span>
-      </div>
-    </Card>
-  );
-}
-
 function KaiOnboardingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nativeTestConfig = useNativeTestConfig();
   const { user, loading: authLoading } = useAuth();
   const { vaultKey, vaultOwnerToken, isVaultUnlocked } = useVault();
-  const { activePersona, loading: personaLoading, riaCapability, switchPersona } = usePersonaState();
+  const { activePersona, loading: personaLoading, riaCapability } = usePersonaState();
 
   const [source, setSource] = useState<OnboardingSource | null>(null);
   const [stage, setStage] = useState<Stage>("loading");
@@ -230,7 +98,6 @@ function KaiOnboardingPageContent() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [profile, setProfile] = useState<KaiProfileV2 | null>(null);
   const [preVaultState, setPreVaultState] = useState<PreVaultOnboardingState | null>(null);
-  const [setupAcknowledgement, setSetupAcknowledgement] = useState<"complete" | "skipped" | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
   const onboardingStartedRef = useRef(false);
   const inviteToken = searchParams.get("invite");
@@ -238,7 +105,6 @@ function KaiOnboardingPageContent() {
     () => normalizeInternalRouteHref(searchParams.get("from")),
     [searchParams],
   );
-  const onboardingReturnHref = onboardingFromHref || ROUTES.ONE_HOME;
   const onboardingSelfHref = useMemo(
     () => buildOneOnboardingRoute({ from: onboardingFromHref, invite: inviteToken }),
     [inviteToken, onboardingFromHref],
@@ -266,7 +132,6 @@ function KaiOnboardingPageContent() {
       try {
         setLoadError(null);
         setStage("loading");
-        setSetupAcknowledgement(null);
 
         const hasVault = await VaultService.checkVault(user.uid);
         if (cancelled) return;
@@ -280,7 +145,6 @@ function KaiOnboardingPageContent() {
           if (onboardingResolved) {
             setOnboardingRequiredCookie(false);
             setOnboardingFlowActiveCookie(false);
-            setSetupAcknowledgement(remoteState.preOnboardingSkipped ? "skipped" : "complete");
           } else {
             setOnboardingRequiredCookie(true);
             setOnboardingFlowActiveCookie(false);
@@ -293,9 +157,15 @@ function KaiOnboardingPageContent() {
             router.replace(ROUTES.RIA_HOME);
             return;
           }
-          // Always start from the questionnaire flow on reload until onboarding is completed.
-          // We keep draft answers, but do not auto-jump to persona.
-          setStage(!onboardingResolved && pending ? "wizard" : "entry");
+          // The investor-preferences wizard renders here only when the root flow
+          // is unresolved and a draft exists; otherwise the canonical surface is
+          // the `/one/setup` capability hub, so we redirect there instead of
+          // showing the legacy entry hub.
+          if (!onboardingResolved && pending) {
+            setStage("wizard");
+          } else {
+            router.replace(buildOneSetupRoute({ from: onboardingFromHref }));
+          }
           return;
         }
 
@@ -317,18 +187,19 @@ function KaiOnboardingPageContent() {
         setProfile(nextProfile);
         const completion = resolveKaiOnboardingCompletion(nextProfile);
         if (completion.completed) {
-          setSetupAcknowledgement(completion.skippedPreferences ? "skipped" : "complete");
           void PreVaultUserStateService.syncKaiOnboardingState({
             userId: user.uid,
             completed: true,
             skipped: completion.skippedPreferences,
             completedAt: completion.completedAt,
           }).catch((syncError) => {
-            console.warn("[KaiOnboardingPage] Failed vault->remote onboarding bridge:", syncError);
+            console.warn("[OneOnboardingPage] Failed vault->remote onboarding bridge:", syncError);
           });
           setOnboardingRequiredCookie(false);
           setOnboardingFlowActiveCookie(false);
-          setStage("entry");
+          // Onboarding is complete; the canonical surface is the `/one/setup`
+          // hub rather than the legacy entry acknowledgement screen.
+          router.replace(buildOneSetupRoute({ from: onboardingFromHref }));
           return;
         }
 
@@ -337,7 +208,7 @@ function KaiOnboardingPageContent() {
         // Always return to the questionnaire until the onboarding completion flag is set.
         setStage("wizard");
       } catch (error) {
-        console.warn("[KaiOnboardingPage] Failed to load onboarding:", error);
+        console.warn("[OneOnboardingPage] Failed to load onboarding:", error);
         if (!cancelled) {
           setLoadError("Couldn't load onboarding state. Please retry.");
           setStage("loading");
@@ -363,8 +234,8 @@ function KaiOnboardingPageContent() {
     router,
     retryNonce,
     preserveOnboardingAuditRoute,
-    onboardingReturnHref,
     onboardingSelfHref,
+    onboardingFromHref,
   ]);
 
   const wizardAnswers: WizardAnswers = useMemo(() => {
@@ -386,87 +257,6 @@ function KaiOnboardingPageContent() {
       source,
     });
   }, [source, stage]);
-
-  async function completeSetupAsSkipped(
-    destination: string = onboardingReturnHref,
-    options?: {
-      flowActive?: boolean;
-      toastMessage?: string;
-    },
-  ) {
-    if (saving) return;
-    if (!user) {
-      router.replace(ROUTES.LOGIN);
-      return;
-    }
-
-    try {
-      setSaving(true);
-      if (source === "vault") {
-        if (!vaultKey || !vaultOwnerToken) {
-          toast.error("Unlock your vault to continue.");
-          return;
-        }
-        const nextProfile = await KaiProfileService.setOnboardingCompleted({
-          userId: user.uid,
-          vaultKey,
-          vaultOwnerToken,
-          skippedPreferences: true,
-        });
-        void PreVaultUserStateService.syncKaiOnboardingState({
-          userId: user.uid,
-          completed: true,
-          skipped: true,
-          completedAt: nextProfile.onboarding.completed_at,
-        }).catch((syncError) => {
-          console.warn(
-            "[KaiOnboardingPage] Failed vault->remote onboarding bridge after skip:",
-            syncError
-          );
-        });
-        setProfile(nextProfile);
-      } else {
-        const completedAt = Date.now();
-        await PreVaultUserStateService.updatePreVaultState(user.uid, {
-          preOnboardingCompleted: true,
-          preOnboardingSkipped: true,
-          preOnboardingCompletedAt: completedAt,
-        });
-        const nextState = await PreVaultOnboardingService.markCompleted(user.uid, {
-          skipped: true,
-          answers: wizardAnswers,
-          risk_score: preVaultState?.risk_score ?? null,
-          risk_profile: preVaultState?.risk_profile ?? null,
-        });
-        setPreVaultState(nextState);
-      }
-
-      toast.info(options?.toastMessage || "Setup skipped. You can come back anytime.");
-      setOnboardingRequiredCookie(false);
-      setOnboardingFlowActiveCookie(Boolean(options?.flowActive));
-      setSetupAcknowledgement("skipped");
-      trackEvent("onboarding_completed", {
-        action: "skip",
-        result: "success",
-      });
-      trackGrowthFunnelStepCompleted({
-        journey: "investor",
-        step: "onboarding_completed",
-        dedupeKey: "growth:investor:onboarding_completed:skip",
-        dedupeWindowMs: 5_000,
-      });
-      router.replace(destination);
-    } catch (error) {
-      console.error("[KaiOnboardingPage] Skip failed:", error);
-      trackEvent("onboarding_completed", {
-        action: "skip",
-        result: "error",
-      });
-      toast.error("Couldn't skip setup. Please retry.");
-    } finally {
-      setSaving(false);
-    }
-  }
 
   if (authLoading) {
     return <HushhLoader label="Loading onboarding..." variant="fullscreen" />;
@@ -538,158 +328,13 @@ function KaiOnboardingPageContent() {
   }
 
   if (stage === "entry") {
-    return (
-      <div
-        data-top-content-anchor="true"
-        className="mx-auto flex min-h-[calc(100dvh_-_var(--top-content-pad))] w-full max-w-[40rem] items-start px-5 pb-8 pt-[calc(var(--top-content-pad)_+_0.25rem)] sm:px-6 lg:px-[var(--page-inline-gutter-standard)]"
-      >
-        <NativeTestBeacon
-          routeId={ROUTES.ONE_ONBOARDING}
-          marker="native-route-kai-onboarding"
-          authState={user ? "authenticated" : "pending"}
-          dataState="loaded"
-        />
-        <div className="w-full space-y-5">
-          <div className="mx-auto max-w-[34rem] space-y-2.5 text-left">
-            <p className={`${kaiAppEyebrowClassName} text-primary/75`}>
-              Optional setup
-            </p>
-            {setupAcknowledgement ? (
-              <span className="inline-flex h-7 w-fit items-center rounded-full border border-border/70 bg-background/70 px-3 text-[12px] font-medium text-muted-foreground">
-                {setupAcknowledgement === "complete" ? "Setup acknowledged" : "Setup skipped"}
-              </span>
-            ) : null}
-            <div
-              role="heading"
-              aria-level={1}
-              className={`${kaiAppDisplayTitleClassName} text-foreground`}
-            >
-              Set up One at your pace
-            </div>
-            <p className={`max-w-[30rem] ${kaiAppBodyClassName} text-muted-foreground`}>
-              These steps help One prepare your finance workspace. Start with one, or skip now and
-              return when you are ready.
-            </p>
-          </div>
-
-          <div className="mx-auto grid w-full max-w-[34rem] items-stretch gap-3.5">
-            <SetupCard
-              eyebrow="Preferences"
-              title="Investor preferences"
-              description="Answer three quick questions so Kai can tune risk, time horizon, and volatility language."
-              actionLabel="Answer questions"
-              icon={<UserRound className="h-5 w-5" />}
-              disabled={saving}
-              onClick={async () => {
-                if (saving) return;
-                try {
-                  setSaving(true);
-                  const nextState =
-                    preVaultState || (await PreVaultOnboardingService.saveDraft(user.uid, {}));
-                  setPreVaultState(nextState);
-                  setStage("wizard");
-                  trackEvent("onboarding_step_completed", {
-                    action: "persona",
-                    result: "success",
-                  });
-                } catch (error) {
-                  console.error("[KaiOnboardingPage] Failed to start investor onboarding:", error);
-                  trackEvent("onboarding_step_completed", {
-                    action: "persona",
-                    result: "error",
-                  });
-                  toast.error("Couldn't start investor setup. Please retry.");
-                } finally {
-                  setSaving(false);
-                }
-              }}
-            />
-
-            <SetupCard
-              eyebrow="Finance"
-              title="Connect portfolio"
-              description="Bring in holdings when you want Kai to analyze positions, movers, and tradeoffs."
-              actionLabel="Connect portfolio"
-              icon={<WalletCards className="h-5 w-5" />}
-              disabled={saving}
-              onClick={() => {
-                setOnboardingRequiredCookie(false);
-                setOnboardingFlowActiveCookie(true);
-                router.replace(buildRouteWithFrom(ROUTES.KAI_IMPORT, onboardingSelfHref));
-              }}
-            />
-
-            <SetupCard
-              eyebrow="Memory"
-              title="Gmail receipts"
-              description="Connect receipts so One can remember purchase context and saved financial details."
-              actionLabel="Set up Gmail"
-              icon={<Mail className="h-5 w-5" />}
-              disabled={saving}
-              onClick={() => {
-                setOnboardingRequiredCookie(false);
-                setOnboardingFlowActiveCookie(false);
-                router.replace(buildRouteWithFrom(ROUTES.GMAIL, onboardingSelfHref));
-              }}
-            />
-
-            <SetupCard
-              eyebrow="Advisor"
-              title="Advisor/RIA setup"
-              description={
-                riaCapability === "disabled"
-                  ? "RIA mode is unavailable in this environment until IAM is active."
-                  : "Switch into the advisor workspace for firm setup, verification, and client requests."
-              }
-              actionLabel={riaCapability === "disabled" ? "Unavailable" : "Open RIA setup"}
-              icon={<UserRound className="h-5 w-5" />}
-              disabled={saving || riaCapability === "disabled"}
-              onClick={async () => {
-                if (saving || riaCapability === "disabled") return;
-                try {
-                  setSaving(true);
-                  await switchPersona("ria");
-                  trackEvent("onboarding_step_completed", {
-                    action: "persona",
-                    result: "success",
-                  });
-                  router.replace(ROUTES.RIA_HOME);
-                } catch (error) {
-                  console.error("[KaiOnboardingPage] Failed to enter RIA setup:", error);
-                  trackEvent("onboarding_step_completed", {
-                    action: "persona",
-                    result: "error",
-                  });
-                  toast.error("Couldn't enter RIA setup. Please retry.");
-                } finally {
-                  setSaving(false);
-                }
-              }}
-            />
-
-            <SetupCard
-              eyebrow="Security"
-              title="Bring your own keys"
-              description="BYOK and passkey-first setup will appear here after verification is complete."
-              actionLabel="Coming soon"
-              icon={<KeyRound className="h-5 w-5" />}
-              disabled
-            />
-
-            <MemoryImportComingSoonCard />
-
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void completeSetupAsSkipped()}
-              className="mx-auto min-h-10 rounded-full px-4 text-[14px] font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
-            >
-              Skip for now
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    // The legacy entry hub is superseded by the `/one/setup` capability hub.
+    // load() redirects before reaching this stage; this guard renders a loader
+    // and re-issues the redirect to cover any residual `entry` state.
+    if (typeof window !== "undefined") {
+      router.replace(buildOneSetupRoute({ from: onboardingFromHref }));
+    }
+    return <HushhLoader label="Loading setup..." variant="fullscreen" />;
   }
 
   if (stage === "persona") {
@@ -722,14 +367,18 @@ function KaiOnboardingPageContent() {
                 vaultOwnerToken,
                 skippedPreferences: false,
               });
-              void PreVaultUserStateService.syncKaiOnboardingState({
+              // Await the server pre-vault sync BEFORE navigating (same rationale
+              // as the skip path) so the One gate is authoritative server-side the
+              // instant the user leaves onboarding. Error-swallowed to stay
+              // fail-open; vault profile remains the unlocked-path source.
+              await PreVaultUserStateService.syncKaiOnboardingState({
                 userId: user.uid,
                 completed: true,
                 skipped: false,
                 completedAt: nextProfile.onboarding.completed_at,
               }).catch((syncError) => {
                 console.warn(
-                  "[KaiOnboardingPage] Failed vault->remote onboarding bridge after completion:",
+                  "[OneOnboardingPage] Failed vault->remote onboarding bridge after completion:",
                   syncError
                 );
               });
@@ -772,7 +421,7 @@ function KaiOnboardingPageContent() {
             });
             router.replace(buildRouteWithFrom(ROUTES.KAI_IMPORT, onboardingSelfHref));
           } catch (error) {
-            console.error("[KaiOnboardingPage] Failed to finalize onboarding:", error);
+            console.error("[OneOnboardingPage] Failed to finalize onboarding:", error);
             trackEvent("onboarding_completed", {
               action: "complete",
               result: "error",
@@ -800,7 +449,13 @@ function KaiOnboardingPageContent() {
         layout="page"
         initialStep={0}
         initialAnswers={wizardAnswers}
-        onBack={() => router.replace(onboardingReturnHref)}
+        // Backing out of the investor-preferences sub-step returns to the One
+        // setup hub at /one/setup so the user resumes the main onboarding. It
+        // must NOT mark the root onboarding skipped: only the hub-level "Not now"
+        // control does that. (The wizard's own intra-step Skip control is
+        // intentionally not wired here so a sub-step can't satisfy/skip the root
+        // flow.)
+        onBack={() => router.replace(buildOneSetupRoute({ from: onboardingFromHref }))}
         onAnswersChange={(nextAnswers) => {
         if (source !== "pre_vault") return;
         const score = computeRiskScore(nextAnswers as PreVaultOnboardingAnswers);
@@ -813,10 +468,9 @@ function KaiOnboardingPageContent() {
             setPreVaultState(nextState);
           })
           .catch((error) => {
-            console.warn("[KaiOnboardingPage] Failed to save pre-vault onboarding draft:", error);
+            console.warn("[OneOnboardingPage] Failed to save pre-vault onboarding draft:", error);
           });
       }}
-      onSkip={() => void completeSetupAsSkipped()}
       onComplete={async (payload) => {
         if (saving) return;
         const nextAnswers: WizardAnswers = {
@@ -858,7 +512,7 @@ function KaiOnboardingPageContent() {
             result: "success",
           });
         } catch (error) {
-          console.error("[KaiOnboardingPage] Failed to save preferences:", error);
+          console.error("[OneOnboardingPage] Failed to save preferences:", error);
           trackEvent("onboarding_step_completed", {
             action: "preferences",
             result: "error",

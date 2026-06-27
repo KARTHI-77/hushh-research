@@ -109,14 +109,20 @@ export function AgentBar() {
       className="pointer-events-none fixed inset-x-0 z-[118] flex justify-center px-4 transform-gpu"
       style={
         {
-          // Sit just above the visible bottom nav inset (not the full Kai
-          // command-bar reservation) and ride the same scroll-hide translation
-          // as the rest of the bottom chrome. Floor the nav reservation with the
-          // static fallback so a transiently-zero --app-bottom-fixed-ui (e.g.
-          // before the navbar re-measures after the agent window closes) can
-          // never collapse this bar down onto the nav.
-          bottom:
-            "calc(max(var(--app-bottom-inset), var(--bottom-nav-offset, 88px)) + max(var(--app-safe-area-bottom-effective), 0.25rem) + 0.5rem)",
+          // Sit just above the visible bottom nav and ride the same scroll-hide
+          // translation as the rest of the bottom chrome.
+          //
+          // --app-bottom-inset already = measured nav height
+          // (--app-bottom-fixed-ui) + safe-area + lift, so it is the full
+          // clearance above the nav on its own. We add a single small visual gap
+          // (0.5rem) above that — do NOT re-add the safe area (it is already
+          // baked into --app-bottom-inset) and do NOT floor against the static
+          // 88px fallback. Both of those were double-counting and inflated the
+          // gap. The transient-zero case is already handled upstream: the navbar
+          // preserves its last measured --app-bottom-fixed-ui while temporarily
+          // unmounted, and this bar only renders when the nav is present, so the
+          // inset is always the real measured value here.
+          bottom: "calc(var(--app-bottom-inset) + 0.5rem)",
           transform:
             "translate3d(0, calc(var(--bottom-chrome-progress, 0) * var(--bottom-chrome-hide-distance, var(--bottom-chrome-full-height))), 0)",
           "--bottom-chrome-progress": String(hideBottomChromeProgress),

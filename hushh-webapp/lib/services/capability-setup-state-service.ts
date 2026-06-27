@@ -242,6 +242,20 @@ export function isCapabilitySetupActionable(status: CapabilityStatus): boolean {
 }
 
 /**
+ * True when a capability is GENUINELY set up — i.e. the person has nothing left
+ * to do for it. This is the honest basis for any "N of M ready" summary.
+ *
+ * Deliberately NOT the inverse of {@link isCapabilitySetupActionable}: a tile
+ * can be non-actionable yet still un-ready (`blocked` needs an OAuth connection,
+ * `unknown` needs an unlock to even resolve). Those must read as "left to set
+ * up", never as "ready", or the headline count contradicts the per-tile badge
+ * ("Connect to set up" / "Unlock to see").
+ */
+export function isCapabilitySetupComplete(status: CapabilityStatus): boolean {
+  return status.state === "completed" || status.state === "skipped";
+}
+
+/**
  * Decide whether a guided onboarding step for this capability should be SKIPPED
  * (auto-advance) or shown to the user (CONTINUE). `unknown`/`blocked` are NOT
  * skippable — they must be surfaced honestly, never silently bypassed.

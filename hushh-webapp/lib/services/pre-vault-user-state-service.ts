@@ -1,6 +1,7 @@
 "use client";
 
 import { Capacitor } from "@capacitor/core";
+import { AccountIdentityService } from "@/lib/services/account-identity-service";
 import { apiJson } from "@/lib/services/api-client";
 import { AuthService } from "@/lib/services/auth-service";
 import { CacheService, CACHE_KEYS, CACHE_TTL } from "@/lib/services/cache-service";
@@ -20,6 +21,10 @@ export type PreVaultUserState = {
   preNavTourCompletedAt: number | null;
   preNavTourSkippedAt: number | null;
   preStateUpdatedAt: number | null;
+  // Verified-phone claim folded in from the backend bootstrap call. null means
+  // "unknown" (older backend, or shadow lookup failed) so callers fall back to
+  // their own identity read rather than treating it as unverified.
+  phoneVerified: boolean | null;
 };
 
 type BootstrapStateResponse = Partial<PreVaultUserState>;
@@ -67,6 +72,7 @@ function normalizeResponse(userId: string, payload: BootstrapStateResponse): Pre
     preNavTourCompletedAt: toMillis(payload.preNavTourCompletedAt),
     preNavTourSkippedAt: toMillis(payload.preNavTourSkippedAt),
     preStateUpdatedAt: toMillis(payload.preStateUpdatedAt),
+    phoneVerified: toNullableBool(payload.phoneVerified),
   };
 }
 
@@ -118,6 +124,10 @@ export class PreVaultUserStateService {
         // Pre-vault bootstrap state changes infrequently and is updated by this service,
         // so keeping it warm for the session reduces repeated heavy bootstrap requests.
         CacheService.getInstance().set(cacheKey, normalized, CACHE_TTL.SESSION);
+        // Fold the verified-phone hint from this same call into a cold identity
+        // cache so the phone-mandate guard can resolve without a separate
+        // identity/refresh round-trip on first paint.
+        AccountIdentityService.primeVerifiedPhoneHint(userId, normalized.phoneVerified);
         return normalized;
       })
       .finally(() => {

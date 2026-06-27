@@ -6,6 +6,9 @@ import {
   buildRiaClientWorkspaceRoute,
   buildOneOnboardingRoute,
   isKaiOnboardingRoute,
+  isOneOnboardingRoute,
+  isOneOnboardingWizardRoute,
+  isOneSetupRoute,
   isPublicRoute,
   isRiaRoute,
 } from "@/lib/navigation/routes";
@@ -62,5 +65,23 @@ describe("navigation routes", () => {
     expect(isKaiOnboardingRoute("/kai/onboarding/complete")).toBe(true);
 
     expect(isKaiOnboardingRoute("/one/kai")).toBe(false);
+  });
+
+  it("treats the /one/setup hub as the canonical onboarding surface", () => {
+    // The setup hub is the root onboarding surface; the wizard is a sub-step.
+    expect(isOneSetupRoute("/one/setup")).toBe(true);
+    expect(isOneSetupRoute("/one/setup/finance")).toBe(true);
+    expect(isOneSetupRoute("/one/onboarding")).toBe(false);
+    expect(isOneSetupRoute("/one")).toBe(false);
+
+    expect(isOneOnboardingWizardRoute("/one/onboarding")).toBe(true);
+    expect(isOneOnboardingWizardRoute("/one/setup")).toBe(false);
+
+    // The broad onboarding-route check spans BOTH the hub and the wizard so the
+    // gate and chrome treat them as one surface.
+    expect(isOneOnboardingRoute("/one/setup")).toBe(true);
+    expect(isOneOnboardingRoute("/one/onboarding")).toBe(true);
+    expect(isOneOnboardingRoute("/one")).toBe(false);
+    expect(isOneOnboardingRoute("/one/kai")).toBe(false);
   });
 });

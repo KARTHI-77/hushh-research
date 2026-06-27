@@ -335,7 +335,7 @@ export const Navbar = () => {
         }}
       >
         <div ref={pillRef} className="pointer-events-auto">
-          <ThemeToggleLean className="w-[162px] sm:w-[240px]" />
+          <ThemeToggleLean size="expanded" />
         </div>
       </nav>
     );
