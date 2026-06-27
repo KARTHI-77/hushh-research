@@ -202,7 +202,7 @@ export function ConsentAuditTimeline({
             className={cn(
               "rounded-[var(--app-card-radius-compact)] border px-3 py-1.5 text-xs font-medium transition-colors",
               activeFilter === filter.value
-                ? "border-sky-500/24 bg-sky-500/10 text-sky-700 dark:text-sky-300"
+                ? "border-accent-border bg-accent-surface text-accent-strong"
                 : "border-border/70 bg-background/80 text-muted-foreground hover:bg-muted/60",
             )}
             aria-pressed={activeFilter === filter.value}
@@ -263,7 +263,7 @@ export function ConsentAuditTimeline({
                 className={cn(
                   "group relative w-full rounded-[var(--app-card-radius-compact)] border px-4 py-3 text-left transition-colors",
                   selected
-                    ? "border-sky-500/24 bg-sky-500/7"
+                    ? "border-accent-border bg-accent-surface"
                     : "border-[color:var(--app-card-border-standard)]/50 bg-[color:var(--app-card-surface-compact)]/55 hover:bg-[color:var(--app-card-surface-compact)]",
                 )}
               >

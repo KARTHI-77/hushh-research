@@ -637,7 +637,7 @@ function ConsentEntryRow({
       className={cn(
         "relative w-full overflow-hidden rounded-[var(--app-card-radius-compact)] border px-4 py-3 text-left transition-colors",
         selected
-          ? "border-sky-500/24 bg-sky-500/7"
+          ? "border-accent-border bg-accent-surface"
           : "border-[color:var(--app-card-border-standard)]/50 bg-[color:var(--app-card-surface-compact)]/55 hover:bg-[color:var(--app-card-surface-compact)]",
       )}
     >
