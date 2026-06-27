@@ -89,7 +89,7 @@ function statusTone(status: string) {
     case "expired":
       return "bg-zinc-500/10 text-zinc-600 border-zinc-500/20";
     case "sent":
-      return "bg-sky-500/10 text-sky-600 border-sky-500/20";
+      return "bg-accent-surface text-accent-strong border-accent-border";
     default:
       return "bg-muted text-muted-foreground border-border";
   }

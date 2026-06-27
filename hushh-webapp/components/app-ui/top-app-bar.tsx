@@ -746,7 +746,7 @@ export function TopAppBar({ className }: TopAppBarProps) {
                             aria-label="Open consent inbox"
                             badge={
                               pendingCount > 0 ? (
-                                <span className="inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-sky-500 px-1 text-[10px] font-semibold leading-none text-white shadow-[0_8px_18px_rgba(14,165,233,0.32)] ring-2 ring-white/90 dark:ring-[#111113]">
+                                <span className="inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold leading-none text-[#1d1d1f] shadow-[0_8px_18px_rgba(184,137,77,0.32)] ring-2 ring-white/90 dark:ring-[#111113]">
                                   {pendingCount}
                                 </span>
                               ) : null
@@ -774,7 +774,7 @@ export function TopAppBar({ className }: TopAppBarProps) {
                             aria-label="Notifications"
                             badge={
                               badgeCount > 0 ? (
-                                <span className="inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-sky-500 px-1 text-[10px] font-semibold leading-none text-white shadow-[0_8px_18px_rgba(14,165,233,0.32)] ring-2 ring-white/90 dark:ring-[#111113]">
+                                <span className="inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold leading-none text-[#1d1d1f] shadow-[0_8px_18px_rgba(184,137,77,0.32)] ring-2 ring-white/90 dark:ring-[#111113]">
                                   {badgeCount}
                                 </span>
                               ) : null
@@ -782,7 +782,7 @@ export function TopAppBar({ className }: TopAppBarProps) {
                           >
                             {activeCount > 0 ? (
                               <Loader2
-                                className="h-5 w-5 animate-spin text-sky-500"
+                                className="h-5 w-5 animate-spin text-accent-strong"
                                 aria-hidden="true"
                               />
                             ) : (

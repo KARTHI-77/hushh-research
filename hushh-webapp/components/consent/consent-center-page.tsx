@@ -604,7 +604,7 @@ function ConsentCounterpartAvatar({ entry }: { entry: ConsentCenterEntry }) {
       className={cn(
         "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border",
         kind === "ria"
-          ? "border-sky-500/15 bg-sky-500/6 text-sky-700"
+          ? "border-accent-border bg-accent-surface text-accent-strong"
           : kind === "developer"
             ? "border-violet-500/15 bg-violet-500/6 text-violet-700"
             : "border-emerald-500/15 bg-emerald-500/6 text-emerald-700",

@@ -25,7 +25,7 @@ const FILTERS: Array<{ value: ConsentAuditEventType; label: string }> = [
 const TYPE_STYLES: Record<Exclude<ConsentAuditEventType, "all">, string> = {
   granted:
     "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  updated: "border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+  updated: "border-accent-border bg-accent-surface text-accent-strong",
   revoked: "border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300",
   expired:
     "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300",

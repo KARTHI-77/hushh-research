@@ -55,11 +55,11 @@ const MODE_TILE_CLASS =
 const MODE_ICON_CLASS_BY_TONE: Record<OneDashboardMode["tone"], string> = {
   finance: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
   gmail: "bg-rose-500/12 text-rose-700 dark:text-rose-300",
-  email: "bg-sky-500/12 text-sky-700 dark:text-sky-300",
+  email: "bg-accent-surface text-accent-strong",
   location: "bg-teal-500/12 text-teal-700 dark:text-teal-300",
   pkm: "bg-amber-500/12 text-amber-700 dark:text-amber-300",
   consent: "bg-violet-500/12 text-violet-700 dark:text-violet-300",
-  connected: "bg-cyan-500/12 text-cyan-700 dark:text-cyan-300",
+  connected: "bg-slate-500/12 text-slate-700 dark:text-slate-300",
 };
 
 // State emphasis via neutral copy weight only — no tinted/bordered status pills.
