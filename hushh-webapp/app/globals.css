@@ -981,7 +981,7 @@ html.native-ios {
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.25 0.003 264);
   --muted-foreground: oklch(0.879 0.012 286.1);
-  --accent: oklch(0.754 0.085 67.1);
+  --accent: oklch(0.797 0.112 76.3);
   --accent-foreground: oklch(0.232 0.004 286.1);
   --destructive: oklch(0.636 0.172 26.8);
   --destructive-foreground: oklch(0.15 0 0);
@@ -992,9 +992,9 @@ html.native-ios {
   --critical-soft-text: oklch(0.79 0.13 24);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.754 0.085 67.1);
+  --ring: oklch(0.797 0.112 76.3);
   /* Chart colors - higher lightness for contrast on dark card */
-  --chart-1: oklch(0.754 0.085 67.1);
+  --chart-1: oklch(0.797 0.112 76.3);
   --chart-2: oklch(0.663 0.096 71.6);
   --chart-3: oklch(0.72 0.19 155);
   --chart-4: oklch(0.78 0.15 80);
@@ -1003,10 +1003,10 @@ html.native-ios {
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.971 0.003 286.4);
   --sidebar-primary-foreground: oklch(0.232 0.004 286.1);
-  --sidebar-accent: oklch(0.754 0.085 67.1);
+  --sidebar-accent: oklch(0.797 0.112 76.3);
   --sidebar-accent-foreground: oklch(0.232 0.004 286.1);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.754 0.085 67.1);
+  --sidebar-ring: oklch(0.797 0.112 76.3);
 
   /* Crystal Glass Effect - Dark Mode (Foundation gold tint) */
   --crystal-glass-bg: rgba(212, 165, 116, 0.06);
@@ -1349,7 +1349,7 @@ html.native-ios {
   }
   html.dark body,
   .dark body {
-    background-color: rgb(28, 28, 30) !important;
+    background-color: #0a0a0c !important;
   }
   html.native-ios body {
     padding-top: 0;
@@ -2297,8 +2297,8 @@ html.dark .morphy-app-bg {
   --foundation-off: #0a0a0c;                  /* PDF pitch black */
   --foundation-surface: #15151c;
   --foundation-hairline: #2a2a36;
-  --foundation-gold-accent: #d4a574;          /* fills / markers */
-  --foundation-gold-deep: #d4a574;            /* TEXT on dark = BRIGHT gold */
+  --foundation-gold-accent: #e6b366;          /* fills / markers — brightened for dark vibrancy */
+  --foundation-gold-deep: #e6b366;            /* TEXT on dark = BRIGHT gold (brighter+more saturated) */
   --foundation-accent-surface: rgba(212, 165, 116, 0.12);
   --foundation-accent-surface-strong: rgba(212, 165, 116, 0.20);
   --foundation-accent-border: rgba(212, 165, 116, 0.28);

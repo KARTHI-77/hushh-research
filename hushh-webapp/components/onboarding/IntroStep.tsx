@@ -198,7 +198,7 @@ export function IntroStep({
 
         <footer className="flex-none pt-3">
           <div className="space-y-4">
-            <p className="mx-auto max-w-[34ch] text-center text-[13.5px] leading-5 tracking-normal text-[#86868b] dark:text-[rgba(245,245,247,0.44)]">
+            <p className="mx-auto max-w-[34ch] text-center text-[13.5px] leading-5 tracking-normal text-[#86868b] dark:text-[rgba(245,245,247,0.72)]">
               One is consent-first. Your knowledge and information are your
               safewords. Nothing leaves your vault without your approval.
             </p>
