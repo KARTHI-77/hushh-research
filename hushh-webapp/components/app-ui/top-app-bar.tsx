@@ -47,7 +47,7 @@ import {
   APP_SHELL_FRAME_CLASSNAME,
   APP_SHELL_FRAME_STYLE,
 } from "@/components/app-ui/app-page-shell";
-import { ThemeToggleLean } from "@/components/theme-toggle";
+import { ThemeToggleCompact } from "@/components/theme-toggle";
 import { Icon } from "@/lib/morphy-ux/ui";
 import {
   DropdownMenu,
@@ -621,7 +621,18 @@ export function TopAppBar({ className }: TopAppBarProps) {
                 </div>
               </div>
 
-              <div className="pointer-events-none flex min-w-0 flex-1 items-center justify-center px-3 sm:px-4">
+              {/* Title sits in the normal flex flow. On most routes the right
+                  cluster is icon-only, so the pill stays centered. During setup
+                  the right cluster (theme toggle + menu) is wide; a centered
+                  pill would overlap it, so we left-align the title beside the
+                  reserved back slot instead. `flex-1 min-w-0` lets it truncate
+                  before it can ever collide with the actions either way. */}
+              <div
+                className={cn(
+                  "pointer-events-none flex min-w-0 flex-1 items-center",
+                  showOnboardingActions ? "justify-start" : "justify-center",
+                )}
+              >
                 {centerTitle ? (
                   centerTitle.interactive && canShowPersonaSwitcher ? (
                     <div className="pointer-events-auto inline-flex min-w-0 max-w-full items-center justify-center">
@@ -883,7 +894,7 @@ function OnboardingRouteActions() {
 
   return (
     <>
-      <ThemeToggleLean size="expanded" />
+      <ThemeToggleCompact className={TOP_SHELL_ICON_BUTTON_CLASSNAME} />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <ShellActionSurface

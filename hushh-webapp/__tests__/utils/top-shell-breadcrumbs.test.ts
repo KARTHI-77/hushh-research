@@ -40,10 +40,25 @@ describe("top shell breadcrumbs", () => {
       backHref: "/one?mode=finance",
       width: "content",
       align: "center",
-      hideBack: true,
+      // Back is now always available on the wizard so the user is never trapped
+      // on the questionnaire; re-entry honors the `from` origin.
+      hideBack: false,
       items: [
         { label: "One", href: "/one" },
-        { label: "Setup" },
+        { label: "Setup", href: "/one/setup" },
+      ],
+    });
+
+    // Bare entry (no `from`) still shows back, falling to the setup hub rather
+    // than bypassing the gate to /one.
+    expect(resolveTopShellBreadcrumb("/one/setup/kai")).toEqual({
+      backHref: "/one/setup",
+      width: "content",
+      align: "center",
+      hideBack: false,
+      items: [
+        { label: "One", href: "/one" },
+        { label: "Setup", href: "/one/setup" },
       ],
     });
 
@@ -51,8 +66,47 @@ describe("top shell breadcrumbs", () => {
     unsafeParams.set("from", "//evil.example/path");
 
     expect(resolveTopShellBreadcrumb("/one/setup/kai", unsafeParams)?.backHref).toBe(
-      "/one",
+      "/one/setup",
     );
+  });
+
+  it("gives the setup hub a back affordance to One home", () => {
+    expect(resolveTopShellBreadcrumb("/one/setup")).toEqual({
+      backHref: "/one",
+      width: "content",
+      align: "center",
+      hideBack: false,
+      items: [
+        { label: "One", href: "/one" },
+        { label: "Setup" },
+      ],
+    });
+  });
+
+  it("gives per-capability setup steps a back affordance to the hub", () => {
+    expect(resolveTopShellBreadcrumb("/one/setup/finance")).toEqual({
+      backHref: "/one/setup",
+      width: "content",
+      align: "center",
+      hideBack: false,
+      items: [
+        { label: "One", href: "/one" },
+        { label: "Setup", href: "/one/setup" },
+        { label: "Finance" },
+      ],
+    });
+
+    expect(resolveTopShellBreadcrumb("/one/setup/connected-systems")).toEqual({
+      backHref: "/one/setup",
+      width: "content",
+      align: "center",
+      hideBack: false,
+      items: [
+        { label: "One", href: "/one" },
+        { label: "Setup", href: "/one/setup" },
+        { label: "Connected Systems" },
+      ],
+    });
   });
 
   it("treats the PKM agent lab as a profile privacy surface", () => {
