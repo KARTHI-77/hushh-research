@@ -80,6 +80,7 @@ export function AgentBar() {
   // the user's voice (listening) and the agent's reply (speaking).
   const [conversationActive, setConversationActive] = useState(false);
   const voiceStatus = useAgentVoiceState((s) => s.status);
+  const voiceMessage = useAgentVoiceState((s) => s.message);
   const voiceLevel = useAgentVoiceState((s) => s.level);
   const setVoiceStatus = useAgentVoiceState((s) => s.setStatus);
   const setVoiceLevel = useAgentVoiceState((s) => s.setLevel);
@@ -251,7 +252,12 @@ export function AgentBar() {
   // the same envelope instead of popping in from a fresh mount.
   const barHidden = Boolean(agentWindowActive);
 
-  const voiceStatusLabel = getAgentVoiceStatusLabel(voiceStatus);
+  // In the error state, prefer the specific reason (e.g. mic blocked, no device)
+  // over the generic "Voice error" so the user knows how to recover.
+  const voiceStatusLabel =
+    voiceStatus === "error" && voiceMessage
+      ? voiceMessage
+      : getAgentVoiceStatusLabel(voiceStatus);
 
   return (
     <div
@@ -321,7 +327,18 @@ export function AgentBar() {
                 barCount={28}
                 className="h-6 flex-1"
               />
-              <span className="shrink-0 text-[12px] font-medium tabular-nums text-foreground/60">
+              <span
+                className={cn(
+                  "shrink-0 text-[12px] font-medium",
+                  // The error reason can be a full sentence; let it use the row
+                  // and truncate rather than overflow the pill. Status words stay
+                  // compact with tabular figures.
+                  voiceStatus === "error"
+                    ? "min-w-0 max-w-[60%] flex-1 truncate text-right text-destructive/80"
+                    : "tabular-nums text-foreground/60",
+                )}
+                title={voiceStatus === "error" ? voiceStatusLabel : undefined}
+              >
                 {voiceStatusLabel}
               </span>
             </div>

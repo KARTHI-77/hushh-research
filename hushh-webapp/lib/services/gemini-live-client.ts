@@ -58,6 +58,32 @@ function base64FromBytes(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+/**
+ * Turn a getUserMedia / AudioWorklet failure into a specific, actionable
+ * message so the bar can tell the user why voice could not start instead of a
+ * generic "Voice error". The DOMException name is the reliable signal across
+ * browsers.
+ */
+function describeMicError(error: unknown): string {
+  const name = error instanceof DOMException ? error.name : "";
+  switch (name) {
+    case "NotAllowedError":
+    case "SecurityError":
+      return "Microphone access is blocked. Allow the mic for this site in your browser settings, then try again.";
+    case "NotFoundError":
+    case "OverconstrainedError":
+      return "No microphone was found. Connect a mic and try again.";
+    case "NotReadableError":
+      return "Your microphone is in use by another app. Close it and try again.";
+    case "NotSupportedError":
+      return "This browser does not support voice mode. Try Chrome or Safari over HTTPS.";
+    default:
+      return error instanceof Error && error.message
+        ? `Voice could not start: ${error.message}`
+        : "Voice could not start. Check your microphone and try again.";
+  }
+}
+
 function bytesFromBase64(value: string): Uint8Array {
   const binary = atob(value);
   const bytes = new Uint8Array(binary.length);
@@ -154,8 +180,8 @@ export class GeminiLiveClient {
 
     try {
       await this.openMicrophone();
-    } catch {
-      this.fail("Microphone permission is required for voice mode.");
+    } catch (error) {
+      this.fail(describeMicError(error));
       return;
     }
 
@@ -164,6 +190,12 @@ export class GeminiLiveClient {
   }
 
   private async openMicrophone(): Promise<void> {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new DOMException(
+        "This browser does not support microphone capture.",
+        "NotSupportedError"
+      );
+    }
     this.mediaStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         channelCount: 1,
