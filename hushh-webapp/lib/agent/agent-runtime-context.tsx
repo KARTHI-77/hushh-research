@@ -22,7 +22,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useVault } from "@/lib/vault/vault-context";
@@ -109,7 +109,25 @@ function computeHasPortfolioData(uid: string | null | undefined): boolean {
 
 export function AgentRuntimeStateProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  // The query string is purely client runtime metadata (it shapes the derived
+  // voice route screen). We read it from window.location instead of
+  // useSearchParams() so this app-wide provider does not force a CSR Suspense
+  // bailout on every route (including statically-exported pages like /404).
+  const [routeQuery, setRouteQuery] = useState("");
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const sync = () => {
+      const search = window.location.search;
+      setRouteQuery(search.startsWith("?") ? search.slice(1) : search);
+    };
+    sync();
+    window.addEventListener("popstate", sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+    };
+  }, [pathname]);
   const { user } = useAuth();
   const {
     isVaultUnlocked,
@@ -135,7 +153,6 @@ export function AgentRuntimeStateProvider({ children }: { children: ReactNode })
   const hasVaultAccess = Boolean(isVaultUnlocked && vaultOwnerToken && tokenIsFresh);
 
   const path = pathname ?? "";
-  const routeQuery = searchParams?.toString() || "";
   const pathnameWithQuery = routeQuery ? `${path}?${routeQuery}` : path;
   const routeInfo = useMemo(
     () => deriveVoiceRouteScreen(path, routeQuery),

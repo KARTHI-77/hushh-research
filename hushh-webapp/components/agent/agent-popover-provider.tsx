@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  Suspense,
   useCallback,
   useContext,
   useEffect,
@@ -413,19 +414,21 @@ function AgentPopoverSurface({
                 <Grip className="h-3.5 w-3.5" />
               </Button>
             ) : null}
-            <AgentChatWorkspace
-              variant="popover"
-              windowControls={
-                <AgentPopoverWindowControls
-                  sizeMode={sizeMode}
-                  setSizeMode={setSizeMode}
-                  onMinimize={minimizeAgent}
-                  onClose={minimizeAgent}
-                />
-              }
-              onMinimize={minimizeAgent}
-              onNavigationActionComplete={handleNavigationActionComplete}
-            />
+            <Suspense fallback={null}>
+              <AgentChatWorkspace
+                variant="popover"
+                windowControls={
+                  <AgentPopoverWindowControls
+                    sizeMode={sizeMode}
+                    setSizeMode={setSizeMode}
+                    onMinimize={minimizeAgent}
+                    onClose={minimizeAgent}
+                  />
+                }
+                onMinimize={minimizeAgent}
+                onNavigationActionComplete={handleNavigationActionComplete}
+              />
+            </Suspense>
           </section>
         </div>
       ) : null}
