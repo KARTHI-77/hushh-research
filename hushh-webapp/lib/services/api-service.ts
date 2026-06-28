@@ -2694,6 +2694,36 @@ export class ApiService {
     });
   }
 
+  /**
+   * Build the WebSocket URL for the server-side Gemini Live relay.
+   *
+   * Unlike the ephemeral-token path (browser connects straight to Google), this
+   * relay runs Gemini Live over Vertex AI on the backend via ADC, so it works
+   * on projects where the Developer API is restricted. The browser opens a
+   * WebSocket to our backend; the backend bridges audio to/from Vertex.
+   *
+   * WebSockets cannot carry an Authorization header from the browser and do not
+   * pass through the Next.js middleware proxy, so we connect directly to the
+   * backend host and ride the Firebase bearer (when present) in a query param.
+   * Anonymous callers omit it and get the navigation-only intro persona.
+   */
+  static async getGeminiLiveRelayUrl(data?: {
+    voice?: string | null;
+    screen?: string | null;
+    persona?: string | null;
+  }): Promise<string> {
+    const backend = resolveRuntimeBackendUrl();
+    const base = backend || (typeof window !== "undefined" ? window.location.origin : "");
+    const wsBase = base.replace(/^http/i, "ws");
+    const url = new URL(`${wsBase}/api/kai/agent/realtime/gemini/live`);
+    const firebaseIdToken = await this.getFirebaseToken();
+    if (firebaseIdToken) url.searchParams.set("authorization", firebaseIdToken);
+    if (data?.voice) url.searchParams.set("voice", data.voice);
+    if (data?.screen) url.searchParams.set("screen", data.screen);
+    if (data?.persona) url.searchParams.set("persona", data.persona);
+    return url.toString();
+  }
+
   static async transcribeAgentVoice(data: {
     userId: string;
     vaultOwnerToken: string;

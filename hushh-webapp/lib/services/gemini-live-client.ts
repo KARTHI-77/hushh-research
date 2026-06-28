@@ -6,10 +6,11 @@ import { ApiService } from "@/lib/services/api-service";
  * Browser client for Gemini Live full-duplex voice.
  *
  * Flow:
- *   1. Ask our backend for a short-lived, constrained ephemeral token
- *      (the managed Gemini key never reaches the browser).
- *   2. Open a WebSocket straight to the Gemini Live API with that token (lowest
- *      latency; audio is not relayed through our server).
+ *   1. Open a WebSocket to our backend Vertex Live relay. The relay runs Gemini
+ *      Live over Vertex AI via ADC, so it works on projects where the Developer
+ *      API is restricted; the managed key never reaches the browser.
+ *   2. The relay owns the Live setup and announces readiness with a
+ *      {"setupComplete": {}} frame.
  *   3. Capture mic audio as 16 kHz mono PCM16 and stream it up.
  *   4. Play back the 24 kHz PCM16 audio Gemini streams down, and surface input
  *      and output amplitude + a coarse status so the UI waveform can react.
@@ -17,15 +18,6 @@ import { ApiService } from "@/lib/services/api-service";
  * This intentionally mirrors the handler shape of the existing
  * AgentRealtimeClient so it can be wired in the same way.
  */
-
-// Ephemeral auth tokens (auth_tokens/...) are CONSTRAINED tokens: the Live API
-// only accepts them on the BidiGenerateContentConstrained method, not the plain
-// BidiGenerateContent method. Browsers cannot set the Authorization header on a
-// WebSocket, so the token rides in the ?access_token= query param (the other
-// scheme Gemini documents for ephemeral tokens). Using the unconstrained method
-// here causes a 1008 "unregistered callers" close even with a valid token.
-const GEMINI_LIVE_WS_BASE =
-  "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained";
 
 const INPUT_SAMPLE_RATE = 16000;
 const OUTPUT_SAMPLE_RATE = 24000;
@@ -45,14 +37,6 @@ export type GeminiLiveHandlers = {
   onOutputLevel?: (level: number) => void;
   onError?: (message: string) => void;
   onClose?: () => void;
-};
-
-type GeminiLiveTokenPayload = {
-  token: string;
-  model: string;
-  voice: string;
-  tier: string;
-  api_version: string;
 };
 
 function base64FromBytes(bytes: Uint8Array): string {
@@ -188,21 +172,13 @@ export class GeminiLiveClient {
     if (this.ws) return;
     this.setState("connecting");
 
-    let payload: GeminiLiveTokenPayload;
+    let relayUrl: string;
     try {
-      const response = await ApiService.fetchGeminiLiveToken({
+      relayUrl = await ApiService.getGeminiLiveRelayUrl({
         voice: options?.voice ?? null,
         screen: options?.screen ?? null,
         persona: options?.persona ?? null,
-        signal: options?.signal,
       });
-      if (!response.ok) {
-        const detail = await response.json().catch(() => ({}));
-        throw new Error(
-          (detail as { detail?: string }).detail || "Could not start Gemini Live."
-        );
-      }
-      payload = (await response.json()) as GeminiLiveTokenPayload;
     } catch (error) {
       this.fail(error instanceof Error ? error.message : "Could not start Gemini Live.");
       return;
@@ -216,7 +192,7 @@ export class GeminiLiveClient {
     }
 
     if (this.closed) return;
-    this.connectSocket(payload);
+    this.connectSocket(relayUrl);
   }
 
   private async openMicrophone(): Promise<void> {
@@ -284,23 +260,14 @@ export class GeminiLiveClient {
     };
   }
 
-  private connectSocket(payload: GeminiLiveTokenPayload): void {
-    const url = `${GEMINI_LIVE_WS_BASE}?access_token=${encodeURIComponent(payload.token)}`;
-    const ws = new WebSocket(url);
+  private connectSocket(relayUrl: string): void {
+    const ws = new WebSocket(relayUrl);
     this.ws = ws;
 
-    ws.onopen = () => {
-      ws.send(
-        JSON.stringify({
-          setup: {
-            model: payload.model.startsWith("models/")
-              ? payload.model
-              : `models/${payload.model}`,
-            generationConfig: { responseModalities: ["AUDIO"] },
-          },
-        })
-      );
-    };
+    // The server relay owns the Live setup (model, voice, system instruction)
+    // and announces readiness with a {"setupComplete": {}} frame, so the browser
+    // does not send a setup message here. It simply waits for setupComplete and
+    // then streams mic audio.
 
     ws.onmessage = (event) => {
       void this.handleSocketMessage(event.data);
