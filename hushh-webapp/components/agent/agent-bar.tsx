@@ -23,6 +23,7 @@ import { AudioLines, Mic, X } from "lucide-react";
 
 import { useOptionalAgentPopover } from "@/components/agent/agent-popover-provider";
 import { AgentVoiceWaveform } from "@/components/agent/agent-voice-waveform";
+import { useAgentRuntimeStateOptional } from "@/lib/agent/agent-runtime-context";
 import {
   getAgentVoiceStatusLabel,
   useAgentVoiceState,
@@ -68,6 +69,10 @@ function resolveAgentBarHint(pathname: string | null): string {
 export function AgentBar() {
   const pathname = usePathname();
   const agentPopover = useOptionalAgentPopover();
+  // Shared single source of truth for the agent's active state. The bar uses it
+  // for tier-aware presentation and to detect the home/onboarding surfaces
+  // consistently with the chat workspace, instead of recomputing locally.
+  const runtime = useAgentRuntimeStateOptional();
 
   // In-bar conversation (Gemini Live full-duplex) state. This lives entirely in
   // the bar: tapping conversation mode does NOT open the chat popover. Instead
@@ -80,8 +85,12 @@ export function AgentBar() {
   const setVoiceLevel = useAgentVoiceState((s) => s.setLevel);
   const resetVoice = useAgentVoiceState((s) => s.reset);
   const liveClientRef = useRef<GeminiLiveClient | null>(null);
+  // Tracks whether the active session ended with an error, so the bar can keep
+  // showing the error status (instead of snapping shut) until it is dismissed.
+  const erroredRef = useRef(false);
 
   const stopConversation = useCallback(() => {
+    erroredRef.current = false;
     liveClientRef.current?.stop();
     liveClientRef.current = null;
     setConversationActive(false);
@@ -89,10 +98,12 @@ export function AgentBar() {
   }, [resetVoice]);
 
   const startConversation = useCallback(() => {
-    if (liveClientRef.current) {
+    // Toggle off when a session (live OR an error still on screen) exists.
+    if (liveClientRef.current || erroredRef.current || conversationActive) {
       stopConversation();
       return;
     }
+    erroredRef.current = false;
     setConversationActive(true);
     setVoiceStatus("connecting");
     const client = new GeminiLiveClient({
@@ -127,16 +138,23 @@ export function AgentBar() {
         }
       },
       onError: (message) => {
+        // Surface why the session ended and keep the bar in conversation mode
+        // long enough to read it, instead of silently snapping back. The error
+        // status is sticky; tapping the X (or re-tapping conversation) resets.
+        erroredRef.current = true;
         setVoiceStatus("error", message);
       },
       onClose: () => {
         liveClientRef.current = null;
+        // If we closed because of an error, leave the bar showing the error
+        // status (the X dismisses it). A clean close returns the bar to rest.
+        if (erroredRef.current) return;
         setConversationActive(false);
       },
     });
     liveClientRef.current = client;
     void client.start();
-  }, [setVoiceLevel, setVoiceStatus, stopConversation]);
+  }, [conversationActive, setVoiceLevel, setVoiceStatus, stopConversation]);
 
   // Tear down the live session if the bar unmounts (route change, sign-out).
   useEffect(() => {
@@ -147,7 +165,15 @@ export function AgentBar() {
   }, []);
 
   const chromeState = useMemo(() => getKaiChromeState(pathname), [pathname]);
-  const useOnboardingChrome = chromeState.useOnboardingChrome;
+  // The root intro screen ("/") has no bottom nav, exactly like the onboarding
+  // flow, so the bar must anchor above the safe area (not against the absent
+  // nav inset) and must not ride the scroll-hide translation there. Prefer the
+  // shared runtime's derived signals so the bar and chat workspace agree on the
+  // home/onboarding surface; fall back to local computation when the provider
+  // is unavailable.
+  const isHomeRoute = runtime?.isHomeRoute ?? (pathname ?? "") === ROUTES.HOME;
+  const useOnboardingChrome =
+    (runtime?.onboardingActive ?? chromeState.useOnboardingChrome) || isHomeRoute;
 
   // Hide/show in lockstep with the rest of the bottom chrome (nav + search).
   const allowScrollHide = !useOnboardingChrome;
@@ -170,16 +196,17 @@ export function AgentBar() {
 
   // Hard unmount gates: route/auth contexts where the bar must not exist at all.
   //
-  // The agent is a SINGLE bar that is present everywhere, including onboarding
-  // and for anonymous (pre-sign-in) users on the welcome flow. It degrades
-  // gracefully by auth/vault level: anonymous + locked-vault users get
-  // informational/navigation help and an in-place unlock prompt only when a
-  // vault operation is invoked, while unlocked users get the full agent. So we
-  // do NOT unmount on onboarding chrome or on missing auth anymore. We only
+  // The agent is a SINGLE bar that is present everywhere, including the very
+  // first marketing/intro screen ("/"), onboarding, and for anonymous
+  // (pre-sign-in) users on the welcome flow. It degrades gracefully by
+  // auth/vault level: anonymous + locked-vault users get informational/
+  // navigation help and an in-place unlock prompt only when a vault operation
+  // is invoked, while unlocked users get the full agent. So we do NOT unmount
+  // on onboarding chrome, on the root intro screen, or on missing auth. We only
   // unmount where an agent launcher genuinely must not exist (legacy dedicated
   // agent route, phone mandate, appearance lab, developers), or on the
-  // pre-app entry routes the popover provider also suppresses (root redirect,
-  // login, logout) so the launcher never appears where it cannot open.
+  // transient auth transitions (login, logout) where the app shell is not the
+  // host.
   const path = pathname ?? "";
   const unmountBar =
     !agentPopover ||
@@ -187,7 +214,6 @@ export function AgentBar() {
     path.startsWith(ROUTES.LABS_PROFILE_APPEARANCE) ||
     path === ROUTES.DEVELOPERS ||
     path === ROUTES.AGENT ||
-    path === ROUTES.HOME ||
     path.startsWith(ROUTES.LOGIN) ||
     path.startsWith(ROUTES.LOGOUT);
 
@@ -195,7 +221,18 @@ export function AgentBar() {
     return null;
   }
 
-  const openAgent = () => agentPopover.openAgent();
+  // The popover window is suppressed on a few entry routes (the root intro
+  // screen), so opening the chat panel there is a no-op. On those routes the
+  // conversational voice piece IS the agent: route the hint/mic taps into
+  // in-bar conversation mode instead of a dead panel-open.
+  const popoverSuppressed = isHomeRoute;
+  const openAgent = () => {
+    if (popoverSuppressed) {
+      startConversation();
+      return;
+    }
+    agentPopover.openAgent();
+  };
 
   // While the agent window is active, keep the bar mounted but visually faded
   // and non-interactive. When the window finishes closing it eases back in over

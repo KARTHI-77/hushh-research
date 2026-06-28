@@ -23,7 +23,6 @@ const GEMINI_LIVE_WS_BASE =
 
 const INPUT_SAMPLE_RATE = 16000;
 const OUTPUT_SAMPLE_RATE = 24000;
-const INPUT_FRAME_SIZE = 2048;
 
 export type GeminiLiveVoiceState =
   | "idle"
@@ -106,7 +105,7 @@ export class GeminiLiveClient {
   private outputContext: AudioContext | null = null;
   private mediaStream: MediaStream | null = null;
   private sourceNode: MediaStreamAudioSourceNode | null = null;
-  private processor: ScriptProcessorNode | null = null;
+  private captureNode: AudioWorkletNode | null = null;
   private closed = false;
   private setupComplete = false;
   private playheadTime = 0;
@@ -171,30 +170,45 @@ export class GeminiLiveClient {
       (window as unknown as { webkitAudioContext: typeof AudioContext })
         .webkitAudioContext;
     this.inputContext = new AudioCtx();
-    this.sourceNode = this.inputContext.createMediaStreamSource(this.mediaStream);
-    this.processor = this.inputContext.createScriptProcessor(INPUT_FRAME_SIZE, 1, 1);
-    this.sourceNode.connect(this.processor);
-    this.processor.connect(this.inputContext.destination);
+    // Some browsers create the context in a "suspended" state until a user
+    // gesture resumes it; the conversation button click is that gesture.
+    if (this.inputContext.state === "suspended") {
+      await this.inputContext.resume().catch(() => undefined);
+    }
 
-    this.processor.onaudioprocess = (event) => {
+    // Modern, non-deprecated capture path: an AudioWorklet running off the main
+    // thread posts fixed-size mono frames back to us. Falls back gracefully if
+    // the worklet module cannot load.
+    await this.inputContext.audioWorklet.addModule(
+      "/audio/gemini-live-capture.worklet.js"
+    );
+    if (this.closed) return;
+
+    this.sourceNode = this.inputContext.createMediaStreamSource(this.mediaStream);
+    this.captureNode = new AudioWorkletNode(
+      this.inputContext,
+      "gemini-live-capture",
+      { numberOfInputs: 1, numberOfOutputs: 0, channelCount: 1 }
+    );
+    this.sourceNode.connect(this.captureNode);
+
+    this.captureNode.port.onmessage = (event) => {
+      const frame = event.data as Float32Array;
       if (!this.setupComplete || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
         return;
       }
-      const channel = event.inputBuffer.getChannelData(0);
-      const level = Math.min(1, rms(channel) * 4);
+      const level = Math.min(1, rms(frame) * 4);
       this.handlers.onInputLevel?.(level);
       if (this.state !== "speaking") this.setState("listening");
       const sourceRate = this.inputContext?.sampleRate ?? INPUT_SAMPLE_RATE;
-      const pcm = floatToPcm16(downsample(channel, sourceRate));
+      const pcm = floatToPcm16(downsample(frame, sourceRate));
       this.ws.send(
         JSON.stringify({
           realtimeInput: {
-            mediaChunks: [
-              {
-                mimeType: `audio/pcm;rate=${INPUT_SAMPLE_RATE}`,
-                data: base64FromBytes(pcm),
-              },
-            ],
+            audio: {
+              mimeType: `audio/pcm;rate=${INPUT_SAMPLE_RATE}`,
+              data: base64FromBytes(pcm),
+            },
           },
         })
       );
@@ -227,8 +241,17 @@ export class GeminiLiveClient {
       if (!this.closed) this.fail("Gemini Live connection error.");
     };
 
-    ws.onclose = () => {
-      if (!this.closed) this.stop();
+    ws.onclose = (event) => {
+      if (this.closed) return;
+      // A close that arrives before setup completes means the session never
+      // started (bad/expired token, model not enabled, region). Surface that as
+      // an error so the bar shows why instead of silently snapping back.
+      if (!this.setupComplete) {
+        const reason = event.reason ? `: ${event.reason}` : "";
+        this.fail(`Voice session could not start (code ${event.code}${reason}).`);
+        return;
+      }
+      this.stop();
     };
   }
 
@@ -362,14 +385,14 @@ export class GeminiLiveClient {
     }
     this.stopPlayback();
 
-    if (this.processor) {
-      this.processor.onaudioprocess = null;
+    if (this.captureNode) {
+      this.captureNode.port.onmessage = null;
       try {
-        this.processor.disconnect();
+        this.captureNode.disconnect();
       } catch {
         // ignore
       }
-      this.processor = null;
+      this.captureNode = null;
     }
     if (this.sourceNode) {
       try {

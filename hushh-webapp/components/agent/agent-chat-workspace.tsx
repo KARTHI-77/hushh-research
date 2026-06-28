@@ -99,6 +99,7 @@ import { cn } from "@/lib/utils";
 import { useVault } from "@/lib/vault/vault-context";
 import { VaultUnlockDialog } from "@/components/vault/vault-unlock-dialog";
 import { deriveVoiceRouteScreen } from "@/lib/voice/route-screen-derivation";
+import { useAgentRuntimeStateOptional } from "@/lib/agent/agent-runtime-context";
 import type { AppRuntimeState } from "@/lib/voice/voice-types";
 import { getVoiceSurfaceMetadata } from "@/lib/voice/voice-surface-metadata";
 import { buildStructuredScreenContext } from "@/lib/voice/screen-context-builder";
@@ -733,6 +734,10 @@ export function AgentChatWorkspace({
   const analysisParams = useKaiSession((state) => state.analysisParams);
   const busyOperations = useKaiSession((state) => state.busyOperations);
   const setAnalysisParams = useKaiSession((state) => state.setAnalysisParams);
+  // Shared single source of truth for the agent runtime snapshot. The chat
+  // workspace consumes this base and overlays only the fields it uniquely owns
+  // (background-task tracking and its local voice state) below.
+  const sharedRuntime = useAgentRuntimeStateOptional();
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<AgentChatConversation[]>([]);
@@ -855,8 +860,11 @@ export function AgentChatWorkspace({
     personas.add(primaryNavPersona);
     return Array.from(personas);
   }, [activePersona, primaryNavPersona, riaSwitchAvailable]);
-  const appRuntimeState = useMemo<AppRuntimeState>(
-    () => ({
+  const appRuntimeState = useMemo<AppRuntimeState>(() => {
+    // Base snapshot from the shared provider (auth/vault/route/persona). When
+    // the provider is unavailable (e.g. isolated test mounts) we fall back to
+    // computing the same shape locally.
+    const base: AppRuntimeState = sharedRuntime?.appRuntimeState ?? {
       auth: {
         signed_in: Boolean(user?.uid),
         user_id: user?.uid ?? null,
@@ -872,16 +880,12 @@ export function AgentChatWorkspace({
         subview: routeInfo.subview ?? null,
       },
       runtime: {
-        analysis_active:
-          Boolean(busyOperations["stock_analysis_active"]) ||
-          Boolean(busyOperations["stock_analysis_stream"]) ||
-          Boolean(activeAnalysisTask),
-        analysis_ticker: activeAnalysisTicker || analysisParams?.ticker || null,
-        analysis_run_id: activeAnalysisTask?.taskId || null,
-        import_active:
-          Boolean(busyOperations["portfolio_import_stream"]) || Boolean(runningImportTask),
-        import_run_id: runningImportTask?.taskId || null,
-        busy_operations: Object.keys(busyOperations).filter((key) => busyOperations[key]),
+        analysis_active: false,
+        analysis_ticker: null,
+        analysis_run_id: null,
+        import_active: false,
+        import_run_id: null,
+        busy_operations: [],
       },
       portfolio: {
         has_portfolio_data: hasPortfolioData,
@@ -895,36 +899,55 @@ export function AgentChatWorkspace({
         ria_setup_available: riaSetupAvailable,
       },
       voice: {
-        available: voiceActive,
-        tts_playing: voiceState === "speaking",
+        available: false,
+        tts_playing: false,
         last_tool_name: null,
         last_ticker: null,
       },
-    }),
-    [
-      activePersona,
-      activeAnalysisTask,
-      activeAnalysisTicker,
-      analysisParams,
-      availablePersonas,
-      busyOperations,
-      hasPortfolioData,
-      isVaultUnlocked,
-      pathnameWithQuery,
-      personaTransitionTarget,
-      primaryNavPersona,
-      riaSetupAvailable,
-      riaSwitchAvailable,
-      runningImportTask,
-      routeInfo.screen,
-      routeInfo.subview,
-      tokenIsFresh,
-      user?.uid,
-      vaultOwnerToken,
-      voiceActive,
-      voiceState,
-    ]
-  );
+    };
+    // Overlay the workspace-owned enrichment: background-task tracking and the
+    // local voice state, which only this component observes.
+    return {
+      ...base,
+      runtime: {
+        ...base.runtime,
+        analysis_active:
+          base.runtime.analysis_active || Boolean(activeAnalysisTask),
+        analysis_ticker:
+          base.runtime.analysis_ticker || activeAnalysisTicker || analysisParams?.ticker || null,
+        analysis_run_id: activeAnalysisTask?.taskId || base.runtime.analysis_run_id,
+        import_active: base.runtime.import_active || Boolean(runningImportTask),
+        import_run_id: runningImportTask?.taskId || base.runtime.import_run_id,
+      },
+      voice: {
+        ...base.voice,
+        available: voiceActive,
+        tts_playing: voiceState === "speaking",
+      },
+    };
+  }, [
+    sharedRuntime,
+    activePersona,
+    activeAnalysisTask,
+    activeAnalysisTicker,
+    analysisParams,
+    availablePersonas,
+    hasPortfolioData,
+    isVaultUnlocked,
+    pathnameWithQuery,
+    personaTransitionTarget,
+    primaryNavPersona,
+    riaSetupAvailable,
+    riaSwitchAvailable,
+    runningImportTask,
+    routeInfo.screen,
+    routeInfo.subview,
+    tokenIsFresh,
+    user?.uid,
+    vaultOwnerToken,
+    voiceActive,
+    voiceState,
+  ]);
   const appRuntimeStateRef = useRef(appRuntimeState);
   useEffect(() => {
     appRuntimeStateRef.current = appRuntimeState;
