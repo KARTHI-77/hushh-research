@@ -40,6 +40,41 @@ import {
 import { getNativeTestConfig, useNativeTestConfig } from "@/lib/testing/native-test";
 import { resolveLocalReviewerCredentials } from "@/lib/testing/local-reviewer-auth";
 
+// Firebase error codes that mean the user deliberately dismissed the provider
+// popup. These are not real failures, so we stay silent for them and only toast
+// on genuine errors (network, account-exists, blocked popup, etc.).
+const AUTH_CANCEL_CODES = new Set([
+  "auth/popup-closed-by-user",
+  "auth/cancelled-popup-request",
+  "auth/user-cancelled",
+]);
+
+function isAuthCancel(error: unknown): boolean {
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? String((error as { code?: unknown }).code ?? "")
+      : "";
+  return AUTH_CANCEL_CODES.has(code);
+}
+
+function authErrorMessage(error: unknown): string {
+  if (error && typeof error === "object" && "code" in error) {
+    const code = String((error as { code?: unknown }).code ?? "");
+    if (code === "auth/account-exists-with-different-credential") {
+      return "An account already exists with this email using a different sign-in method.";
+    }
+    if (code === "auth/network-request-failed") {
+      return "Network error. Check your connection and try again.";
+    }
+    if (code === "auth/popup-blocked") {
+      return "Your browser blocked the sign-in popup. Allow popups for this site and try again.";
+    }
+  }
+  return error instanceof Error && error.message
+    ? error.message
+    : "Sign-in failed. Please try again.";
+}
+
 export function AuthStep({
   redirectPath,
   compact = false,
@@ -63,6 +98,11 @@ export function AuthStep({
     "loading" | "loaded" | "error"
   >(nativeTestConfig.autoReviewerLogin ? "loading" : "loaded");
   const [nativeErrorCode, setNativeErrorCode] = useState<string | null>(null);
+  // Which social provider sign-in is in flight, so the buttons disable while a
+  // popup is open and a second tap cannot trigger overlapping popups.
+  const [pendingProvider, setPendingProvider] = useState<"google" | "apple" | null>(
+    null
+  );
 
   const [reviewModeConfig, setReviewModeConfig] = useState<{ enabled: boolean }>(
     { enabled: false }
@@ -402,6 +442,8 @@ export function AuthStep({
   }
 
   const handleGoogleLogin = async () => {
+    if (pendingProvider) return;
+    setPendingProvider("google");
     trackEvent("auth_started", {
       action: "google",
     });
@@ -450,10 +492,19 @@ export function AuthStep({
         result: "error",
         error_class: "auth_failed",
       });
+      if (!isAuthCancel(err)) {
+        morphyToast.error("Could not sign in with Google.", {
+          description: authErrorMessage(err),
+        });
+      }
+    } finally {
+      setPendingProvider(null);
     }
   };
 
   const handleAppleLogin = async () => {
+    if (pendingProvider) return;
+    setPendingProvider("apple");
     trackEvent("auth_started", {
       action: "apple",
     });
@@ -502,6 +553,13 @@ export function AuthStep({
         result: "error",
         error_class: "auth_failed",
       });
+      if (!isAuthCancel(err)) {
+        morphyToast.error("Could not sign in with Apple.", {
+          description: authErrorMessage(err),
+        });
+      }
+    } finally {
+      setPendingProvider(null);
     }
   };
 
@@ -617,6 +675,7 @@ export function AuthStep({
                 label={option.label}
                 icon={option.icon}
                 onClick={option.onClick}
+                disabled={pendingProvider !== null}
               />
             ))}
 

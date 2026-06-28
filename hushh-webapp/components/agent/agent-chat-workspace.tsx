@@ -3023,6 +3023,13 @@ export function AgentChatWorkspace({
     }
     setPkmReviews([]);
     setPkmActivity([]);
+    // Pre-vault / anonymous turns go through the informational intro tier, which
+    // runAgentTurn early-returns on (no vault access). Route the retry to the
+    // same tier the original turn used so the button is not a no-op there.
+    if (!hasChatAccess) {
+      void runIntroTurn(retryText);
+      return;
+    }
     void runAgentTurn(retryText, {
       source: "typed",
       appendUserMessage: false,

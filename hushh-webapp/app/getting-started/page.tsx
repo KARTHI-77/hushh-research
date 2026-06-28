@@ -55,7 +55,10 @@ function GettingStartedContent() {
       />
       <PreviewCarouselStep
         onContinue={() => router.push(loginUrl)}
-        onBack={() => router.push(ROUTES.HOME)}
+        // Returning visitors (marketing already seen) get bounced from "/" back
+        // to this carousel, so routing back to "/" is a loop. Send back to the
+        // sign-in screen, the same place Continue/Skip lead, to avoid a dead end.
+        onBack={() => router.push(loginUrl)}
       />
     </>
   );

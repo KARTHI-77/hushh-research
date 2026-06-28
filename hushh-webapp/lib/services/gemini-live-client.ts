@@ -18,8 +18,14 @@ import { ApiService } from "@/lib/services/api-service";
  * AgentRealtimeClient so it can be wired in the same way.
  */
 
+// Ephemeral auth tokens (auth_tokens/...) are CONSTRAINED tokens: the Live API
+// only accepts them on the BidiGenerateContentConstrained method, not the plain
+// BidiGenerateContent method. Browsers cannot set the Authorization header on a
+// WebSocket, so the token rides in the ?access_token= query param (the other
+// scheme Gemini documents for ephemeral tokens). Using the unconstrained method
+// here causes a 1008 "unregistered callers" close even with a valid token.
 const GEMINI_LIVE_WS_BASE =
-  "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent";
+  "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained";
 
 const INPUT_SAMPLE_RATE = 16000;
 const OUTPUT_SAMPLE_RATE = 24000;
@@ -82,6 +88,30 @@ function describeMicError(error: unknown): string {
         ? `Voice could not start: ${error.message}`
         : "Voice could not start. Check your microphone and try again.";
   }
+}
+
+/**
+ * Turn a WebSocket close that arrives before the Live session is set up into a
+ * specific message. The server uses code 1008 (policy violation) for auth and
+ * entitlement problems and puts the cause in the close reason, so we map the
+ * common ones to something the user (or operator) can act on.
+ */
+function describeSocketCloseError(event: CloseEvent): string {
+  const reason = (event.reason || "").trim();
+  const lower = reason.toLowerCase();
+  if (lower.includes("denied access") || lower.includes("permission_denied")) {
+    return "Voice is not enabled for this workspace yet. The Gemini project needs Live API access.";
+  }
+  if (lower.includes("unregistered callers") || lower.includes("api key")) {
+    return "Voice could not authenticate. Please try again in a moment.";
+  }
+  if (lower.includes("not found") || lower.includes("not supported")) {
+    return "The voice model is unavailable right now. Please try again later.";
+  }
+  if (reason) {
+    return `Voice session could not start: ${reason}`;
+  }
+  return `Voice session could not start (code ${event.code}).`;
 }
 
 function bytesFromBase64(value: string): Uint8Array {
@@ -286,8 +316,7 @@ export class GeminiLiveClient {
       // started (bad/expired token, model not enabled, region). Surface that as
       // an error so the bar shows why instead of silently snapping back.
       if (!this.setupComplete) {
-        const reason = event.reason ? `: ${event.reason}` : "";
-        this.fail(`Voice session could not start (code ${event.code}${reason}).`);
+        this.fail(describeSocketCloseError(event));
         return;
       }
       this.stop();

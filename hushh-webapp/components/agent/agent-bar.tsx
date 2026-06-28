@@ -170,12 +170,15 @@ export function AgentBar() {
   ]);
 
   // Tear down the live session if the bar unmounts (route change, sign-out).
+  // Also clear the shared voice store so a stale status (e.g. "error",
+  // "listening") does not leak to other consumers after the bar is gone.
   useEffect(() => {
     return () => {
       liveClientRef.current?.stop();
       liveClientRef.current = null;
+      resetVoice();
     };
-  }, []);
+  }, [resetVoice]);
 
   const chromeState = useMemo(() => getKaiChromeState(pathname), [pathname]);
   // The root intro screen ("/") has no bottom nav, exactly like the onboarding
