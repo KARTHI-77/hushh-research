@@ -123,7 +123,12 @@ export class GeminiLiveClient {
     this.handlers.onVoiceState?.(next);
   }
 
-  async start(options?: { voice?: string | null; signal?: AbortSignal }): Promise<void> {
+  async start(options?: {
+    voice?: string | null;
+    screen?: string | null;
+    persona?: string | null;
+    signal?: AbortSignal;
+  }): Promise<void> {
     if (this.ws) return;
     this.setState("connecting");
 
@@ -131,6 +136,8 @@ export class GeminiLiveClient {
     try {
       const response = await ApiService.fetchGeminiLiveToken({
         voice: options?.voice ?? null,
+        screen: options?.screen ?? null,
+        persona: options?.persona ?? null,
         signal: options?.signal,
       });
       if (!response.ok) {

@@ -153,8 +153,20 @@ export function AgentBar() {
       },
     });
     liveClientRef.current = client;
-    void client.start();
-  }, [conversationActive, setVoiceLevel, setVoiceStatus, stopConversation]);
+    // Pass the active screen + persona so the backend composes a state-aware
+    // (still tool-less) persona instruction. These only shape tone/guidance.
+    void client.start({
+      screen: runtime?.screen ?? null,
+      persona: runtime?.activePersona ?? null,
+    });
+  }, [
+    conversationActive,
+    runtime?.screen,
+    runtime?.activePersona,
+    setVoiceLevel,
+    setVoiceStatus,
+    stopConversation,
+  ]);
 
   // Tear down the live session if the bar unmounts (route change, sign-out).
   useEffect(() => {

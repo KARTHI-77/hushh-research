@@ -2674,6 +2674,8 @@ export class ApiService {
    */
   static async fetchGeminiLiveToken(data?: {
     voice?: string | null;
+    screen?: string | null;
+    persona?: string | null;
     signal?: AbortSignal;
   }): Promise<Response> {
     const firebaseIdToken = await this.getFirebaseToken();
@@ -2683,7 +2685,11 @@ export class ApiService {
         "Content-Type": "application/json",
         ...(firebaseIdToken ? { Authorization: `Bearer ${firebaseIdToken}` } : {}),
       },
-      body: JSON.stringify({ voice: data?.voice || undefined }),
+      body: JSON.stringify({
+        voice: data?.voice || undefined,
+        screen: data?.screen || undefined,
+        persona: data?.persona || undefined,
+      }),
       signal: data?.signal,
     });
   }
