@@ -1,7 +1,7 @@
 {
   "generated_at": "2026-06-17",
-  "total_routes": 58,
-  "native_required_routes": 55,
+  "total_routes": 59,
+  "native_required_routes": 56,
   "excluded_routes": 3,
   "routes": [
     {
@@ -721,6 +721,18 @@
       "initialRoute": "/login",
       "expectedMarker": "native-route-login",
       "expectedRoute": "/login",
+      "autoReviewerLogin": false,
+      "expectedAuth": "anonymous",
+      "allowedDataStates": [
+        "loaded"
+      ]
+    },
+    {
+      "route": "/getting-started",
+      "classification": "native-required-functional",
+      "initialRoute": "/getting-started",
+      "expectedMarker": "native-route-getting-started",
+      "expectedRoute": "/getting-started",
       "autoReviewerLogin": false,
       "expectedAuth": "anonymous",
       "allowedDataStates": [
