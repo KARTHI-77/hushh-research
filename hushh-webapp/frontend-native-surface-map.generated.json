@@ -519,7 +519,18 @@
         "shell_verification_file": null,
         "shell_verification_includes": []
       },
-      "native": null,
+      "native": {
+        "route": "/getting-started",
+        "classification": "native-required-functional",
+        "initialRoute": "/getting-started",
+        "expectedMarker": "native-route-getting-started",
+        "expectedRoute": "/getting-started",
+        "autoReviewerLogin": false,
+        "expectedAuth": "anonymous",
+        "allowedDataStates": [
+          "loaded"
+        ]
+      },
       "shell": {
         "app_page_shell": false,
         "page_header": false,
@@ -2155,8 +2166,8 @@
         "app_page_shell": false,
         "page_header": false,
         "settings_ui": false,
-        "shared_loader": true,
-        "back_button_pattern": "route-local-check-required"
+        "shared_loader": false,
+        "back_button_pattern": "shared-shell"
       },
       "voice_action_contract_file": null,
       "voice_action_contract_ids": [],

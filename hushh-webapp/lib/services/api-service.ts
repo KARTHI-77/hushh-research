@@ -2634,6 +2634,60 @@ export class ApiService {
     });
   }
 
+  /**
+   * Pre-vault informational/navigation-only One chat.
+   *
+   * This is the lower-privilege sibling of {@link streamAgentChat}. It powers
+   * the single agent bar before the vault is unlocked, including anonymous
+   * onboarding visitors. It never sends PKM or vault data, is not persisted,
+   * and the backend only forwards pure navigation actions. Firebase auth is
+   * attached when available (for per-user rate limiting); anonymous callers
+   * send no Authorization header, which the backend accepts on this route only.
+   */
+  static async streamAgentIntro(data: {
+    message: string;
+    screenContext?: Record<string, unknown> | null;
+    signal?: AbortSignal;
+  }): Promise<Response> {
+    const firebaseIdToken = await this.getFirebaseToken();
+    return ApiService.apiFetchStream("/api/kai/agent/chat/intro/stream", {
+      method: "POST",
+      headers: firebaseIdToken
+        ? { Authorization: `Bearer ${firebaseIdToken}` }
+        : {},
+      body: JSON.stringify({
+        message: data.message,
+        screen_context: data.screenContext || undefined,
+      }),
+      signal: data.signal,
+    });
+  }
+
+  /**
+   * Mint a short-lived, constrained Gemini Live ephemeral token for in-bar
+   * full-duplex voice. The browser connects directly to the Gemini Live API
+   * with this token, so the managed Gemini key never leaves the backend.
+   *
+   * Firebase auth is attached when available so the backend can pick the full
+   * (signed-in) vs. intro (pre-vault / onboarding) persona; anonymous callers
+   * send no Authorization header, which this route accepts.
+   */
+  static async fetchGeminiLiveToken(data?: {
+    voice?: string | null;
+    signal?: AbortSignal;
+  }): Promise<Response> {
+    const firebaseIdToken = await this.getFirebaseToken();
+    return ApiService.apiFetch("/api/kai/agent/realtime/gemini/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(firebaseIdToken ? { Authorization: `Bearer ${firebaseIdToken}` } : {}),
+      },
+      body: JSON.stringify({ voice: data?.voice || undefined }),
+      signal: data?.signal,
+    });
+  }
+
   static async transcribeAgentVoice(data: {
     userId: string;
     vaultOwnerToken: string;
