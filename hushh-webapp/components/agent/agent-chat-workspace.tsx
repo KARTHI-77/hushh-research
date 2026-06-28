@@ -2719,16 +2719,18 @@ export function AgentChatWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [activePersona, conversationId, freshOpenKey, hasStartedConversation, pathname, user?.uid],
   );
-  const welcomeSuggestions = useMemo(
-    () =>
+  const [welcomeSuggestions, setWelcomeSuggestions] = useState<AgentWelcomeSuggestion[]>([]);
+
+  useEffect(() => {
+    setWelcomeSuggestions(
       resolveAgentWelcomeSuggestions({
         userId: user?.uid,
         pathname,
         persona: activePersona,
         randomSeed: welcomeSuggestionSeed,
-      }),
-    [activePersona, pathname, user?.uid, welcomeSuggestionSeed],
-  );
+      })
+    );
+  }, [activePersona, pathname, user?.uid, welcomeSuggestionSeed]);
   const latestRetryableAssistantId =
     [...visibleMessages]
       .reverse()
