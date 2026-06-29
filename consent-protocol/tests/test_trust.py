@@ -56,3 +56,18 @@ def test_trust_link_agent_tampering():
     )
 
     assert verify_trust_link(tampered_agent) is False
+
+
+def test_trust_link_scope_tampering():
+    link = create_trust_link(
+        DELEGATOR,
+        DELEGATEE,
+        SCOPE_VALID,
+        USER_ID,
+    )
+
+    tampered_scope = link.model_copy(
+        update={"scope": SCOPE_INVALID}
+    )
+
+    assert verify_trust_link(tampered_scope) is False
