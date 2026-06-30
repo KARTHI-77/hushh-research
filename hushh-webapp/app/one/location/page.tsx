@@ -4260,6 +4260,7 @@ function OneLocationAgentPageContent() {
           )}
           <LocationChatPanel
             vaultOwnerToken={vaultOwnerToken ?? null}
+            userId={auth.userId ?? undefined}
             onStateChanged={() => {
               void refresh();
               dispatchConsentStateChanged({ source: "one_location_chat" });

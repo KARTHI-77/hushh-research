@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { Maximize2, RotateCcw } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { ActionConfirmCard } from "./action-confirm-card";
+import { ClarificationCard } from "./clarification-card";
 import { BotAvatar } from "./location-chat-atoms";
 import { ChatComposer } from "./location-chat-composer";
 import { ChatMessageList } from "./location-chat-message-list";
@@ -14,15 +16,17 @@ import { useLocationChat } from "./use-location-chat";
 
 export function LocationChatPanel(props: {
   vaultOwnerToken: string | null;
+  userId?: string;
   onStateChanged?: () => void;
 }) {
-  const { vaultOwnerToken, onStateChanged } = props;
+  const { vaultOwnerToken, userId, onStateChanged } = props;
   const [input, setInput] = useState("");
   const [overlayOpen, setOverlayOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const chat = useLocationChat({
     vaultOwnerToken: vaultOwnerToken ?? "",
+    userId,
     onStateChanged,
   });
 
@@ -103,6 +107,40 @@ export function LocationChatPanel(props: {
         </div>
       )}
 
+      {chat.pendingPrompt ? (
+        <div className="mb-3">
+          <ClarificationCard
+            prompt={chat.pendingPrompt}
+            busy={chat.busy}
+            onAnswer={chat.answerPrompt}
+            onConfirm={chat.confirmPrompt}
+            onCancel={chat.cancelPrompt}
+          />
+        </div>
+      ) : chat.pendingAction ? (
+        <div className="mb-3">
+          <ActionConfirmCard
+            action={chat.pendingAction}
+            busy={chat.busy}
+            onConfirm={chat.confirmAction}
+            onCancel={chat.cancelAction}
+          />
+        </div>
+      ) : null}
+
+      {chat.viewedPoint ? (
+        <div className="mb-3">
+          <a
+            href={`https://www.google.com/maps?q=${chat.viewedPoint.latitude},${chat.viewedPoint.longitude}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm underline"
+          >
+            Open the shared location on the map
+          </a>
+        </div>
+      ) : null}
+
       <ChatComposer
         value={input}
         onChange={setInput}
@@ -120,6 +158,13 @@ export function LocationChatPanel(props: {
         onChange={setInput}
         onSend={submit}
         onRetry={chat.retry}
+        pendingAction={chat.pendingAction}
+        confirmAction={chat.confirmAction}
+        cancelAction={chat.cancelAction}
+        pendingPrompt={chat.pendingPrompt}
+        answerPrompt={chat.answerPrompt}
+        confirmPrompt={chat.confirmPrompt}
+        cancelPrompt={chat.cancelPrompt}
       />
     </section>
   );
