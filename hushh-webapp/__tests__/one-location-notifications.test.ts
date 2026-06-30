@@ -31,12 +31,15 @@ vi.mock("@/lib/services/app-background-task-service", () => ({
 
 
 import {
+  buildOneLocationWorkflowHref,
   hasSeenOneLocationNotification,
   isOneLocationGrantUnwatched,
   markOneLocationGrantUnwatched,
+  oneLocationSectionForWorkflowNotificationType,
   recordOneLocationShareNotification,
   recordOneLocationWorkflowNotification,
 } from "@/lib/one-location/notifications";
+
 
 const USER = "user_recipient_1";
 const GRANT = "grant_abc";
@@ -147,7 +150,31 @@ describe("One-Location notification surfaces (bell + consent)", () => {
 });
 
 
+describe("One-Location workflow deep-link sections", () => {
+  it("routes an access request to the Inbox 'Needs your review' (approvals) section", () => {
+    const section = oneLocationSectionForWorkflowNotificationType(
+      "location_access_request",
+    );
+    expect(section).toBe("approvals");
+
+    const href = buildOneLocationWorkflowHref({
+      requestId: "req_xyz",
+      section,
+    });
+    expect(href).toContain("/one/location");
+    expect(href).toContain("requestId=req_xyz");
+    expect(href).toContain("section=approvals");
+  });
+
+  it("maps each workflow type to its owning section", () => {
+    expect(oneLocationSectionForWorkflowNotificationType("location_access_approved")).toBe("shared");
+    expect(oneLocationSectionForWorkflowNotificationType("location_access_denied")).toBe("my_requests");
+    expect(oneLocationSectionForWorkflowNotificationType("location_public_invite_submitted")).toBe("public_responses");
+  });
+});
+
 describe("One-Location unwatch", () => {
+
   it("hides a grant and suppresses its share notification", () => {
     expect(isOneLocationGrantUnwatched(USER, GRANT)).toBe(false);
     markOneLocationGrantUnwatched(USER, GRANT);
